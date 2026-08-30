@@ -4,12 +4,21 @@ import { delay } from "@/lib/delay";
 import { mockProductCategories, mockProducts } from "../data/mock-products";
 import type {
   Product,
+  ProductAdminListParams,
+  ProductAdminSort,
   ProductCategory,
+  ProductCommercialInput,
   ProductListParams,
   ProductPage,
   ProductSort,
 } from "../domain";
-import { ProductNotFoundError, type ProductService } from "./product-service";
+import {
+  ProductConflictError,
+  ProductNotFoundError,
+  ProductStateError,
+  type ProductConflictField,
+  type ProductService,
+} from "./product-service";
 
 const DEFAULT_PAGE_SIZE = 12;
 
@@ -42,7 +51,73 @@ function sortProducts(products: Product[], sort: ProductSort): Product[] {
   });
 }
 
+function sortAdminProducts(products: Product[], sort: ProductAdminSort): Product[] {
+  return products.sort((left, right) => {
+    switch (sort) {
+      case "NAME_ASC":
+        return left.name.localeCompare(right.name, tenantBrand.locale);
+      case "NAME_DESC":
+        return right.name.localeCompare(left.name, tenantBrand.locale);
+      case "PRICE_ASC":
+        return left.salePrice - right.salePrice;
+      case "PRICE_DESC":
+        return right.salePrice - left.salePrice;
+      case "SKU_ASC":
+        return left.sku.localeCompare(right.sku, tenantBrand.locale);
+    }
+  });
+}
+
+function createPage(
+  products: Product[],
+  page: number,
+  pageSize: number,
+): ProductPage {
+  const totalItems = products.length;
+  const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize);
+  const safePage = totalPages === 0 ? 1 : Math.min(page, totalPages);
+  const start = (safePage - 1) * pageSize;
+
+  return {
+    items: products.slice(start, start + pageSize).map(copyProduct),
+    page: safePage,
+    pageSize,
+    totalItems,
+    totalPages,
+  };
+}
+
+function normalizeOptional(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  return normalized ? normalized : undefined;
+}
+
+function normalizeCommercialInput(
+  input: ProductCommercialInput,
+): ProductCommercialInput {
+  return {
+    ...input,
+    sku: input.sku.trim().toLocaleUpperCase(tenantBrand.locale),
+    barcode: normalizeOptional(input.barcode),
+    slug: input.slug.trim().toLocaleLowerCase(tenantBrand.locale),
+    name: input.name.trim(),
+    description: normalizeOptional(input.description),
+    brand: normalizeOptional(input.brand),
+    categoryId: input.categoryId.trim(),
+    salePrice: Math.round(input.salePrice),
+    minimumStock:
+      input.minimumStock === undefined ? undefined : Math.round(input.minimumStock),
+    imageUrl: normalizeOptional(input.imageUrl),
+  };
+}
+
 export class MockProductService implements ProductService {
+  private readonly products: Product[];
+
+  constructor(initialProducts: readonly Product[] = mockProducts) {
+    this.products = initialProducts.map(copyProduct);
+  }
+
   async list(params: ProductListParams = {}): Promise<ProductPage> {
     await delay(180);
 
@@ -50,7 +125,7 @@ export class MockProductService implements ProductService {
     const page = Math.max(1, Math.trunc(params.page ?? 1));
     const pageSize = Math.max(1, Math.trunc(params.pageSize ?? DEFAULT_PAGE_SIZE));
 
-    const filtered = mockProducts
+    const filtered = this.products
       .filter((product) => product.active && product.published)
       .filter((product) => {
         if (!search) return true;
@@ -67,17 +142,39 @@ export class MockProductService implements ProductService {
       .map(copyProduct);
 
     const sorted = sortProducts(filtered, params.sort ?? "FEATURED");
-    const totalItems = sorted.length;
-    const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize);
-    const start = (page - 1) * pageSize;
+    return createPage(sorted, page, pageSize);
+  }
 
-    return {
-      items: sorted.slice(start, start + pageSize),
+  async listAdmin(params: ProductAdminListParams = {}): Promise<ProductPage> {
+    await delay(180);
+
+    const search = params.search ? normalizeText(params.search) : undefined;
+    const page = Math.max(1, Math.trunc(params.page ?? 1));
+    const pageSize = Math.max(1, Math.trunc(params.pageSize ?? DEFAULT_PAGE_SIZE));
+
+    const filtered = this.products
+      .filter((product) => {
+        if (!search) return true;
+        return normalizeText(
+          `${product.name} ${product.brand ?? ""} ${product.sku} ${product.barcode ?? ""}`,
+        ).includes(search);
+      })
+      .filter((product) => !params.categoryId || product.categoryId === params.categoryId)
+      .filter((product) => {
+        if (!params.active || params.active === "ALL") return true;
+        return params.active === "ACTIVE" ? product.active : !product.active;
+      })
+      .filter((product) => {
+        if (!params.publication || params.publication === "ALL") return true;
+        return params.publication === "PUBLISHED" ? product.published : !product.published;
+      })
+      .map(copyProduct);
+
+    return createPage(
+      sortAdminProducts(filtered, params.sort ?? "NAME_ASC"),
       page,
       pageSize,
-      totalItems,
-      totalPages,
-    };
+    );
   }
 
   async listCategories(): Promise<ProductCategory[]> {
@@ -87,7 +184,7 @@ export class MockProductService implements ProductService {
 
   async getById(id: string): Promise<Product> {
     await delay(140);
-    const product = mockProducts.find((candidate) => candidate.id === id && candidate.active);
+    const product = this.products.find((candidate) => candidate.id === id);
 
     if (!product) throw new ProductNotFoundError(id);
     return copyProduct(product);
@@ -95,7 +192,7 @@ export class MockProductService implements ProductService {
 
   async getBySlug(slug: string): Promise<Product> {
     await delay(140);
-    const product = mockProducts.find(
+    const product = this.products.find(
       (candidate) => candidate.slug === slug && candidate.active && candidate.published,
     );
 
@@ -105,14 +202,14 @@ export class MockProductService implements ProductService {
 
   async listRelated(slug: string, limit = 4): Promise<Product[]> {
     await delay(120);
-    const product = mockProducts.find(
+    const product = this.products.find(
       (candidate) => candidate.slug === slug && candidate.active && candidate.published,
     );
 
     if (!product) throw new ProductNotFoundError(slug);
 
     const safeLimit = Math.max(0, Math.trunc(limit));
-    const published = mockProducts.filter(
+    const published = this.products.filter(
       (candidate) => candidate.id !== product.id && candidate.active && candidate.published,
     );
     const sameCategory = published.filter((candidate) => candidate.categoryId === product.categoryId);
@@ -121,5 +218,104 @@ export class MockProductService implements ProductService {
     );
 
     return [...sameCategory, ...otherFeatured].slice(0, safeLimit).map(copyProduct);
+  }
+
+
+  async create(input: ProductCommercialInput): Promise<Product> {
+    await delay(180);
+    const normalized = normalizeCommercialInput(input);
+    this.assertUnique(normalized);
+
+    const idBase = normalized.slug || `producto-${this.products.length + 1}`;
+    let id = `product-${idBase}`;
+    let suffix = 2;
+    while (this.products.some((product) => product.id === id)) {
+      id = `product-${idBase}-${suffix}`;
+      suffix += 1;
+    }
+
+    const product: Product = {
+      ...normalized,
+      id,
+      availableStock: 0,
+      featured: false,
+    };
+
+    this.products.unshift(product);
+    return copyProduct(product);
+  }
+
+  async update(id: string, input: ProductCommercialInput): Promise<Product> {
+    await delay(180);
+    const index = this.findIndex(id);
+    const normalized = normalizeCommercialInput(input);
+    this.assertUnique(normalized, id);
+
+    const current = this.products[index];
+    if (!current) throw new ProductNotFoundError(id);
+
+    const updated: Product = {
+      ...current,
+      ...normalized,
+      published: normalized.active ? normalized.published : false,
+    };
+    this.products[index] = updated;
+    return copyProduct(updated);
+  }
+
+  async setActive(id: string, active: boolean): Promise<Product> {
+    await delay(150);
+    const index = this.findIndex(id);
+    const current = this.products[index];
+    if (!current) throw new ProductNotFoundError(id);
+
+    const updated: Product = {
+      ...current,
+      active,
+      published: active ? current.published : false,
+    };
+    this.products[index] = updated;
+    return copyProduct(updated);
+  }
+
+  async setPublished(id: string, published: boolean): Promise<Product> {
+    await delay(150);
+    const index = this.findIndex(id);
+    const current = this.products[index];
+    if (!current) throw new ProductNotFoundError(id);
+    if (published && !current.active) {
+      throw new ProductStateError(
+        "Activa el producto antes de publicarlo en la tienda.",
+      );
+    }
+
+    const updated: Product = { ...current, published };
+    this.products[index] = updated;
+    return copyProduct(updated);
+  }
+
+  private findIndex(id: string): number {
+    const index = this.products.findIndex((product) => product.id === id);
+    if (index < 0) throw new ProductNotFoundError(id);
+    return index;
+  }
+
+  private assertUnique(input: ProductCommercialInput, currentId?: string): void {
+    const checks: readonly [ProductConflictField, string | undefined][] = [
+      ["sku", input.sku],
+      ["slug", input.slug],
+      ["barcode", input.barcode],
+    ];
+
+    for (const [field, value] of checks) {
+      if (!value) continue;
+      const normalizedValue = normalizeText(value);
+      const duplicate = this.products.some(
+        (product) =>
+          product.id !== currentId &&
+          normalizeText(product[field] ?? "") === normalizedValue,
+      );
+      if (duplicate) throw new ProductConflictError(field);
+    }
   }
 }
