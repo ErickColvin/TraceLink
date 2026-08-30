@@ -91,11 +91,11 @@ export function CartPage() {
                   <span className="font-semibold">Total estimado</span>
                   <strong className="text-xl text-brand-950">{formatClp(total)}</strong>
                 </div>
-                <Button className="w-full" size="lg" disabled title="Disponible en la fase de ecommerce">
+                <Link className={buttonStyles({ size: "lg", className: "w-full" })} to="/checkout">
                   Continuar al checkout
-                </Button>
+                </Link>
                 <p className="mt-3 text-center text-xs leading-5 text-ink-500">
-                  El pago y la reserva de stock aún no están habilitados.
+                  El checkout es visual: el pago y la reserva de stock aún no están habilitados.
                 </p>
               </CardContent>
             </Card>

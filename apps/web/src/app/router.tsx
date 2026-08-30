@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { CustomerRoute, LoginPage, StaffRoute } from "@/features/auth";
 import { CartPage } from "@/features/cart/cart-page";
+import { CheckoutPage } from "@/features/checkout/pages/checkout-page";
 import { AboutPage } from "@/features/content/pages/about-page";
 import { ContactPage } from "@/features/content/pages/contact-page";
 import { NotFoundPage } from "@/features/content/pages/not-found-page";
@@ -29,6 +30,7 @@ export function AppRouter() {
         <Route path="nosotros" element={<AboutPage />} />
         <Route path="contacto" element={<ContactPage />} />
         <Route path="carrito" element={<CartPage />} />
+        <Route path="checkout" element={<CheckoutPage />} />
         <Route path="registro" element={<Navigate replace to="/login" />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
@@ -83,4 +85,3 @@ export function AppRouter() {
     </Routes>
   );
 }
-
