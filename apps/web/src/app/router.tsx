@@ -16,6 +16,7 @@ import { CustomerPackagesPage } from "@/features/packages/pages/customer-package
 import { CatalogPage } from "@/features/products/pages/catalog-page";
 import { HomePage } from "@/features/products/pages/home-page";
 import { ProductDetailPage } from "@/features/products/pages/product-detail-page";
+import { AdminSettingsPage } from "@/features/settings/pages/admin-settings-page";
 import { AdminLayout } from "@/layouts/admin-layout";
 import { CustomerLayout } from "@/layouts/customer-layout";
 import { PublicLayout } from "@/layouts/public-layout";
@@ -77,7 +78,7 @@ export function AppRouter() {
             <Route path="reports" element={<AdminComingSoonPage title="Reportes" description="Salidas operativas acotadas y exportaciones futuras." />} />
           </Route>
           <Route element={<StaffRoute permission="settings.manage" />}>
-            <Route path="settings" element={<AdminComingSoonPage title="Configuración" description="Parámetros de organización, marca y operación." />} />
+            <Route path="settings" element={<AdminSettingsPage />} />
           </Route>
           <Route path="*" element={<AdminComingSoonPage title="Módulo no disponible" description="La ruta solicitada aún no forma parte de esta entrega." />} />
         </Route>
