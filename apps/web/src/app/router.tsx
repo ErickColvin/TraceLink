@@ -9,6 +9,7 @@ import { CustomerHomePage } from "@/features/customers/pages/customer-home-page"
 import { CustomerProfilePage } from "@/features/customers/pages/customer-profile-page";
 import { AdminComingSoonPage } from "@/features/dashboard/pages/admin-coming-soon-page";
 import { AdminDashboardPage } from "@/features/dashboard/pages/admin-dashboard-page";
+import { AdminInventoryMovementsPage, AdminInventoryPage } from "@/features/inventory";
 import { CustomerOrderDetailPage } from "@/features/orders/pages/customer-order-detail-page";
 import { CustomerOrdersPage } from "@/features/orders/pages/customer-orders-page";
 import { AdminOrderDetailPage } from "@/features/orders/pages/admin-order-detail-page";
@@ -18,8 +19,17 @@ import { CustomerPackagesPage } from "@/features/packages/pages/customer-package
 import { CatalogPage } from "@/features/products/pages/catalog-page";
 import { HomePage } from "@/features/products/pages/home-page";
 import { ProductDetailPage } from "@/features/products/pages/product-detail-page";
+import {
+  AdminProductCreatePage,
+  AdminProductDetailPage,
+  AdminProductEditPage,
+  AdminProductsPage,
+} from "@/features/products";
 import { AdminReportsPage } from "@/features/reports/pages/admin-reports-page";
 import { AdminSettingsPage } from "@/features/settings/pages/admin-settings-page";
+import { AdminRolesPage } from "@/features/users/pages/admin-roles-page";
+import { AdminUserDetailPage } from "@/features/users/pages/admin-user-detail-page";
+import { AdminUsersPage } from "@/features/users/pages/admin-users-page";
 import { AdminLayout } from "@/layouts/admin-layout";
 import { CustomerLayout } from "@/layouts/customer-layout";
 import { PublicLayout } from "@/layouts/public-layout";
@@ -57,10 +67,18 @@ export function AppRouter() {
           <Route index element={<Navigate replace to="dashboard" />} />
           <Route path="dashboard" element={<AdminDashboardPage />} />
           <Route element={<StaffRoute permission="products.view" />}>
-            <Route path="products" element={<AdminComingSoonPage title="Productos" description="Catálogo operativo, publicación y mantenimiento de productos." />} />
+            <Route path="products" element={<AdminProductsPage />} />
+            <Route element={<StaffRoute permission="products.create" />}>
+              <Route path="products/new" element={<AdminProductCreatePage />} />
+            </Route>
+            <Route path="products/:id" element={<AdminProductDetailPage />} />
+            <Route element={<StaffRoute permission="products.update" />}>
+              <Route path="products/:id/edit" element={<AdminProductEditPage />} />
+            </Route>
           </Route>
           <Route element={<StaffRoute permission="inventory.view" />}>
-            <Route path="inventory" element={<AdminComingSoonPage title="Inventario" description="Stock disponible, mínimos, lotes, ubicaciones y vencimientos." />} />
+            <Route path="inventory" element={<AdminInventoryPage />} />
+            <Route path="inventory/movements" element={<AdminInventoryMovementsPage />} />
           </Route>
           <Route element={<StaffRoute permission="orders.view" />}>
             <Route path="orders" element={<AdminOrdersPage />} />
@@ -73,10 +91,11 @@ export function AppRouter() {
             <Route path="customers" element={<AdminComingSoonPage title="Clientes" description="Gestión operacional de clientes con acceso autorizado." />} />
           </Route>
           <Route element={<StaffRoute permission="users.view" />}>
-            <Route path="users" element={<AdminComingSoonPage title="Usuarios" description="Cuentas de personal y estado de acceso." />} />
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="users/:id" element={<AdminUserDetailPage />} />
           </Route>
           <Route element={<StaffRoute permission="users.manage" />}>
-            <Route path="roles" element={<AdminComingSoonPage title="Roles y permisos" description="Permisos granulares para cada función operativa." />} />
+            <Route path="roles" element={<AdminRolesPage />} />
           </Route>
           <Route element={<StaffRoute permission="reports.view" />}>
             <Route path="reports" element={<AdminReportsPage />} />
