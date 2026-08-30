@@ -1,5 +1,10 @@
 export * from "./domain";
+export * from "./pages/admin-inventory-movements-page";
+export * from "./pages/admin-inventory-page";
+export * from "./presentation/inventory-presentation";
 export * from "./queries/inventory-queries";
+export * from "./rules/inventory-movement-rules";
+export * from "./schemas/inventory-movement-schema";
 export { inventoryService } from "./services";
 export type { InventoryService } from "./services/inventory-service";
 export { InventoryItemNotFoundError } from "./services/inventory-service";
