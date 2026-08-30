@@ -162,6 +162,12 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-ice-50 text-ink-950 lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+      <a
+        href="#contenido-admin"
+        className="fixed left-4 top-3 z-[100] -translate-y-20 rounded-lg bg-brand-950 px-4 py-2 font-semibold text-white transition-transform focus:translate-y-0"
+      >
+        Saltar al contenido
+      </a>
       <aside className="hidden min-h-screen lg:block">{sidebarContents}</aside>
 
       {drawerOpen ? (
@@ -188,7 +194,7 @@ export function AdminLayout() {
             </div>
           </div>
         </header>
-        <main className="p-4 sm:p-6 lg:p-8">
+        <main id="contenido-admin" tabIndex={-1} className="p-4 sm:p-6 lg:p-8">
           {logoutError ? <Alert tone="danger" className="mb-5"><LogOut aria-hidden="true" /><p>No pudimos cerrar la sesión. Inténtalo nuevamente.</p></Alert> : null}
           <Outlet />
         </main>
