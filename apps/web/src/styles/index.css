@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Segoe UI", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Aptos Display", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand-50: #eff8fc;
+  --color-brand-100: #dceff7;
+  --color-brand-200: #b9dfee;
+  --color-brand-300: #87c8e2;
+  --color-brand-400: #4eaed1;
+  --color-brand-500: #258fba;
+  --color-brand-600: #1b7398;
+  --color-brand-700: #185d7b;
+  --color-brand-800: #194f66;
+  --color-brand-900: #183f53;
+  --color-brand-950: #0b2635;
+
+  --color-ice-50: #f7fbfc;
+  --color-ice-100: #eef7f8;
+  --color-ice-200: #dbeef1;
+  --color-ice-300: #b9dfe4;
+  --color-ice-400: #90c9d1;
+  --color-ice-500: #68afb9;
+
+  --color-coral-50: #fff7ed;
+  --color-coral-100: #ffecd5;
+  --color-coral-200: #ffd5aa;
+  --color-coral-300: #ffb873;
+  --color-coral-400: #f9953d;
+  --color-coral-500: #c1490e;
+  --color-coral-600: #b9470f;
+  --color-coral-700: #b43f14;
+
+  --color-ink-50: #f6f8fa;
+  --color-ink-100: #e9eef2;
+  --color-ink-200: #d3dde4;
+  --color-ink-300: #afc0cb;
+  --color-ink-400: #5b7382;
+  --color-ink-500: #506774;
+  --color-ink-600: #42535f;
+  --color-ink-700: #394750;
+  --color-ink-800: #303b43;
+  --color-ink-900: #273139;
+  --color-ink-950: #172027;
+
+  --shadow-soft: 0 18px 48px -28px rgb(11 49 84 / 0.35);
+  --shadow-card: 0 14px 38px -24px rgb(23 32 39 / 0.28);
+  --shadow-lifted: 0 24px 70px -32px rgb(11 49 84 / 0.45);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-ink-200);
+  }
+
+  html {
+    min-width: 320px;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+    background: var(--color-ice-50);
+    color: var(--color-ink-950);
+    font-family: var(--font-sans);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  a,
+  button,
+  input,
+  select,
+  textarea {
+    outline-offset: 3px;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-brand-500);
+  }
+
+  ::selection {
+    background: var(--color-brand-200);
+    color: var(--color-brand-950);
+  }
+}
+
+@layer utilities {
+  .surface-grid {
+    background-image:
+      linear-gradient(rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.72)),
+      linear-gradient(to right, rgb(37 143 186 / 0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(37 143 186 / 0.08) 1px, transparent 1px);
+    background-size: auto, 32px 32px, 32px 32px;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .content-auto {
+    content-visibility: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

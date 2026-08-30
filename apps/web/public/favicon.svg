@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">CH Market</title>
+  <rect width="64" height="64" rx="18" fill="#0b3154"/>
+  <path d="M19 19v26M45 19v26M20 32h24" fill="none" stroke="#dbeef1" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="47" cy="17" r="7" fill="#ee7520"/>
+</svg>
+

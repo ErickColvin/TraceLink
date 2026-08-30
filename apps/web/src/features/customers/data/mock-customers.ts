@@ -1,0 +1,78 @@
+import type { Customer } from "../domain";
+import { DEMO_CUSTOMER_ID } from "../../mock-context";
+
+export const mockCustomers = [
+  {
+    id: DEMO_CUSTOMER_ID,
+    firstName: "Valentina",
+    lastName: "Rojas",
+    email: "valentina.rojas@example.cl",
+    phone: "+56 9 6123 4587",
+    taxId: "16.482.731-5",
+    status: "ACTIVE",
+    address: {
+      line1: "Av. Los Pioneros 1840",
+      line2: "Departamento 604",
+      commune: "Providencia",
+      city: "Santiago",
+      region: "Región Metropolitana",
+    },
+    createdAt: "2025-10-12T15:40:00.000Z",
+  },
+  {
+    id: "customer-matias-soto",
+    firstName: "Matías",
+    lastName: "Soto",
+    email: "matias.soto@example.cl",
+    phone: "+56 9 7318 2044",
+    taxId: "18.204.953-2",
+    status: "ACTIVE",
+    address: {
+      line1: "Las Tranqueras 922",
+      commune: "Vitacura",
+      city: "Santiago",
+      region: "Región Metropolitana",
+    },
+    createdAt: "2026-01-21T12:15:00.000Z",
+  },
+  {
+    id: "customer-camila-fernandez",
+    firstName: "Camila",
+    lastName: "Fernández",
+    email: "camila.fernandez@example.cl",
+    phone: "+56 9 8455 9210",
+    taxId: "17.903.228-7",
+    status: "ACTIVE",
+    address: {
+      line1: "Los Castaños 315",
+      commune: "Ñuñoa",
+      city: "Santiago",
+      region: "Región Metropolitana",
+    },
+    createdAt: "2026-03-04T18:25:00.000Z",
+  },
+  {
+    id: "customer-diego-munoz",
+    firstName: "Diego",
+    lastName: "Muñoz",
+    email: "diego.munoz@example.cl",
+    phone: "+56 9 5570 1193",
+    status: "INACTIVE",
+    createdAt: "2024-11-16T10:05:00.000Z",
+  },
+  {
+    id: "customer-isidora-perez",
+    firstName: "Isidora",
+    lastName: "Pérez",
+    email: "isidora.perez@example.cl",
+    phone: "+56 9 4008 7741",
+    status: "ACTIVE",
+    address: {
+      line1: "Av. Vicuña Mackenna 4860",
+      commune: "Macul",
+      city: "Santiago",
+      region: "Región Metropolitana",
+    },
+    createdAt: "2026-05-19T14:30:00.000Z",
+  },
+] satisfies readonly Customer[];

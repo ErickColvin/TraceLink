@@ -1,0 +1,24 @@
+{
+  "name": "tracelink",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @tracelink/web dev",
+    "build": "pnpm --filter @tracelink/web build",
+    "lint": "pnpm --filter @tracelink/web lint",
+    "typecheck": "pnpm --filter @tracelink/web typecheck",
+    "test": "pnpm --filter @tracelink/web test",
+    "test:e2e": "node tools/visual-review.mjs",
+    "test:watch": "pnpm --filter @tracelink/web test:watch",
+    "preview": "pnpm --filter @tracelink/web preview",
+    "review:visual": "node tools/visual-review.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.62.1",
+    "pnpm": "11.24.0"
+  }
+}
