@@ -11,6 +11,8 @@ import { AdminComingSoonPage } from "@/features/dashboard/pages/admin-coming-soo
 import { AdminDashboardPage } from "@/features/dashboard/pages/admin-dashboard-page";
 import { CustomerOrderDetailPage } from "@/features/orders/pages/customer-order-detail-page";
 import { CustomerOrdersPage } from "@/features/orders/pages/customer-orders-page";
+import { AdminOrderDetailPage } from "@/features/orders/pages/admin-order-detail-page";
+import { AdminOrdersPage } from "@/features/orders/pages/admin-orders-page";
 import { CustomerPackageDetailPage } from "@/features/packages/pages/customer-package-detail-page";
 import { CustomerPackagesPage } from "@/features/packages/pages/customer-packages-page";
 import { CatalogPage } from "@/features/products/pages/catalog-page";
@@ -61,7 +63,8 @@ export function AppRouter() {
             <Route path="inventory" element={<AdminComingSoonPage title="Inventario" description="Stock disponible, mínimos, lotes, ubicaciones y vencimientos." />} />
           </Route>
           <Route element={<StaffRoute permission="orders.view" />}>
-            <Route path="orders/*" element={<AdminComingSoonPage title="Pedidos" description="Preparación, estados, excepciones y coordinación de entrega." />} />
+            <Route path="orders" element={<AdminOrdersPage />} />
+            <Route path="orders/:id" element={<AdminOrderDetailPage />} />
           </Route>
           <Route element={<StaffRoute permission="packages.view" />}>
             <Route path="packages/*" element={<AdminComingSoonPage title="Paquetes" description="Recepción, almacenamiento, trazabilidad y entrega." />} />

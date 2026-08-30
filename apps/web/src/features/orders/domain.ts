@@ -65,3 +65,71 @@ export interface OrderPage {
   totalItems: number;
   totalPages: number;
 }
+
+export type StaffOrderCustomer = Readonly<{
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+}>;
+
+export interface OrderStatusEvent {
+  id: string;
+  orderId: string;
+  fromStatus: OrderStatus | null;
+  toStatus: OrderStatus;
+  occurredAt: string;
+  actorId: string;
+  actorName: string;
+  reason?: string;
+}
+
+export interface StaffOrder extends Order {
+  customer: StaffOrderCustomer;
+  statusEvents: OrderStatusEvent[];
+  cancellationReason?: string;
+}
+
+export const STAFF_ORDER_SORT_OPTIONS = [
+  "QUEUE",
+  "NEWEST",
+  "OLDEST",
+  "TOTAL_DESC",
+] as const;
+
+export type StaffOrderSort = (typeof STAFF_ORDER_SORT_OPTIONS)[number];
+
+export interface StaffOrderListParams {
+  query?: string;
+  statuses?: OrderStatus[];
+  paymentStatuses?: PaymentStatus[];
+  fulfillmentMethods?: FulfillmentMethod[];
+  sort?: StaffOrderSort;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface StaffOrderPage {
+  items: StaffOrder[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export type OrderActor = Readonly<{
+  id: string;
+  name: string;
+}>;
+
+export type TransitionStaffOrderInput = Readonly<{
+  orderId: string;
+  toStatus: OrderStatus;
+  actor: OrderActor;
+}>;
+
+export type CancelStaffOrderInput = Readonly<{
+  orderId: string;
+  reason: string;
+  actor: OrderActor;
+}>;
