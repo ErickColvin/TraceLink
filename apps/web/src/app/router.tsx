@@ -16,6 +16,7 @@ import { CustomerPackagesPage } from "@/features/packages/pages/customer-package
 import { CatalogPage } from "@/features/products/pages/catalog-page";
 import { HomePage } from "@/features/products/pages/home-page";
 import { ProductDetailPage } from "@/features/products/pages/product-detail-page";
+import { AdminReportsPage } from "@/features/reports/pages/admin-reports-page";
 import { AdminSettingsPage } from "@/features/settings/pages/admin-settings-page";
 import { AdminLayout } from "@/layouts/admin-layout";
 import { CustomerLayout } from "@/layouts/customer-layout";
@@ -75,7 +76,7 @@ export function AppRouter() {
             <Route path="roles" element={<AdminComingSoonPage title="Roles y permisos" description="Permisos granulares para cada función operativa." />} />
           </Route>
           <Route element={<StaffRoute permission="reports.view" />}>
-            <Route path="reports" element={<AdminComingSoonPage title="Reportes" description="Salidas operativas acotadas y exportaciones futuras." />} />
+            <Route path="reports" element={<AdminReportsPage />} />
           </Route>
           <Route element={<StaffRoute permission="settings.manage" />}>
             <Route path="settings" element={<AdminSettingsPage />} />
