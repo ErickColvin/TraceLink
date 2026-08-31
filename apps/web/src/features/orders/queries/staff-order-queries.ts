@@ -44,7 +44,10 @@ export function useTransitionStaffOrder() {
       staffOrderService.transitionStatus(input),
     onSuccess: async (order) => {
       queryClient.setQueryData(staffOrderKeys.detail(order.id), order);
-      await queryClient.invalidateQueries({ queryKey: staffOrderKeys.lists() });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: staffOrderKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
     },
   });
 }
@@ -56,7 +59,10 @@ export function useCancelStaffOrder() {
     mutationFn: (input: CancelStaffOrderInput) => staffOrderService.cancel(input),
     onSuccess: async (order) => {
       queryClient.setQueryData(staffOrderKeys.detail(order.id), order);
-      await queryClient.invalidateQueries({ queryKey: staffOrderKeys.lists() });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: staffOrderKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
     },
   });
 }
