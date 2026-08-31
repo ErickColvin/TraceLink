@@ -84,7 +84,7 @@ export function ProductForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>IdentificaciÃ³n comercial</CardTitle>
+          <CardTitle>Identificación comercial</CardTitle>
           <p className="text-sm text-ink-600">
             Estos datos identifican el producto en operaciones y en la tienda.
           </p>
@@ -134,12 +134,12 @@ export function ProductForm({
               {...register("slug")}
             />
             <p className="mt-1.5 text-xs text-ink-500" id="product-slug-help">
-              Se usarÃ¡ en la URL pÃºblica. Solo minÃºsculas, nÃºmeros y guiones.
+              Se usará en la URL pública. Solo minúsculas, números y guiones.
             </p>
             <FieldError id="product-slug-error" message={errors.slug?.message} />
           </div>
           <div className="md:col-span-2">
-            <Label htmlFor="product-description">DescripciÃ³n (opcional)</Label>
+            <Label htmlFor="product-description">Descripción (opcional)</Label>
             <textarea
               className={textareaClassName}
               id="product-description"
@@ -158,7 +158,7 @@ export function ProductForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>ClasificaciÃ³n y precio</CardTitle>
+          <CardTitle>Clasificación y precio</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-5 md:grid-cols-2">
           <div>
@@ -172,7 +172,7 @@ export function ProductForm({
             <FieldError id="product-brand-error" message={errors.brand?.message} />
           </div>
           <div>
-            <Label htmlFor="product-category">CategorÃ­a</Label>
+            <Label htmlFor="product-category">Categoría</Label>
             <select
               className={selectClassName}
               id="product-category"
@@ -180,7 +180,7 @@ export function ProductForm({
               aria-invalid={Boolean(errors.categoryId)}
               {...register("categoryId")}
             >
-              <option value="">Selecciona una categorÃ­a</option>
+              <option value="">Selecciona una categoría</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
@@ -204,7 +204,7 @@ export function ProductForm({
             <FieldError id="product-price-error" message={errors.salePrice?.message} />
           </div>
           <div>
-            <Label htmlFor="product-minimum-stock">Stock mÃ­nimo</Label>
+            <Label htmlFor="product-minimum-stock">Stock mínimo</Label>
             <Input
               id="product-minimum-stock"
               inputMode="numeric"
@@ -267,7 +267,7 @@ export function ProductForm({
               <span>
                 <span className="block text-sm font-semibold text-ink-950">Activo</span>
                 <span className="mt-0.5 block text-xs text-ink-600">
-                  Disponible para la operaciÃ³n interna.
+                  Disponible para la operación interna.
                 </span>
               </span>
             </label>
@@ -281,7 +281,7 @@ export function ProductForm({
               <span>
                 <span className="block text-sm font-semibold text-ink-950">Publicado</span>
                 <span className="mt-0.5 block text-xs text-ink-600">
-                  Visible en la tienda solo mientras estÃ© activo.
+                  Visible en la tienda solo mientras esté activo.
                 </span>
               </span>
             </label>
@@ -290,7 +290,7 @@ export function ProductForm({
           <Alert tone="info">
             <Warehouse aria-hidden="true" />
             <p>
-              El stock disponible no se edita aquÃ­. Las existencias se actualizan
+              El stock disponible no se edita aquí. Las existencias se actualizan
               exclusivamente mediante movimientos de inventario con trazabilidad.
             </p>
           </Alert>
@@ -300,7 +300,7 @@ export function ProductForm({
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Button disabled={pending} size="lg" type="submit">
           <Save aria-hidden="true" />
-          {pending ? "Guardandoâ€¦" : submitLabel}
+          {pending ? "Guardando…" : submitLabel}
         </Button>
       </div>
     </form>

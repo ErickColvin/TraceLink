@@ -48,7 +48,7 @@ describe("ProductForm", () => {
     await user.type(skuInput, "CON-NUE-100");
     await user.type(screen.getByLabelText("Nombre"), "Nuevo producto");
     await user.type(screen.getByLabelText("Slug"), "nuevo-producto");
-    await user.selectOptions(screen.getByLabelText("CategorÃ­a"), "category-frozen");
+    await user.selectOptions(screen.getByLabelText("Categoría"), "category-frozen");
     await user.clear(screen.getByLabelText("Precio de venta (CLP)"));
     await user.type(screen.getByLabelText("Precio de venta (CLP)"), "4990");
     await user.click(screen.getByRole("button", { name: "Crear producto" }));

@@ -23,7 +23,7 @@ import {
 function getMutationError(error: unknown): string {
   return error instanceof Error
     ? error.message
-    : "No pudimos guardar el producto. Revisa los datos e intÃ©ntalo nuevamente.";
+    : "No pudimos guardar el producto. Revisa los datos e inténtalo nuevamente.";
 }
 
 function ProductFormLoading() {
@@ -39,7 +39,7 @@ function ProductFormLoading() {
 function PermissionDenied({ action }: Readonly<{ action: string }>) {
   return (
     <ErrorState
-      title="No tienes permiso para esta acciÃ³n"
+      title="No tienes permiso para esta acción"
       description={`Tu perfil no permite ${action} productos.`}
       action={
         <Link className={buttonStyles({ variant: "outline" })} to="/app/products">
@@ -77,9 +77,9 @@ export function AdminProductCreatePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="CatÃ¡logo operativo"
+        eyebrow="Catálogo operativo"
         title="Nuevo producto"
-        description="Registra informaciÃ³n comercial. El producto iniciarÃ¡ con stock disponible 0 hasta que Inventario reciba un movimiento."
+        description="Registra información comercial. El producto iniciará con stock disponible 0 hasta que Inventario reciba un movimiento."
         actions={
           <Link
             className={buttonStyles({ variant: "outline" })}
@@ -94,7 +94,7 @@ export function AdminProductCreatePage() {
       {categoriesQuery.isError ? (
         <ErrorState
           title="No pudimos preparar el formulario"
-          description="Las categorÃ­as son necesarias para crear un producto."
+          description="Las categorías son necesarias para crear un producto."
           action={<Button onClick={() => void categoriesQuery.refetch()}>Reintentar</Button>}
         />
       ) : null}
@@ -146,7 +146,7 @@ export function AdminProductEditPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="CatÃ¡logo operativo"
+        eyebrow="Catálogo operativo"
         title="Editar producto"
         description="Actualiza datos comerciales sin alterar existencias."
         actions={
@@ -163,7 +163,7 @@ export function AdminProductEditPage() {
       {isError ? (
         <ErrorState
           title="No pudimos cargar el producto"
-          description="Puede que ya no exista o que la informaciÃ³n no estÃ© disponible."
+          description="Puede que ya no exista o que la información no esté disponible."
           action={
             <Button
               onClick={() => {

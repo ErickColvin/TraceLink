@@ -34,15 +34,15 @@ export function AdminProductPagination({
 
   return (
     <nav
-      aria-label="PaginaciÃ³n de productos"
+      aria-label="Paginación de productos"
       className="flex flex-col gap-3 border-t border-ink-100 pt-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <p className="text-sm text-ink-600">
-        Mostrando {firstItem}â€“{lastItem} de {totalItems}
+        Mostrando {firstItem}–{lastItem} de {totalItems}
       </p>
       <div className="flex flex-wrap items-center gap-1.5">
         <Button
-          aria-label="Ir a la pÃ¡gina anterior"
+          aria-label="Ir a la página anterior"
           disabled={disabled || page <= 1}
           onClick={() => onPageChange(page - 1)}
           size="sm"
@@ -58,12 +58,12 @@ export function AdminProductPagination({
             <span className="contents" key={candidate}>
               {showGap ? (
                 <span aria-hidden="true" className="px-1 text-ink-400">
-                  â€¦
+                  …
                 </span>
               ) : null}
               <Button
                 aria-current={candidate === page ? "page" : undefined}
-                aria-label={`Ir a la pÃ¡gina ${candidate}`}
+                aria-label={`Ir a la página ${candidate}`}
                 disabled={disabled}
                 onClick={() => onPageChange(candidate)}
                 size="sm"
@@ -75,7 +75,7 @@ export function AdminProductPagination({
           );
         })}
         <Button
-          aria-label="Ir a la pÃ¡gina siguiente"
+          aria-label="Ir a la página siguiente"
           disabled={disabled || page >= totalPages}
           onClick={() => onPageChange(page + 1)}
           size="sm"

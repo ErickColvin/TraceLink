@@ -125,9 +125,9 @@ export function AdminProductList({
 
               <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                 <div>
-                  <dt className="text-ink-500">CategorÃ­a</dt>
+                  <dt className="text-ink-500">Categoría</dt>
                   <dd className="font-medium text-ink-900">
-                    {categoriesById.get(product.categoryId) ?? "Sin categorÃ­a"}
+                    {categoriesById.get(product.categoryId) ?? "Sin categoría"}
                   </dd>
                 </div>
                 <div>
@@ -173,7 +173,7 @@ export function AdminProductList({
             <tr>
               <th className="w-[27%] px-4 py-3" scope="col">Producto</th>
               <th className="w-[12%] px-3 py-3" scope="col">SKU</th>
-              <th className="w-[14%] px-3 py-3" scope="col">CategorÃ­a / marca</th>
+              <th className="w-[14%] px-3 py-3" scope="col">Categoría / marca</th>
               <th className="w-[11%] px-3 py-3" scope="col">Precio</th>
               <th className="w-[8%] px-3 py-3" scope="col">Stock</th>
               <th className="w-[16%] px-3 py-3" scope="col">Estado</th>
@@ -199,7 +199,7 @@ export function AdminProductList({
                 </td>
                 <td className="px-3 py-3 text-ink-700">
                   <span className="line-clamp-1 font-medium">
-                    {categoriesById.get(product.categoryId) ?? "Sin categorÃ­a"}
+                    {categoriesById.get(product.categoryId) ?? "Sin categoría"}
                   </span>
                   <span className="line-clamp-1 text-xs text-ink-500">
                     {product.brand ?? "Sin marca"}

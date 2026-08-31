@@ -10,7 +10,7 @@ const validValues = {
   barcode: "7801234567890",
   name: "Nuevo producto congelado",
   slug: "nuevo-producto-congelado",
-  description: "Una descripciÃ³n comercial clara.",
+  description: "Una descripción comercial clara.",
   brand: "Marca Sur",
   categoryId: "category-frozen",
   salePrice: 5990,

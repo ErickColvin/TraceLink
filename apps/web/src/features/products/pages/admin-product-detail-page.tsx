@@ -53,7 +53,7 @@ function readNotice(state: unknown): string | undefined {
 function mutationErrorMessage(error: unknown): string {
   return error instanceof Error
     ? error.message
-    : "No pudimos completar el cambio. IntÃ©ntalo nuevamente.";
+    : "No pudimos completar el cambio. Inténtalo nuevamente.";
 }
 
 export function AdminProductDetailPage() {
@@ -126,7 +126,7 @@ export function AdminProductDetailPage() {
     return (
       <ErrorState
         title="No encontramos este producto"
-        description="Puede que el registro no exista o no estÃ© disponible en este momento."
+        description="Puede que el registro no exista o no esté disponible en este momento."
         action={
           <Link className={buttonStyles({ variant: "outline" })} to="/app/products">
             <ArrowLeft aria-hidden="true" /> Volver a productos
@@ -192,8 +192,8 @@ export function AdminProductDetailPage() {
                 <ProductStatusBadges product={product} />
                 <dl className="mt-5 grid gap-x-6 gap-y-4 sm:grid-cols-2">
                   <div>
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-ink-500">CategorÃ­a</dt>
-                    <dd className="mt-1 font-medium text-ink-950">{categoryName ?? "Sin categorÃ­a"}</dd>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-ink-500">Categoría</dt>
+                    <dd className="mt-1 font-medium text-ink-950">{categoryName ?? "Sin categoría"}</dd>
                   </div>
                   <div>
                     <dt className="text-xs font-semibold uppercase tracking-wide text-ink-500">Marca</dt>
@@ -208,14 +208,14 @@ export function AdminProductDetailPage() {
                     <dd className="mt-1 font-medium text-ink-950">{product.barcode ?? "No informado"}</dd>
                   </div>
                   <div className="sm:col-span-2">
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-ink-500">Slug pÃºblico</dt>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-ink-500">Slug público</dt>
                     <dd className="mt-1 break-all font-medium text-ink-950">{product.slug}</dd>
                   </div>
                 </dl>
                 <div className="mt-5 border-t border-ink-100 pt-5">
-                  <h2 className="font-semibold text-ink-950">DescripciÃ³n</h2>
+                  <h2 className="font-semibold text-ink-950">Descripción</h2>
                   <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink-600">
-                    {product.description ?? "Sin descripciÃ³n comercial."}
+                    {product.description ?? "Sin descripción comercial."}
                   </p>
                 </div>
                 {product.active && product.published ? (
@@ -245,7 +245,7 @@ export function AdminProductDetailPage() {
                   <dd className="mt-1 text-2xl font-bold text-ink-950">{product.availableStock}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm text-ink-500">MÃ­nimo</dt>
+                  <dt className="text-sm text-ink-500">Mínimo</dt>
                   <dd className="mt-1 text-2xl font-bold text-ink-950">{product.minimumStock ?? 0}</dd>
                 </div>
               </dl>
@@ -300,7 +300,7 @@ export function AdminProductDetailPage() {
         confirmLabel="Confirmar cambio"
         description={
           action?.kind === "active" && action.product.active
-            ? "Desactivar tambiÃ©n retirarÃ¡ el producto de la tienda, sin eliminar su historial ni sus movimientos."
+            ? "Desactivar también retirará el producto de la tienda, sin eliminar su historial ni sus movimientos."
             : "Confirma el cambio de estado comercial del producto."
         }
         onConfirm={() => void confirmAction()}

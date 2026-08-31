@@ -30,6 +30,11 @@ import type {
   ProductPublicationFilter,
 } from "../domain";
 import {
+  PRODUCT_ACTIVE_FILTERS,
+  PRODUCT_ADMIN_SORT_OPTIONS,
+  PRODUCT_PUBLICATION_FILTERS,
+} from "../domain";
+import {
   useAdminProducts,
   useProductCategories,
   useSetProductActive,
@@ -48,7 +53,7 @@ type PendingProductAction = Readonly<{
 function getErrorMessage(error: unknown): string {
   return error instanceof Error
     ? error.message
-    : "No pudimos completar el cambio. IntÃ©ntalo nuevamente.";
+    : "No pudimos completar el cambio. Inténtalo nuevamente.";
 }
 
 export function AdminProductsPage() {
@@ -128,7 +133,7 @@ export function AdminProductsPage() {
         await activeMutation.mutateAsync({ id: product.id, active: nextActive });
         setFeedback(
           nextActive
-            ? `${product.name} quedÃ³ activo.`
+            ? `${product.name} quedó activo.`
             : `${product.name} fue desactivado y retirado de la tienda.`,
         );
       } else {
@@ -139,7 +144,7 @@ export function AdminProductsPage() {
         });
         setFeedback(
           nextPublished
-            ? `${product.name} ahora estÃ¡ publicado.`
+            ? `${product.name} ahora está publicado.`
             : `${product.name} fue despublicado.`,
         );
       }
@@ -161,16 +166,16 @@ export function AdminProductsPage() {
     : "Confirmar cambio";
   const confirmationDescription = pendingAction
     ? pendingAction.kind === "active" && pendingAction.product.active
-      ? "El producto dejarÃ¡ de estar disponible para la operaciÃ³n y se despublicarÃ¡ de la tienda. No se eliminarÃ¡ su historial."
+      ? "El producto dejará de estar disponible para la operación y se despublicará de la tienda. No se eliminará su historial."
       : `Confirma el cambio de visibilidad para ${pendingAction.product.name}.`
     : undefined;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="CatÃ¡logo operativo"
+        eyebrow="Catálogo operativo"
         title="Productos"
-        description="Administra la informaciÃ³n comercial. El stock mostrado es de solo lectura y cambia exclusivamente desde Inventario."
+        description="Administra la información comercial. El stock mostrado es de solo lectura y cambia exclusivamente desde Inventario."
         actions={
           canCreate ? (
             <Link className={buttonStyles()} to="/app/products/new">
@@ -213,7 +218,7 @@ export function AdminProductsPage() {
             </div>
           </div>
           <div>
-            <Label htmlFor="admin-product-category">CategorÃ­a</Label>
+            <Label htmlFor="admin-product-category">Categoría</Label>
             <select
               className={selectClassName}
               id="admin-product-category"
@@ -236,11 +241,12 @@ export function AdminProductsPage() {
               className={selectClassName}
               id="admin-product-active"
               value={active}
-              onChange={(event) =>
-                changeFilter(() =>
-                  setActive(event.target.value as ProductActiveFilter),
-                )
-              }
+              onChange={(event) => {
+                const nextActive = PRODUCT_ACTIVE_FILTERS.find(
+                  (candidate) => candidate === event.currentTarget.value,
+                );
+                if (nextActive) changeFilter(() => setActive(nextActive));
+              }}
             >
               <option value="ALL">Todos</option>
               <option value="ACTIVE">Activos</option>
@@ -248,16 +254,19 @@ export function AdminProductsPage() {
             </select>
           </div>
           <div>
-            <Label htmlFor="admin-product-publication">PublicaciÃ³n</Label>
+            <Label htmlFor="admin-product-publication">Publicación</Label>
             <select
               className={selectClassName}
               id="admin-product-publication"
               value={publication}
-              onChange={(event) =>
-                changeFilter(() =>
-                  setPublication(event.target.value as ProductPublicationFilter),
-                )
-              }
+              onChange={(event) => {
+                const nextPublication = PRODUCT_PUBLICATION_FILTERS.find(
+                  (candidate) => candidate === event.currentTarget.value,
+                );
+                if (nextPublication) {
+                  changeFilter(() => setPublication(nextPublication));
+                }
+              }}
             >
               <option value="ALL">Todos</option>
               <option value="PUBLISHED">Publicados</option>
@@ -270,15 +279,16 @@ export function AdminProductsPage() {
               className={selectClassName}
               id="admin-product-sort"
               value={sort}
-              onChange={(event) =>
-                changeFilter(() =>
-                  setSort(event.target.value as ProductAdminSort),
-                )
-              }
+              onChange={(event) => {
+                const nextSort = PRODUCT_ADMIN_SORT_OPTIONS.find(
+                  (candidate) => candidate === event.currentTarget.value,
+                );
+                if (nextSort) changeFilter(() => setSort(nextSort));
+              }}
             >
-              <option value="NAME_ASC">Nombre Aâ€“Z</option>
-              <option value="NAME_DESC">Nombre Zâ€“A</option>
-              <option value="SKU_ASC">SKU Aâ€“Z</option>
+              <option value="NAME_ASC">Nombre A–Z</option>
+              <option value="NAME_DESC">Nombre Z–A</option>
+              <option value="SKU_ASC">SKU A–Z</option>
               <option value="PRICE_ASC">Menor precio</option>
               <option value="PRICE_DESC">Mayor precio</option>
             </select>
@@ -292,7 +302,7 @@ export function AdminProductsPage() {
       <div className="flex items-center justify-between gap-4">
         <p aria-live="polite" className="text-sm text-ink-600" role="status">
           {productsQuery.isPending
-            ? "Cargando productosâ€¦"
+            ? "Cargando productos…"
             : `${productsQuery.data?.totalItems ?? 0} productos encontrados`}
         </p>
         <p className="hidden text-xs text-ink-500 sm:block">
@@ -311,7 +321,7 @@ export function AdminProductsPage() {
       {productsQuery.isError || categoriesQuery.isError ? (
         <ErrorState
           title="No pudimos cargar los productos"
-          description="Reintenta para recuperar el catÃ¡logo operativo y sus categorÃ­as."
+          description="Reintenta para recuperar el catálogo operativo y sus categorías."
           action={
             <Button
               onClick={() => {
@@ -329,7 +339,7 @@ export function AdminProductsPage() {
         <EmptyState
           icon={<PackageSearch />}
           title="No hay productos para estos filtros"
-          description="Ajusta la bÃºsqueda o vuelve al listado completo."
+          description="Ajusta la búsqueda o vuelve al listado completo."
           action={
             hasFilters ? <Button onClick={clearFilters}>Quitar filtros</Button> : undefined
           }

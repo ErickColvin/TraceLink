@@ -29,7 +29,7 @@ export class ProductConflictError extends Error {
     const labels: Record<ProductConflictField, string> = {
       sku: "SKU",
       slug: "slug",
-      barcode: "cÃ³digo de barras",
+      barcode: "código de barras",
     };
 
     super(`Ya existe un producto con ese ${labels[field]}.`);

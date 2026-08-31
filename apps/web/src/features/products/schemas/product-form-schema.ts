@@ -12,14 +12,14 @@ export const productFormSchema = z.object({
     .max(40, "El SKU no puede superar 40 caracteres.")
     .regex(
       /^[A-Za-z0-9][A-Za-z0-9._-]*$/,
-      "Usa solo letras, nÃºmeros, punto, guion o guion bajo.",
+      "Usa solo letras, números, punto, guion o guion bajo.",
     ),
   barcode: z.union([
     z.literal(""),
     z
       .string()
       .trim()
-      .regex(/^\d{8,14}$/, "El cÃ³digo debe contener entre 8 y 14 dÃ­gitos."),
+      .regex(/^\d{8,14}$/, "El código debe contener entre 8 y 14 dígitos."),
   ]),
   name: z
     .string()
@@ -33,22 +33,22 @@ export const productFormSchema = z.object({
     .max(160, "El slug no puede superar 160 caracteres.")
     .regex(
       /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
-      "Usa minÃºsculas, nÃºmeros y guiones simples.",
+      "Usa minúsculas, números y guiones simples.",
     ),
   description: optionalText,
   brand: z.string().trim().max(80, "La marca no puede superar 80 caracteres."),
-  categoryId: z.string().trim().min(1, "Selecciona una categorÃ­a."),
+  categoryId: z.string().trim().min(1, "Selecciona una categoría."),
   salePrice: z
-    .number({ error: "Ingresa un precio vÃ¡lido." })
+    .number({ error: "Ingresa un precio válido." })
     .int("El precio debe expresarse en pesos enteros.")
     .positive("El precio debe ser mayor que cero."),
   minimumStock: z
-    .number({ error: "Ingresa un stock mÃ­nimo vÃ¡lido." })
-    .int("El stock mÃ­nimo debe ser un entero.")
-    .min(0, "El stock mÃ­nimo no puede ser negativo."),
+    .number({ error: "Ingresa un stock mínimo válido." })
+    .int("El stock mínimo debe ser un entero.")
+    .min(0, "El stock mínimo no puede ser negativo."),
   imageUrl: z.union([
     z.literal(""),
-    z.url("Ingresa una URL de imagen vÃ¡lida."),
+    z.url("Ingresa una URL de imagen válida."),
   ]),
   published: z.boolean(),
   active: z.boolean(),
