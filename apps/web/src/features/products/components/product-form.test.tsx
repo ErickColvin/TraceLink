@@ -2,7 +2,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { EMPTY_PRODUCT_FORM_VALUES } from "../schemas/product-form-schema";
+import {
+  EMPTY_PRODUCT_FORM_VALUES,
+  type ProductFormValues,
+} from "../schemas/product-form-schema";
 import { ProductForm } from "./product-form";
 
 const categories = [
@@ -17,7 +20,9 @@ const categories = [
 describe("ProductForm", () => {
   it("associates validation errors and never offers direct stock editing", async () => {
     const user = userEvent.setup();
-    const onSubmit = vi.fn(async () => undefined);
+    const onSubmit = vi
+      .fn<(values: ProductFormValues) => Promise<void>>()
+      .mockResolvedValue(undefined);
     render(
       <ProductForm
         categories={categories}
