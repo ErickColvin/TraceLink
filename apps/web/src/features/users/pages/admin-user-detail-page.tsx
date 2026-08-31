@@ -7,6 +7,7 @@ import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle, Label, 
 import { useHasPermission } from "@/features/auth";
 import { formatDateTime } from "@/lib/formatters";
 
+import { STAFF_USER_STATUSES } from "../domain";
 import type { StaffRoleDefinition, StaffUser, StaffUserStatus } from "../domain";
 import { useStaffRoles, useStaffUser, useUpdateStaffUser } from "../queries/user-queries";
 
@@ -52,7 +53,7 @@ function UserEditor({ roles, user }: { roles: StaffRoleDefinition[]; user: Staff
           <CardHeader><CardTitle>Rol y acceso</CardTitle><p className="text-sm text-ink-600">La interfaz habilita estas acciones por el permiso <code>users.manage</code>, no por el nombre de un rol.</p></CardHeader>
           <CardContent className="space-y-5">
             <div><Label htmlFor="user-role">Rol</Label><select id="user-role" className={selectClassName} value={roleId} disabled={!canManage || updateUser.isPending} onChange={(event) => { setRoleId(event.target.value); setSaved(false); }}>{roles.map((role) => <option key={role.id} value={role.id}>{role.label}</option>)}</select>{selectedRole ? <p className="mt-1.5 text-xs text-ink-500">{selectedRole.description} · {selectedRole.permissions.length} permisos</p> : null}</div>
-            <div><Label htmlFor="user-status">Estado</Label><select id="user-status" className={selectClassName} value={status} disabled={!canManage || updateUser.isPending} onChange={(event) => { setStatus(event.target.value as StaffUserStatus); setSaved(false); }}><option value="ACTIVE">Activo</option><option value="INACTIVE">Inactivo</option></select></div>
+            <div><Label htmlFor="user-status">Estado</Label><select id="user-status" className={selectClassName} value={status} disabled={!canManage || updateUser.isPending} onChange={(event) => { const nextStatus = STAFF_USER_STATUSES.find((candidate) => candidate === event.currentTarget.value); if (nextStatus) { setStatus(nextStatus); setSaved(false); } }}><option value="ACTIVE">Activo</option><option value="INACTIVE">Inactivo</option></select></div>
             {canManage ? <Button size="lg" disabled={!changed || updateUser.isPending} onClick={() => setDialogOpen(true)}><ShieldCheck aria-hidden="true" /> Revisar cambio</Button> : <Alert tone="warning"><p>Tu sesión puede consultar usuarios, pero no administrar sus accesos.</p></Alert>}
           </CardContent>
         </Card>
