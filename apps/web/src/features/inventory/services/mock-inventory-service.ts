@@ -16,7 +16,10 @@ import type {
   InventoryPage,
   InventorySort,
 } from "../domain";
-import { previewInventoryMovement } from "../rules/inventory-movement-rules";
+import {
+  deriveInventoryStatus,
+  previewInventoryMovement,
+} from "../rules/inventory-movement-rules";
 import {
   InventoryItemNotFoundError,
   type InventoryService,
@@ -34,6 +37,28 @@ function normalizeText(value: string): string {
 
 function copyInventoryItem(item: InventoryItem): InventoryItem {
   return { ...item };
+}
+
+function projectInventoryItem(item: InventoryItem, now: Date): InventoryItem {
+  const expired = item.expiresAt
+    ? Date.parse(item.expiresAt) <= now.getTime()
+    : false;
+  const availableStock = expired ? 0 : item.availableStock;
+
+  return {
+    ...item,
+    availableStock,
+    status: deriveInventoryStatus(
+      {
+        physicalStock: item.physicalStock,
+        reservedStock: item.reservedStock,
+        availableStock,
+      },
+      item.minimumStock,
+      item.expiresAt,
+      now,
+    ),
+  };
 }
 
 function copyMovement(movement: InventoryMovement): InventoryMovement {
@@ -111,10 +136,24 @@ export class MockInventoryService implements InventoryService {
   constructor(
     initialItems: readonly InventoryItem[] = mockInventoryItems,
     initialMovements: readonly InventoryMovement[] = mockInventoryMovements,
+    private readonly now: () => Date = () => new Date(),
   ) {
     this.inventoryItems = initialItems.map(copyInventoryItem);
     this.inventoryMovements = initialMovements.map(copyMovement);
     this.movementSequence = initialMovements.length;
+  }
+
+  getAvailableStockByProductId(productId: string): number | undefined {
+    const matchingItems = this.inventoryItems.filter(
+      (item) => item.productId === productId,
+    );
+    if (matchingItems.length === 0) return undefined;
+
+    const now = this.now();
+    return matchingItems.reduce(
+      (total, item) => total + projectInventoryItem(item, now).availableStock,
+      0,
+    );
   }
 
   async list(params: InventoryListParams = {}): Promise<InventoryPage> {
@@ -125,7 +164,9 @@ export class MockInventoryService implements InventoryService {
     const location = params.location
       ? normalizeText(params.location)
       : undefined;
+    const now = this.now();
     const filtered = this.inventoryItems
+      .map((item) => projectInventoryItem(item, now))
       .filter(
         (item) => !params.categoryId || item.categoryId === params.categoryId,
       )
@@ -152,8 +193,7 @@ export class MockInventoryService implements InventoryService {
         return normalizeText(
           `${item.productName} ${item.sku} ${item.barcode ?? ""} ${item.batch ?? ""} ${item.location}`,
         ).includes(search);
-      })
-      .map(copyInventoryItem);
+      });
     const sorted = sortInventory(filtered, params.sort ?? "PRODUCT_ASC");
 
     return paginate(sorted, params.page, params.pageSize);
@@ -179,7 +219,7 @@ export class MockInventoryService implements InventoryService {
     const item = this.inventoryItems.find((candidate) => candidate.id === id);
 
     if (!item) throw new InventoryItemNotFoundError(id);
-    return copyInventoryItem(item);
+    return projectInventoryItem(item, this.now());
   }
 
   async listMovements(
@@ -231,7 +271,7 @@ export class MockInventoryService implements InventoryService {
     );
     if (!item) throw new InventoryItemNotFoundError(input.inventoryItemId);
 
-    const now = new Date();
+    const now = this.now();
     const preview = previewInventoryMovement(item, input, now);
     item.physicalStock = preview.after.physicalStock;
     item.reservedStock = preview.after.reservedStock;

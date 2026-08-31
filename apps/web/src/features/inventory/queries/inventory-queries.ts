@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { productKeys } from "@/features/products/queries/product-queries";
 
 import type {
   CreateInventoryMovementInput,
@@ -70,6 +71,7 @@ export function useCreateInventoryMovement() {
           queryKey: inventoryKeys.detail(movement.inventoryItemId),
         }),
         queryClient.invalidateQueries({ queryKey: inventoryKeys.movements() }),
+        queryClient.invalidateQueries({ queryKey: productKeys.all }),
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
     },

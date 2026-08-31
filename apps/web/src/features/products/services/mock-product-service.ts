@@ -114,7 +114,12 @@ function normalizeCommercialInput(
 export class MockProductService implements ProductService {
   private readonly products: Product[];
 
-  constructor(initialProducts: readonly Product[] = mockProducts) {
+  constructor(
+    initialProducts: readonly Product[] = mockProducts,
+    private readonly readAvailableStock?: (
+      productId: string,
+    ) => number | undefined,
+  ) {
     this.products = initialProducts.map(copyProduct);
   }
 
@@ -126,6 +131,7 @@ export class MockProductService implements ProductService {
     const pageSize = Math.max(1, Math.trunc(params.pageSize ?? DEFAULT_PAGE_SIZE));
 
     const filtered = this.products
+      .map((product) => this.withCurrentStock(product))
       .filter((product) => product.active && product.published)
       .filter((product) => {
         if (!search) return true;
@@ -138,8 +144,7 @@ export class MockProductService implements ProductService {
           ? product.availableStock > 0
           : product.availableStock === 0;
       })
-      .filter((product) => params.featured === undefined || product.featured === params.featured)
-      .map(copyProduct);
+      .filter((product) => params.featured === undefined || product.featured === params.featured);
 
     const sorted = sortProducts(filtered, params.sort ?? "FEATURED");
     return createPage(sorted, page, pageSize);
@@ -153,6 +158,7 @@ export class MockProductService implements ProductService {
     const pageSize = Math.max(1, Math.trunc(params.pageSize ?? DEFAULT_PAGE_SIZE));
 
     const filtered = this.products
+      .map((product) => this.withCurrentStock(product))
       .filter((product) => {
         if (!search) return true;
         return normalizeText(
@@ -167,8 +173,7 @@ export class MockProductService implements ProductService {
       .filter((product) => {
         if (!params.publication || params.publication === "ALL") return true;
         return params.publication === "PUBLISHED" ? product.published : !product.published;
-      })
-      .map(copyProduct);
+      });
 
     return createPage(
       sortAdminProducts(filtered, params.sort ?? "NAME_ASC"),
@@ -187,7 +192,7 @@ export class MockProductService implements ProductService {
     const product = this.products.find((candidate) => candidate.id === id);
 
     if (!product) throw new ProductNotFoundError(id);
-    return copyProduct(product);
+    return this.withCurrentStock(product);
   }
 
   async getBySlug(slug: string): Promise<Product> {
@@ -197,7 +202,7 @@ export class MockProductService implements ProductService {
     );
 
     if (!product) throw new ProductNotFoundError(slug);
-    return copyProduct(product);
+    return this.withCurrentStock(product);
   }
 
   async listRelated(slug: string, limit = 4): Promise<Product[]> {
@@ -217,7 +222,9 @@ export class MockProductService implements ProductService {
       (candidate) => candidate.categoryId !== product.categoryId && candidate.featured,
     );
 
-    return [...sameCategory, ...otherFeatured].slice(0, safeLimit).map(copyProduct);
+    return [...sameCategory, ...otherFeatured]
+      .slice(0, safeLimit)
+      .map((candidate) => this.withCurrentStock(candidate));
   }
 
 
@@ -242,7 +249,7 @@ export class MockProductService implements ProductService {
     };
 
     this.products.unshift(product);
-    return copyProduct(product);
+    return this.withCurrentStock(product);
   }
 
   async update(id: string, input: ProductCommercialInput): Promise<Product> {
@@ -260,7 +267,7 @@ export class MockProductService implements ProductService {
       published: normalized.active ? normalized.published : false,
     };
     this.products[index] = updated;
-    return copyProduct(updated);
+    return this.withCurrentStock(updated);
   }
 
   async setActive(id: string, active: boolean): Promise<Product> {
@@ -275,7 +282,7 @@ export class MockProductService implements ProductService {
       published: active ? current.published : false,
     };
     this.products[index] = updated;
-    return copyProduct(updated);
+    return this.withCurrentStock(updated);
   }
 
   async setPublished(id: string, published: boolean): Promise<Product> {
@@ -291,7 +298,15 @@ export class MockProductService implements ProductService {
 
     const updated: Product = { ...current, published };
     this.products[index] = updated;
-    return copyProduct(updated);
+    return this.withCurrentStock(updated);
+  }
+
+  private withCurrentStock(product: Product): Product {
+    const availableStock = this.readAvailableStock
+      ? (this.readAvailableStock(product.id) ?? 0)
+      : product.availableStock;
+
+    return { ...product, availableStock };
   }
 
   private findIndex(id: string): number {
