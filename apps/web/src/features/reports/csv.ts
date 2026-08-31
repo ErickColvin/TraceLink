@@ -2,7 +2,18 @@ import type { OperationalReportRecord } from "./domain";
 
 function safeCsvCell(value: string | number): string {
   const raw = String(value);
-  const protectedValue = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+  let firstVisibleIndex = 0;
+  while (
+    firstVisibleIndex < raw.length &&
+    raw.charCodeAt(firstVisibleIndex) <= 0x20
+  ) {
+    firstVisibleIndex += 1;
+  }
+  const firstVisibleCharacter = raw[firstVisibleIndex];
+  const protectedValue =
+    firstVisibleCharacter && "=+-@".includes(firstVisibleCharacter)
+      ? `'${raw}`
+      : raw;
   return `"${protectedValue.replaceAll('"', '""')}"`;
 }
 
