@@ -1,5 +1,19 @@
 export * from "./domain";
 export * from "./queries/customer-queries";
-export { customerService } from "./services";
-export type { CustomerService } from "./services/customer-service";
-export { CustomerNotFoundError } from "./services/customer-service";
+export {
+  customerSelfService,
+  customerService,
+  staffCustomerService,
+} from "./services";
+export type {
+  CustomerSelfService,
+  CustomerService,
+  StaffCustomerService,
+} from "./services/customer-service";
+export {
+  CustomerConflictError,
+  CustomerNotFoundError,
+} from "./services/customer-service";
+export { AdminCustomerDetailPage } from "./pages/admin-customer-detail-page";
+export { AdminCustomersPage } from "./pages/admin-customers-page";
+export { CustomerProfilePage } from "./pages/customer-profile-page";
