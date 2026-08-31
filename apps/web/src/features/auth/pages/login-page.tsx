@@ -128,7 +128,7 @@ export function LoginPage() {
     status === "loading" || isPending || isSubmitting || activeDemo !== null;
 
   return (
-    <main className="relative min-h-[calc(100vh-4rem)] overflow-hidden bg-ice-50 px-4 py-10 sm:px-6 lg:px-8 lg:py-16">
+    <main tabIndex={-1} className="relative min-h-[calc(100vh-4rem)] overflow-hidden bg-ice-50 px-4 py-10 sm:px-6 lg:px-8 lg:py-16">
       <div
         aria-hidden="true"
         className="absolute inset-x-0 top-0 h-40 border-b border-ice-200 bg-white/70"
