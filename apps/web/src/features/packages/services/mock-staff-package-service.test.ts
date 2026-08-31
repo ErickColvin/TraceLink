@@ -6,6 +6,21 @@ const actor = { id: "staff-test", name: "Operador de pruebas" };
 const fixedNow = () => new Date("2026-08-30T14:00:00.000Z");
 
 describe("MockStaffPackageService", () => {
+  it("combina filtros operativos por tracking, cliente, carrier y ubicación", async () => {
+    const service = new MockStaffPackageService({ latencyMs: 0 });
+
+    const result = await service.list({
+      tracking: "41028",
+      customer: "Valentina",
+      carrier: "Blue Express",
+      location: "F-03",
+    });
+
+    expect(result.items.map((item) => item.id)).toEqual([
+      "package-ch-41028",
+    ]);
+  });
+
   it("aplica una transición estándar y crea un TrackingEvent", async () => {
     const service = new MockStaffPackageService({ latencyMs: 0, now: fixedNow });
     const before = await service.getById("package-ch-41052");

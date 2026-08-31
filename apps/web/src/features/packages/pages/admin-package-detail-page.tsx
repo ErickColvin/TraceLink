@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   MapPin,
   Snowflake,
+  Truck,
   UserRound,
 } from "lucide-react";
 import { useState } from "react";
@@ -33,6 +34,7 @@ import { useAuth, useHasPermission } from "../../auth";
 import { TrackingTimeline } from "../components/tracking-timeline";
 import type { PackageStatus } from "../domain";
 import { getPackageStatusMeta } from "../presentation/package-status";
+import { getPackageStorageDuration } from "../presentation/package-storage-duration";
 import {
   useDeliverStaffPackage,
   useStaffPackage,
@@ -129,6 +131,7 @@ export function AdminPackageDetailPage() {
 
   const item = packageQuery.data;
   const meta = getPackageStatusMeta(item.status);
+  const storageDuration = getPackageStorageDuration(item);
   const nextStandard = getNextStandardPackageStatus(item.status);
   const allowedTransitions = getAllowedPackageTransitions(item.status);
   const alternativeTransitions = allowedTransitions.filter(
@@ -362,6 +365,10 @@ export function AdminPackageDetailPage() {
             <CardHeader><CardTitle>Información</CardTitle></CardHeader>
             <CardContent className="space-y-5 text-sm">
               <div className="flex gap-3">
+                <Truck aria-hidden="true" className="mt-0.5 size-4 text-brand-700" />
+                <div><p className="font-semibold">Carrier</p><p className="mt-1 text-ink-600">{item.carrier}</p></div>
+              </div>
+              <div className="flex gap-3">
                 <Box aria-hidden="true" className="mt-0.5 size-4 text-brand-700" />
                 <div><p className="font-semibold">Contenido</p><p className="mt-1 text-ink-600">{item.contents.description} · {item.contents.itemCount} artículos</p></div>
               </div>
@@ -378,8 +385,14 @@ export function AdminPackageDetailPage() {
                 </div>
               ) : null}
               {item.receivedAt ? <p className="text-ink-600">Recibido: {formatDateTime(item.receivedAt)}</p> : null}
+              {storageDuration ? (
+                <p className="text-ink-600">
+                  Tiempo almacenado: {storageDuration.days > 0 ? `${storageDuration.days} días` : `${storageDuration.hours} horas`}
+                </p>
+              ) : null}
               {item.pickupDeadline ? <p className="text-ink-600">Retirar antes de: {formatDateTime(item.pickupDeadline)}</p> : null}
               {item.orderId ? <p className="text-ink-600">Pedido asociado: {item.orderId}</p> : null}
+              <p className="text-ink-600">Notas: {item.notes ?? "Sin notas operativas"}</p>
             </CardContent>
           </Card>
 

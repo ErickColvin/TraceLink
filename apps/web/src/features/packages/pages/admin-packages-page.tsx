@@ -1,4 +1,4 @@
-import { PackageSearch, Plus, Search, Snowflake } from "lucide-react";
+import { PackageSearch, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
@@ -19,12 +19,14 @@ import {
 } from "../../../components/ui";
 import { useHasPermission } from "../../auth";
 import {
+  PACKAGE_CARRIERS,
   PACKAGE_STATUSES,
   type PackageStatus,
   type StaffPackage,
   type StaffPackageSort,
 } from "../domain";
 import { getPackageStatusMeta } from "../presentation/package-status";
+import { getPackageStorageDuration } from "../presentation/package-storage-duration";
 import { useStaffPackages } from "../queries/staff-package-queries";
 import { formatDateTime } from "../../../lib/formatters";
 
@@ -39,6 +41,7 @@ function readStatus(value: string | null): PackageStatus | "ALL" {
 
 function PackageMobileCard({ item }: Readonly<{ item: StaffPackage }>) {
   const meta = getPackageStatusMeta(item.status);
+  const storageDuration = getPackageStorageDuration(item);
 
   return (
     <Card>
@@ -57,15 +60,31 @@ function PackageMobileCard({ item }: Readonly<{ item: StaffPackage }>) {
         </p>
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <dt className="text-ink-500">Actualizado</dt>
+            <dt className="text-ink-500">Recepción</dt>
             <dd className="mt-1 font-semibold text-ink-800">
-              {formatDateTime(item.updatedAt)}
+              {item.receivedAt ? formatDateTime(item.receivedAt) : "Pendiente"}
             </dd>
           </div>
           <div>
             <dt className="text-ink-500">Conservación</dt>
             <dd className="mt-1 font-semibold text-ink-800">
               {item.contents.requiresColdStorage ? "Cadena de frío" : "Ambiente"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-ink-500">Carrier</dt>
+            <dd className="mt-1 font-semibold text-ink-800">{item.carrier}</dd>
+          </div>
+          <div>
+            <dt className="text-ink-500">Días almacenado</dt>
+            <dd className="mt-1 font-semibold text-ink-800">
+              {storageDuration?.days ?? "—"}
+            </dd>
+          </div>
+          <div className="col-span-2">
+            <dt className="text-ink-500">Ubicación</dt>
+            <dd className="mt-1 font-semibold text-ink-800">
+              {item.storageLocation ?? "Sin ubicación"}
             </dd>
           </div>
         </dl>
@@ -85,6 +104,18 @@ export function AdminPackagesPage() {
   const canReceive = useHasPermission("packages.receive");
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
+  const [tracking, setTracking] = useState(
+    () => searchParams.get("tracking") ?? "",
+  );
+  const [customer, setCustomer] = useState(
+    () => searchParams.get("customer") ?? "",
+  );
+  const [carrier, setCarrier] = useState(
+    () => searchParams.get("carrier") ?? "",
+  );
+  const [location, setLocation] = useState(
+    () => searchParams.get("location") ?? "",
+  );
   const [status, setStatus] = useState<PackageStatus | "ALL">(() =>
     readStatus(searchParams.get("status")),
   );
@@ -94,6 +125,10 @@ export function AdminPackagesPage() {
   const params = useMemo(
     () => ({
       search,
+      tracking,
+      customer,
+      carrier,
+      location,
       statuses: status === "ALL" ? undefined : [status],
       coldStorage:
         coldStorage === "ALL" ? undefined : coldStorage === "REQUIRED",
@@ -101,12 +136,16 @@ export function AdminPackagesPage() {
       page,
       pageSize: 8,
     }),
-    [coldStorage, page, search, sort, status],
+    [carrier, coldStorage, customer, location, page, search, sort, status, tracking],
   );
   const packagesQuery = useStaffPackages(params);
 
   const resetFilters = () => {
     setSearch("");
+    setTracking("");
+    setCustomer("");
+    setCarrier("");
+    setLocation("");
     setStatus("ALL");
     setColdStorage("ALL");
     setSort("QUEUE");
@@ -141,7 +180,7 @@ export function AdminPackagesPage() {
       <Card className="mt-6">
         <CardContent className="grid gap-4 pt-5 sm:grid-cols-2 sm:pt-6 xl:grid-cols-4">
           <div>
-            <Label htmlFor="staff-package-search">Buscar</Label>
+            <Label htmlFor="staff-package-search">Búsqueda general</Label>
             <div className="relative mt-1.5">
               <Search
                 aria-hidden="true"
@@ -158,6 +197,62 @@ export function AdminPackagesPage() {
                 }}
               />
             </div>
+          </div>
+          <div>
+            <Label htmlFor="staff-package-tracking">Tracking</Label>
+            <Input
+              id="staff-package-tracking"
+              className="mt-1.5"
+              value={tracking}
+              placeholder="Ej.: CHM-41028"
+              onChange={(event) => {
+                setTracking(event.currentTarget.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div>
+            <Label htmlFor="staff-package-customer">Cliente</Label>
+            <Input
+              id="staff-package-customer"
+              className="mt-1.5"
+              value={customer}
+              placeholder="Nombre o correo"
+              onChange={(event) => {
+                setCustomer(event.currentTarget.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div>
+            <Label htmlFor="staff-package-carrier">Carrier</Label>
+            <select
+              id="staff-package-carrier"
+              className={`${selectStyles} mt-1.5`}
+              value={carrier}
+              onChange={(event) => {
+                setCarrier(event.currentTarget.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Todos</option>
+              {PACKAGE_CARRIERS.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="staff-package-location">Ubicación</Label>
+            <Input
+              id="staff-package-location"
+              className="mt-1.5"
+              value={location}
+              placeholder="Bodega, cámara o módulo"
+              onChange={(event) => {
+                setLocation(event.currentTarget.value);
+                setPage(1);
+              }}
+            />
           </div>
           <div>
             <Label htmlFor="staff-package-status">Estado</Label>
@@ -248,27 +343,30 @@ export function AdminPackagesPage() {
 
         {packagesQuery.data && packagesQuery.data.items.length > 0 ? (
           <>
-            <div className="space-y-3 md:hidden">
+            <div className="space-y-3 lg:hidden">
               {packagesQuery.data.items.map((item) => (
                 <PackageMobileCard key={item.id} item={item} />
               ))}
             </div>
 
-            <div className="hidden overflow-x-auto rounded-2xl border border-ink-100 bg-white shadow-card md:block">
+            <div data-allow-horizontal-overflow="true" className="hidden overflow-x-auto rounded-2xl border border-ink-100 bg-white shadow-card lg:block">
               <table className="min-w-full divide-y divide-ink-100 text-left text-sm">
                 <thead className="bg-ink-50 text-xs uppercase tracking-wide text-ink-600">
                   <tr>
                     <th scope="col" className="px-4 py-3 font-bold">Paquete</th>
+                    <th scope="col" className="px-4 py-3 font-bold">Carrier</th>
                     <th scope="col" className="px-4 py-3 font-bold">Cliente</th>
+                    <th scope="col" className="px-4 py-3 font-bold">Recepción</th>
+                    <th scope="col" className="px-4 py-3 font-bold">Ubicación</th>
                     <th scope="col" className="px-4 py-3 font-bold">Estado</th>
-                    <th scope="col" className="px-4 py-3 font-bold">Conservación</th>
-                    <th scope="col" className="px-4 py-3 font-bold">Actualizado</th>
+                    <th scope="col" className="px-4 py-3 text-right font-bold">Días almacenado</th>
                     <th scope="col" className="px-4 py-3"><span className="sr-only">Acciones</span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink-100">
                   {packagesQuery.data.items.map((item) => {
                     const meta = getPackageStatusMeta(item.status);
+                    const storageDuration = getPackageStorageDuration(item);
                     return (
                       <tr key={item.id} className="align-middle hover:bg-ice-50/70">
                         <td className="px-4 py-4">
@@ -279,21 +377,22 @@ export function AdminPackagesPage() {
                             {item.contents.description}
                           </p>
                         </td>
+                        <td className="whitespace-nowrap px-4 py-4 text-ink-700">
+                          {item.carrier}
+                        </td>
                         <td className="px-4 py-4">
                           <p className="font-semibold text-ink-800">{item.customer.fullName}</p>
                           <p className="mt-1 text-xs text-ink-500">{item.customer.email}</p>
                         </td>
-                        <td className="px-4 py-4"><Badge tone={meta.tone}>{meta.shortLabel}</Badge></td>
-                        <td className="px-4 py-4 text-ink-700">
-                          {item.contents.requiresColdStorage ? (
-                            <span className="inline-flex items-center gap-1.5">
-                              <Snowflake aria-hidden="true" className="size-4 text-brand-700" />
-                              Cadena de frío
-                            </span>
-                          ) : "Ambiente"}
-                        </td>
                         <td className="whitespace-nowrap px-4 py-4 text-ink-600">
-                          {formatDateTime(item.updatedAt)}
+                          {item.receivedAt ? formatDateTime(item.receivedAt) : "Pendiente"}
+                        </td>
+                        <td className="max-w-56 px-4 py-4 text-ink-700">
+                          {item.storageLocation ?? "Sin ubicación"}
+                        </td>
+                        <td className="px-4 py-4"><Badge tone={meta.tone}>{meta.shortLabel}</Badge></td>
+                        <td className="whitespace-nowrap px-4 py-4 text-right font-semibold text-ink-700">
+                          {storageDuration?.days ?? "—"}
                         </td>
                         <td className="px-4 py-4 text-right">
                           <Link
