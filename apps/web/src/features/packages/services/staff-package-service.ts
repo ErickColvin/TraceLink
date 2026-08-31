@@ -1,0 +1,52 @@
+import type {
+  DeliverStaffPackageInput,
+  ReceiveStaffPackageInput,
+  StaffPackage,
+  StaffPackageListParams,
+  StaffPackagePage,
+  TransitionStaffPackageInput,
+} from "../domain";
+
+export interface StaffPackageService {
+  /** Operational access; never used to resolve the current customer's scope. */
+  list(params?: StaffPackageListParams): Promise<StaffPackagePage>;
+  getById(id: string): Promise<StaffPackage>;
+  receive(input: ReceiveStaffPackageInput): Promise<StaffPackage>;
+  transitionStatus(input: TransitionStaffPackageInput): Promise<StaffPackage>;
+  deliver(input: DeliverStaffPackageInput): Promise<StaffPackage>;
+}
+
+export class StaffPackageNotFoundError extends Error {
+  constructor(id: string) {
+    super(`No se encontró el paquete operativo '${id}'.`);
+    this.name = "StaffPackageNotFoundError";
+  }
+}
+
+export class StaffPackageCustomerNotFoundError extends Error {
+  constructor(id: string) {
+    super(`No se encontró el cliente seleccionado '${id}'.`);
+    this.name = "StaffPackageCustomerNotFoundError";
+  }
+}
+
+export class DuplicateTrackingCodeError extends Error {
+  constructor(code: string) {
+    super(`Ya existe un paquete con el código '${code}'.`);
+    this.name = "DuplicateTrackingCodeError";
+  }
+}
+
+export class InvalidPackageTransitionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidPackageTransitionError";
+  }
+}
+
+export class InvalidPackageDeliveryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidPackageDeliveryError";
+  }
+}
