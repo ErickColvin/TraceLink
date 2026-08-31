@@ -1,203 +1,133 @@
-# Roadmap frontend de TraceLink V2 / CH Market
+# Roadmap de TraceLink V2 / CH Market
 
-## Cómo leer este roadmap
+Corte de estado: 31 de agosto de 2026.
 
-Corte de estado: 29 de agosto de 2026.
+Este documento separa la interfaz terminada de las capacidades que requieren una fuente autoritativa. `DONE` significa que la ruta es navegable, responsive y funcional contra adapters mock; no implica que exista backend.
 
-- **DONE**: existe una implementación funcional y navegable en el código actual. Puede seguir usando datos mock si esa es la frontera declarada.
-- **NEXT**: trabajo inmediato del milestone frontend-first. Incluye módulos cuyo route, permiso o contrato existe, pero cuya pantalla sigue siendo un shell.
-- **LATER**: depende de una fase posterior, de backend o de una decisión de producto que no pertenece a la entrega inmediata.
+## FRONTEND DONE
 
-Un contrato o fixture por sí solo no convierte una feature en DONE. Las rutas administrativas que renderizan `AdminComingSoonPage` se consideran shell-only.
+### Fundación y arquitectura
 
-## DONE — implementación disponible
+- Workspace pnpm con React, TypeScript estricto, Vite, Tailwind, React Router, TanStack Query, React Hook Form, Zod, Vitest, React Testing Library y smoke Playwright.
+- Organización orientada a features, configuración CH Market centralizada y CLP entero.
+- Contratos por feature con adapters mock intercambiables por HTTP.
+- Guards de cliente/personal y navegación administrativa basada en permisos tipados.
+- Loading, error, empty, normal, success, pending y disabled según el flujo.
+- Diálogo accesible compartido con control de foco, Escape, scroll lock y confirmación explícita.
+- Skip links en los tres shells y foco del contenido principal después de navegar.
+- Patrones responsive revisables en 375, 768, 1024 y 1440 px.
+- Carga diferida de checkout y módulos operacionales; el bundle inicial bajó de aproximadamente 754 kB a 302 kB sin alterar rutas.
 
-### Fundación F1
+### Storefront público
 
-- Workspace pnpm con `apps/web`, React, TypeScript estricto, Vite, Tailwind, React Router, TanStack Query, React Hook Form, Zod, Vitest y React Testing Library.
-- Organización orientada a features, alias `@`, router y providers separados.
-- Tokens `brand`, `ice`, `coral`, `ink`, tipografías y sombras centralizados.
-- Configuración de tenant para nombre, locale, CLP, zona horaria, organización y zona de servicio.
-- Primitivas accesibles de botón, tarjeta, badge, alert, input y label.
-- Estados compartidos de carga, error y vacío.
-- Formateadores centralizados de CLP, fecha y hora en `es-CL` / `America/Santiago`.
-- Script de revisión visual para 375, 768, 1024 y 1440 px y detección de overflow horizontal.
+- Home, catálogo, detalle, información, contacto y 404.
+- Carrito local con límites de cantidad y total CLP.
+- Checkout visual validado para retiro o despacho, resumen y confirmación mock.
+- Declaración visible de que no existe pago ni reserva de stock.
 
-### Límite de datos mock
+### Portal cliente
 
-- Contratos tipados y adapters mock separados para productos, pedidos de cliente, paquetes de cliente, clientes, inventario y dashboard.
-- Hooks de TanStack Query con query keys por feature e identidad para los datos privados.
-- Limpieza de queries privadas al restaurar, cambiar o cerrar sesión, sin eliminar la caché pública.
-- Pedidos y paquetes privados filtrados dentro del adapter por el cliente de la sesión mock; la UI no recibe un selector de propietario.
-- Datos clonados al salir de los adapters para evitar que una pantalla mute fixtures compartidos.
-- Composición preparada para sustituir cada adapter sin importar fixtures desde las pantallas.
-- Contratos y datos de inventario ya preparados, aunque su UI administrativa todavía no está implementada.
+- Resumen privado, pedidos propios y detalles.
+- Paquetes propios, búsqueda y timeline de trazabilidad reutilizable.
+- Perfil editable mediante contrato `current customer`, sin selector de propietario ni almacenamiento local.
+- Caché privada separada por identidad y limpieza al cambiar sesión.
 
-### F2 — tienda pública
+### Portal operativo
 
-- `/`: home comercial con hero original, categorías, destacados, beneficios y accesos a catálogo/cuenta.
-- `/productos`: búsqueda por nombre, marca o SKU; filtro de categoría y disponibilidad; orden; estados loading/error/empty.
-- `/productos/:slug`: detalle, disponibilidad, selector de cantidad, feedback de alta al carrito y productos relacionados.
-- `/nosotros`: contenido institucional y propuesta de valor.
-- `/contacto`: formulario con React Hook Form y Zod; simula éxito y declara que no envía datos.
-- `/carrito`: carrito en memoria, límite por stock, ajuste/eliminación de cantidades, total CLP, empty state y checkout deshabilitado.
-- Header/footer responsive, navegación móvil, acceso a seguimiento, contador de carrito, skip link y página 404.
+- Dashboard con seis KPIs derivados de los servicios operacionales, tendencia y alertas enlazadas a filtros; los umbrales salen de Settings.
+- Productos: búsqueda, filtros, orden, paginación, alta, edición, detalle, activación y publicación.
+- Inventario: stock físico/reservado/disponible, mínimos, ubicaciones, lotes, vencimientos y estados; el stock disponible se proyecta al catálogo.
+- Movimientos: ocho tipos tipados, motivo condicional, preview antes/después y auditoría; no existe edición directa de stock.
+- Pedidos: cola, búsqueda y filtros de estado/pago/fulfillment/fecha, detalle, transiciones secuenciales, eventos y cancelación confirmada con motivo.
+- Paquetes: filtros separados de tracking/cliente/carrier/estado/ubicación, recepción seleccionando un cliente del servicio, detalle, tiempo almacenado, transiciones estándar/excepciones, tracking y entrega con código/receptor.
+- Clientes: búsqueda, detalle y edición staff separada de la edición del cliente autenticado.
+- Usuarios y roles: estado de cuenta, asignación confirmada y seis roles iniciales con permisos granulares.
+- Reportes operativos filtrables y exportación CSV local sin dependencia pesada.
+- Configuración mock de organización, región, contacto, retiro y umbrales, inicializada desde la marca central.
 
-### Autenticación y navegación protegida
+### Rutas funcionales
 
-- Modelo discriminado para visitante, cliente y personal, con permisos tipados.
-- `CustomerRoute` y `StaffRoute` con estado de restauración, redirección por audiencia y feedback de permiso denegado.
-- Saneamiento de `returnTo` para aceptar solo rutas internas y evitar redirecciones entre portales incompatibles.
-- Login validado con React Hook Form/Zod y accesos demo diferenciados.
-- Adapter de autenticación demo honesto: no acepta credenciales como reales, no emite token y no persiste sesión.
-- Navegación administrativa filtrada por permisos y guards de permiso en cada módulo.
+| Superficie | Rutas |
+| --- | --- |
+| Pública | `/`, `/productos`, `/productos/:slug`, `/nosotros`, `/contacto`, `/carrito`, `/checkout`, `/login` |
+| Cliente | `/mi-cuenta`, `/mi-cuenta/pedidos`, `/mi-cuenta/pedidos/:id`, `/mi-cuenta/paquetes`, `/mi-cuenta/paquetes/:id`, `/mi-cuenta/perfil` |
+| Productos | `/app/products`, `/app/products/new`, `/app/products/:id`, `/app/products/:id/edit` |
+| Inventario | `/app/inventory`, `/app/inventory/movements` |
+| Pedidos | `/app/orders`, `/app/orders/:id` |
+| Paquetes | `/app/packages`, `/app/packages/new`, `/app/packages/:id` |
+| Clientes | `/app/customers`, `/app/customers/:id` |
+| Administración | `/app/dashboard`, `/app/users`, `/app/users/:id`, `/app/roles`, `/app/reports`, `/app/settings` |
 
-### F3 — portal cliente
+`/registro` redirige deliberadamente a `/login`: no se presenta un alta ficticia sin contrato de identidad.
 
-- Shell responsive con header, identidad, navegación horizontal en móvil y sidebar en desktop.
-- `/mi-cuenta`: resumen con KPIs y accesos a pedidos y paquetes recientes.
-- `/mi-cuenta/pedidos`: listado de pedidos propios con estado, fecha, método y total.
-- `/mi-cuenta/pedidos/:id`: detalle privado, líneas, totales y punto de retiro.
-- `/mi-cuenta/paquetes`: listado privado, filtro por código o contenido y último evento.
-- `/mi-cuenta/paquetes/:id`: detalle privado y timeline tipado con pasos futuros y excepciones.
-- `/mi-cuenta/perfil`: identidad autenticada en modo de solo lectura.
-- Estados explícitos de pedido y paquete traducidos a etiquetas, descripciones y tonos consistentes.
+### Calidad automatizada
 
-### F4 — shell administrativo
+- Reglas y formularios críticos cubiertos en productos, inventario, pedidos, paquetes, clientes, roles, checkout y tracking.
+- Guards, permisos, privacidad de cliente y limpieza de queries cubiertos.
+- 111 tests en 36 archivos (frente a 43 tests al inicio de la fase).
+- E2E para storefront, cliente, personal y ciclo `Receive → Store → Ready → Pickup`, con 29 capturas y viewports objetivo.
+- Gates: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` y `pnpm test:e2e`.
 
-- Layout operativo responsive con sidebar de escritorio, drawer móvil, topbar e identidad de sesión.
-- `/app/dashboard`: seis KPIs, tendencia de ventas accesible y alertas operativas con enlaces.
-- Rutas y permisos de navegación declarados para productos, inventario, pedidos, paquetes, clientes, usuarios, roles, reportes y configuración.
-- Pantalla genérica y honesta de “próxima fase” para módulos no implementados.
+## BACKEND NEXT
 
-### Pruebas existentes
+La siguiente fase debe conectar la UI existente; no reconstruir páginas ni navegación.
 
-- Primitivas presentacionales y semántica básica.
-- Saneamiento de rutas, guards, permisos y adapter de autenticación demo.
-- Cálculos y límites del reducer de carrito.
-- Filtros y relacionados del servicio mock de productos.
-- Aislamiento de pedidos y paquetes por cliente.
-- Limpieza de caché privada y sincronización de identidad entre sesión y adapters mock.
-- Búsqueda de paquetes por código o descripción de contenido.
-- Orden cronológico, estados repetidos, excepciones y pasos futuros del timeline.
-- Fechas calendario sin desplazamiento por zona horaria.
-- Validación accesible y feedback de éxito del formulario de contacto.
-- Smoke E2E visual, búsqueda por contenido y comportamiento modal del drawer administrativo.
+1. Implementar sesión remota segura, recuperación/alta de cuenta y cierre autoritativo.
+2. Crear adapters HTTP por contrato y validar respuestas externas con Zod.
+3. Aplicar autorización, permisos y propiedad de registros en servidor.
+4. Persistir productos, clientes, usuarios, roles, configuración y eventos de auditoría.
+5. Implementar inventario transaccional, reservas, concurrencia e idempotencia de movimientos.
+6. Persistir máquinas de estados de pedidos/paquetes y rechazar transiciones inválidas en backend.
+7. Integrar carga/almacenamiento de imágenes de producto.
+8. Reemplazar reportes mock por consultas operacionales paginadas/exportaciones asíncronas cuando corresponda.
+9. Agregar contratos de notificación, contacto y observabilidad.
+10. Incorporar pruebas de contrato y E2E contra un entorno backend controlado.
 
-## Verdad actual de las rutas
+Límites que el backend debe resolver, sin rediseñar la UI:
 
-| Ruta o grupo | Estado | Alcance real hoy |
-| --- | --- | --- |
-| `/`, `/productos`, `/productos/:slug`, `/nosotros`, `/contacto` | **DONE** | experiencia pública funcional con mocks |
-| `/carrito` | **DONE** | estado local; no reserva stock ni compra |
-| `/login` | **DONE** | validación y sesiones demo; no autenticación remota |
-| `/registro` | **NEXT** | solo redirige a login; no hay flujo de registro |
-| `/checkout` | **LATER** | no hay ruta; CTA deshabilitado |
-| `/mi-cuenta` y rutas de pedidos/paquetes | **DONE** | datos privados del cliente mock actual |
-| `/mi-cuenta/perfil` | **DONE** | consulta de identidad; edición pendiente |
-| `/app/dashboard` | **DONE** | dashboard mock funcional |
-| `/app/products` | **NEXT** | shell-only; contrato público de productos no cubre aún todas las mutaciones staff |
-| `/app/inventory` | **NEXT** | shell-only; dominio, query y adapter de lectura ya existen |
-| `/app/orders/*` | **NEXT** | shell-only; no existe workflow operativo |
-| `/app/packages/*` | **NEXT** | shell-only; no existe workflow operativo |
-| `/app/customers` | **NEXT** | shell-only; contrato de lectura existe |
-| `/app/users`, `/app/roles` | **NEXT** | shell y permisos solamente |
-| `/app/reports`, `/app/settings` | **LATER** | shell solamente; posteriores a los flujos operativos núcleo |
-| rutas específicas `/app/products/:id`, `/app/inventory/movements`, `/app/customers/:id` | **NEXT** | aún no están declaradas de forma específica |
+- unificar las vistas cliente/personal de pedidos y paquetes sobre la misma fuente autoritativa;
+- hacer que cambios de usuario/rol afecten sesiones reales y volver a comprobar cada permiso;
+- derivar reportes desde la operación persistida en vez de registros mock estáticos;
+- persistir sesión, carrito y mutaciones, hoy reiniciados al recargar;
+- reconciliar checkout con reserva/inventario y provisionar lotes para productos nuevos;
+- definir la propagación entre mínimo comercial, mínimo por lote y defaults organizacionales.
 
-## NEXT — siguiente entrega frontend-first
+Interfaces listas para adapters HTTP:
 
-### 1. Cerrar los módulos operativos núcleo
+```text
+AuthService
+ProductService
+InventoryService
+OrderService / StaffOrderService
+PackageService / StaffPackageService
+CustomerSelfService / StaffCustomerService
+UserService
+RoleService
+DashboardService
+ReportService
+SettingsService
+```
 
-Implementar en incrementos pequeños, cada uno detrás de su contrato y adapter mock:
+## LATER
 
-1. **Productos staff**: listado, búsqueda, filtros, detalle, creación, edición, publicación/activación y confirmación para acciones destructivas. Añadir rutas específicas y permisos por acción.
-2. **Inventario**: listado denso responsive, stock mínimo, lotes, ubicación, vencimiento, filtros y movimientos. Los ajustes requieren motivo, confirmación, éxito/error e invalidación de queries.
-3. **Pedidos staff**: cola, filtros, detalle y transiciones válidas de estado. Cancelación y reembolso deben ser explícitos y confirmados.
-4. **Paquetes staff**: recepción, almacenamiento, cambio de estado, ubicación, entrega y registro de eventos de trazabilidad. No permitir saltos inválidos de estado.
-5. **Clientes staff**: listado, detalle y edición autorizada sin reutilizar los endpoints semánticos de “cliente actual”.
-6. **Usuarios y roles**: listado y edición de permisos con feedback claro. La UI ayuda a prevenir errores, pero no sustituye autorización del backend.
+- Procesamiento de pagos y conciliación.
+- Reserva autoritativa de stock durante checkout.
+- Persistencia segura del carrito, si producto la prioriza.
+- Registro público de cuenta y recuperación de contraseña.
+- Integraciones con couriers, correo, SMS o identidad externa.
+- Segunda organización y configuración multi-tenant remota.
+- BI avanzado, importaciones masivas y auditoría de errores por fila.
+- Aplicaciones móviles nativas.
+- Microservicios, Kubernetes, GraphQL o IA solo ante una necesidad demostrada.
 
-Los contratos actuales de pedido y paquete son deliberadamente customer-scoped. Las operaciones staff deben recibir contratos propios o métodos claramente separados; no se debe ampliar un método privado para aceptar libremente un `customerId` desde una pantalla.
+## Definition of done para BACKEND NEXT
 
-### 2. Completar calidad UX y accesibilidad
+Una integración solo está terminada cuando:
 
-- Mantener las regresiones del drawer y evaluar una primitiva de diálogo accesible si incorpora animaciones, submenús o contenido dinámico más complejo.
-- Añadir skip links a los shells cliente y administrativo.
-- Definir una experiencia protegida de 404 dentro de cliente y administración para conservar contexto y navegación.
-- Revisar foco tras navegación y mutaciones, zoom al 200 %, teclado completo y `prefers-reduced-motion`.
-- Mantener revisión visual en 375/768/1024/1440 y ampliar capturas al catálogo filtrado, carrito con productos y shells privados.
-
-### 3. Completar comportamiento público y cliente pendiente
-
-- Decidir el alcance de `/registro`; mientras no exista alta real o contrato mock explícito, mantenerlo identificado como placeholder y no presentarlo como funcional.
-- Añadir edición de perfil mediante contrato, esquema Zod, estados de mutación y feedback.
-- Introducir paginación visible cuando catálogo, pedidos, paquetes y tablas administrativas excedan el tamaño de página.
-- Crear un contrato de contacto antes de conectar envío; la página no debe llamar transporte directamente.
-- Revisar disponibilidad concurrente del carrito antes de cualquier checkout futuro; el stock mostrado por el mock no es una reserva.
-
-### 4. Elevar cobertura automatizada
-
-- Pruebas de interacción del formulario de login y futuras mutaciones staff.
-- Pruebas de render para todos los estados de pedido y paquete.
-- Pruebas de navegación filtrada por cada perfil de permisos, no solo del guard aislado.
-- Pruebas de loading/error/empty/success en catálogo, cliente y dashboard.
-- Ampliar `pnpm test:e2e` con los flujos aún no cubiertos en navegador: producto → carrito; login demo → pedido propio; y permiso staff permitido/denegado.
-- Mantener `pnpm lint`, `pnpm typecheck`, `pnpm test` y `pnpm build` como gate de cada incremento.
-
-## LATER — fases posteriores
-
-### F6 — ecommerce
-
-- `/checkout` responsive.
-- Datos de retiro o despacho y validación de formulario.
-- Reserva de stock y resolución de cambios de disponibilidad.
-- Estado de pago y experiencia de error/reintento.
-- Confirmación de compra e historial actualizado.
-- Decisión explícita sobre persistencia segura del carrito.
-
-El procesamiento de pagos y la reserva autoritativa pertenecen al backend; el frontend solo representará sus estados.
-
-### F7 — integración backend
-
-- Adaptadores HTTP por feature, sin cambios estructurales en páginas.
-- Validación con Zod de respuestas externas en el límite.
-- Sesión real controlada por servidor; no usar `localStorage` como frontera de seguridad.
-- Autorización, propiedad de registros y permisos revalidados por backend.
-- Mutaciones, invalidación de cache, concurrencia y errores de red reales.
-- Configuración de tenant obtenida de una fuente autoritativa cuando se incorpore una segunda organización.
-- Envío real de contacto y recuperación/registro de cuenta solo cuando existan contratos seguros.
-
-### Capacidades administrativas secundarias
-
-- Reportes operativos acotados y exportaciones.
-- Configuración de organización y marca.
-- Auditoría completa de cambios e importaciones con errores por fila.
-- Integraciones de correo, identidad externa o courier, si se priorizan y existe backend.
-
-## Fuera del milestone actual
-
-No forman parte de esta entrega:
-
-- microservicios, Kubernetes o GraphQL;
-- aplicaciones móviles nativas;
-- funciones de IA;
-- integraciones con couriers;
-- BI complejo;
-- autorización de backend implementada desde el frontend;
-- procesamiento de pagos;
-- reutilización directa de módulos legacy, JWT en `localStorage` o secretos históricos.
-
-## Definition of done para cada item NEXT
-
-Un item solo pasa a DONE cuando:
-
-1. su ruta y comportamiento completos reemplazan el shell;
-2. usa tipos de dominio y contrato de servicio, sin fixture o `fetch` en la pantalla;
-3. cubre loading, error, empty, normal, success y disabled según aplique;
-4. las acciones destructivas solicitan confirmación accesible;
-5. permisos y propiedad de datos están modelados correctamente;
-6. funciona con teclado y en 375/768/1024/1440 sin overflow inesperado;
-7. tiene pruebas proporcionales al riesgo;
-8. pasan lint, typecheck, tests y build; Playwright también cuando cambia un flujo crítico;
-9. la documentación se actualiza si cambia una decisión arquitectónica.
+1. conserva el contrato o documenta su evolución;
+2. valida datos externos en el límite;
+3. vuelve a comprobar sesión, propiedad y permisos en servidor;
+4. representa red, concurrencia y errores reales sin perder estados UX;
+5. mantiene las rutas y la estructura visual salvo cambio de producto explícito;
+6. incluye pruebas de contrato, integración y regresión;
+7. pasa lint, tipos, tests, build y E2E.
