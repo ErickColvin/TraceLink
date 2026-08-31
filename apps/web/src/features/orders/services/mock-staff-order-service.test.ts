@@ -10,7 +10,20 @@ const actor = {
 const fixedNow = () => new Date("2026-08-30T12:00:00.000Z");
 
 describe("MockStaffOrderService", () => {
-  it("aplica una transiciÃ³n vÃ¡lida y registra el evento auditado", async () => {
+  it("filtra la cola por un rango inclusivo de fecha", async () => {
+    const service = new MockStaffOrderService({ latencyMs: 0 });
+
+    const result = await service.list({
+      dateFrom: "2026-08-29",
+      dateTo: "2026-08-29",
+    });
+
+    expect(result.items.map((order) => order.orderNumber)).toEqual([
+      "CH-2026-0849",
+    ]);
+  });
+
+  it("aplica una transición válida y registra el evento auditado", async () => {
     const service = new MockStaffOrderService({ latencyMs: 0, now: fixedNow });
     const before = await service.getById("order-2026-0849");
 
@@ -32,7 +45,7 @@ describe("MockStaffOrderService", () => {
     });
   });
 
-  it("rechaza un salto invÃ¡lido sin modificar el pedido", async () => {
+  it("rechaza un salto inválido sin modificar el pedido", async () => {
     const service = new MockStaffOrderService({ latencyMs: 0, now: fixedNow });
     const before = await service.getById("order-2026-0849");
 
@@ -49,7 +62,7 @@ describe("MockStaffOrderService", () => {
     expect(after.statusEvents).toHaveLength(before.statusEvents.length);
   });
 
-  it("exige motivo y audita una cancelaciÃ³n permitida", async () => {
+  it("exige motivo y audita una cancelación permitida", async () => {
     const service = new MockStaffOrderService({ latencyMs: 0, now: fixedNow });
 
     await expect(
@@ -62,19 +75,19 @@ describe("MockStaffOrderService", () => {
 
     const result = await service.cancel({
       orderId: "order-2026-0845",
-      reason: "  Cliente solicitÃ³ anular el retiro.  ",
+      reason: "  Cliente solicitó anular el retiro.  ",
       actor,
     });
 
     expect(result.status).toBe("CANCELLED");
     expect(result.cancellationReason).toBe(
-      "Cliente solicitÃ³ anular el retiro.",
+      "Cliente solicitó anular el retiro.",
     );
     expect(result.statusEvents.at(-1)).toMatchObject({
       fromStatus: "PAID",
       toStatus: "CANCELLED",
       actorId: actor.id,
-      reason: "Cliente solicitÃ³ anular el retiro.",
+      reason: "Cliente solicitó anular el retiro.",
     });
   });
 

@@ -58,6 +58,10 @@ function OrderMobileCard({ order }: Readonly<{ order: StaffOrder }>) {
           </div>
           <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
         </div>
+        <p className="text-sm leading-5 text-ink-700">
+          <span className="font-semibold">Productos:</span>{" "}
+          {order.items.map((item) => `${item.quantity}× ${item.name}`).join(", ")}
+        </p>
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <div>
             <dt className="text-ink-500">Creado</dt>
@@ -108,6 +112,8 @@ export function AdminOrdersPage() {
   const [fulfillmentMethod, setFulfillmentMethod] = useState<
     FulfillmentMethod | "ALL"
   >("ALL");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [sort, setSort] = useState<StaffOrderSort>("QUEUE");
   const [page, setPage] = useState(1);
 
@@ -119,11 +125,13 @@ export function AdminOrdersPage() {
         paymentStatus === "ALL" ? undefined : [paymentStatus],
       fulfillmentMethods:
         fulfillmentMethod === "ALL" ? undefined : [fulfillmentMethod],
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
       sort,
       page,
       pageSize: 8,
     }),
-    [fulfillmentMethod, page, paymentStatus, query, sort, status],
+    [dateFrom, dateTo, fulfillmentMethod, page, paymentStatus, query, sort, status],
   );
   const ordersQuery = useStaffOrders(listParams);
 
@@ -132,6 +140,8 @@ export function AdminOrdersPage() {
     setStatus("ALL");
     setPaymentStatus("ALL");
     setFulfillmentMethod("ALL");
+    setDateFrom("");
+    setDateTo("");
     setSort("QUEUE");
     setPage(1);
   };
@@ -150,7 +160,7 @@ export function AdminOrdersPage() {
       <PageHeader
         eyebrow="Operaciones"
         title="Cola de pedidos"
-        description="Prioriza pagos, preparaciÃ³n y entrega sin saltar etapas del flujo operativo."
+        description="Prioriza pagos, preparación y entrega sin saltar etapas del flujo operativo."
         actions={
           ordersQuery.data ? (
             <Badge tone="info">{ordersQuery.data.totalItems} pedidos</Badge>
@@ -159,7 +169,7 @@ export function AdminOrdersPage() {
       />
 
       <Card className="mt-6">
-        <CardContent className="grid gap-4 pt-5 sm:grid-cols-2 sm:pt-6 xl:grid-cols-5">
+        <CardContent className="grid gap-4 pt-5 sm:grid-cols-2 sm:pt-6 2xl:grid-cols-7">
           <div className="sm:col-span-2 xl:col-span-1">
             <Label htmlFor="staff-order-search">Buscar</Label>
             <div className="relative mt-1.5">
@@ -252,10 +262,38 @@ export function AdminOrdersPage() {
               }}
             >
               <option value="QUEUE">Prioridad operativa</option>
-              <option value="NEWEST">MÃ¡s recientes</option>
-              <option value="OLDEST">MÃ¡s antiguos</option>
+              <option value="NEWEST">Más recientes</option>
+              <option value="OLDEST">Más antiguos</option>
               <option value="TOTAL_DESC">Mayor total</option>
             </select>
+          </div>
+          <div>
+            <Label htmlFor="staff-order-date-from">Desde</Label>
+            <Input
+              id="staff-order-date-from"
+              className="mt-1.5"
+              type="date"
+              max={dateTo || undefined}
+              value={dateFrom}
+              onChange={(event) => {
+                setDateFrom(event.currentTarget.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div>
+            <Label htmlFor="staff-order-date-to">Hasta</Label>
+            <Input
+              id="staff-order-date-to"
+              className="mt-1.5"
+              type="date"
+              min={dateFrom || undefined}
+              value={dateTo}
+              onChange={(event) => {
+                setDateTo(event.currentTarget.value);
+                setPage(1);
+              }}
+            />
           </div>
         </CardContent>
       </Card>
@@ -283,25 +321,26 @@ export function AdminOrdersPage() {
           <EmptyState
             icon={<ClipboardList />}
             title="No hay pedidos para estos filtros"
-            description="Ajusta la bÃºsqueda o restablece los filtros de la cola."
+            description="Ajusta la búsqueda o restablece los filtros de la cola."
             action={<Button onClick={resetFilters}>Limpiar filtros</Button>}
           />
         ) : null}
 
         {ordersQuery.data && ordersQuery.data.items.length > 0 ? (
           <>
-            <div className="space-y-3 md:hidden">
+            <div className="space-y-3 lg:hidden">
               {ordersQuery.data.items.map((order) => (
                 <OrderMobileCard key={order.id} order={order} />
               ))}
             </div>
 
-            <div className="hidden overflow-x-auto rounded-2xl border border-ink-100 bg-white shadow-card md:block">
+            <div data-allow-horizontal-overflow="true" className="hidden overflow-x-auto rounded-2xl border border-ink-100 bg-white shadow-card lg:block">
               <table className="min-w-full divide-y divide-ink-100 text-left text-sm">
                 <thead className="bg-ink-50 text-xs uppercase tracking-wide text-ink-600">
                   <tr>
                     <th scope="col" className="px-4 py-3 font-bold">Pedido</th>
                     <th scope="col" className="px-4 py-3 font-bold">Cliente</th>
+                    <th scope="col" className="px-4 py-3 font-bold">Productos</th>
                     <th scope="col" className="px-4 py-3 font-bold">Estado</th>
                     <th scope="col" className="px-4 py-3 font-bold">Entrega</th>
                     <th scope="col" className="px-4 py-3 text-right font-bold">Total</th>
@@ -320,6 +359,9 @@ export function AdminOrdersPage() {
                         <td className="px-4 py-4">
                           <p className="font-semibold text-ink-800">{order.customer.fullName}</p>
                           <p className="mt-1 text-xs text-ink-500">{order.customer.email}</p>
+                        </td>
+                        <td className="max-w-72 px-4 py-4 text-ink-700">
+                          {order.items.map((item) => `${item.quantity}× ${item.name}`).join(", ")}
                         </td>
                         <td className="px-4 py-4">
                           <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
@@ -349,10 +391,10 @@ export function AdminOrdersPage() {
 
             <nav
               className="mt-5 flex flex-wrap items-center justify-between gap-3"
-              aria-label="PaginaciÃ³n de pedidos"
+              aria-label="Paginación de pedidos"
             >
               <p className="text-sm text-ink-600">
-                PÃ¡gina {ordersQuery.data.page} de {ordersQuery.data.totalPages}
+                Página {ordersQuery.data.page} de {ordersQuery.data.totalPages}
               </p>
               <div className="flex gap-2">
                 <Button

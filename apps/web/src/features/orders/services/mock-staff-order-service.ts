@@ -103,6 +103,12 @@ export class MockStaffOrderService implements StaffOrderService {
     const fulfillmentMethods = params.fulfillmentMethods
       ? new Set(params.fulfillmentMethods)
       : undefined;
+    const fromTime = params.dateFrom
+      ? Date.parse(`${params.dateFrom}T00:00:00.000Z`)
+      : Number.NEGATIVE_INFINITY;
+    const toTime = params.dateTo
+      ? Date.parse(`${params.dateTo}T23:59:59.999Z`)
+      : Number.POSITIVE_INFINITY;
 
     const filtered = this.orders
       .filter((order) => {
@@ -127,6 +133,10 @@ export class MockStaffOrderService implements StaffOrderService {
           !fulfillmentMethods ||
           fulfillmentMethods.has(order.fulfillmentMethod),
       )
+      .filter((order) => {
+        const createdAt = Date.parse(order.createdAt);
+        return createdAt >= fromTime && createdAt <= toTime;
+      })
       .map(cloneStaffOrder);
     const sorted = sortStaffOrders(filtered, params.sort ?? "QUEUE");
     const totalItems = sorted.length;
@@ -202,7 +212,7 @@ export class MockStaffOrderService implements StaffOrderService {
     const reason = input.reason.trim();
     if (reason.length < 5) {
       throw new InvalidOrderCancellationError(
-        "Ingresa un motivo de cancelaciÃ³n de al menos 5 caracteres.",
+        "Ingresa un motivo de cancelación de al menos 5 caracteres.",
       );
     }
 

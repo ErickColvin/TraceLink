@@ -18,13 +18,13 @@ const staffOrderCustomers: Readonly<Record<string, StaffOrderCustomer>> = {
   },
   "customer-matias-soto": {
     id: "customer-matias-soto",
-    fullName: "MatÃ­as Soto",
+    fullName: "Matías Soto",
     email: "matias.soto@example.cl",
     phone: "+56 9 7318 2044",
   },
   "customer-camila-fernandez": {
     id: "customer-camila-fernandez",
-    fullName: "Camila FernÃ¡ndez",
+    fullName: "Camila Fernández",
     email: "camila.fernandez@example.cl",
     phone: "+56 9 8455 9210",
   },
@@ -81,7 +81,7 @@ function buildInitialEvents(order: Order): OrderStatusEvent[] {
     toStatus: status,
     occurredAt: new Date(createdAt + interval * index).toISOString(),
     actorId: index === 0 ? "system-checkout" : "staff-demo",
-    actorName: index === 0 ? "Checkout de demostraciÃ³n" : "Equipo CH Market",
+    actorName: index === 0 ? "Checkout de demostración" : "Equipo CH Market",
     reason:
       status === "CANCELLED"
         ? "Solicitud registrada por el cliente."

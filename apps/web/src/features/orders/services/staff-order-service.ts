@@ -17,7 +17,7 @@ export interface StaffOrderService {
 
 export class StaffOrderNotFoundError extends Error {
   constructor(id: string) {
-    super(`No se encontrÃ³ el pedido operativo '${id}'.`);
+    super(`No se encontró el pedido operativo '${id}'.`);
     this.name = "StaffOrderNotFoundError";
   }
 }

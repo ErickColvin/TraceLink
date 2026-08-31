@@ -44,6 +44,7 @@ export interface Order {
   estimatedReadyAt?: string;
   completedAt?: string;
   pickupLocation?: string;
+  notes?: string;
   packageIds: string[];
 }
 
@@ -104,6 +105,8 @@ export interface StaffOrderListParams {
   statuses?: OrderStatus[];
   paymentStatuses?: PaymentStatus[];
   fulfillmentMethods?: FulfillmentMethod[];
+  dateFrom?: string;
+  dateTo?: string;
   sort?: StaffOrderSort;
   page?: number;
   pageSize?: number;

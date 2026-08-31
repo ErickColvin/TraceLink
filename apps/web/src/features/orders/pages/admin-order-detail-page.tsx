@@ -47,7 +47,7 @@ type MutationFeedback =
 function getErrorMessage(error: unknown): string {
   return error instanceof Error
     ? error.message
-    : "OcurriÃ³ un error inesperado. Intenta nuevamente.";
+    : "Ocurrió un error inesperado. Intenta nuevamente.";
 }
 
 export function AdminOrderDetailPage() {
@@ -133,7 +133,7 @@ export function AdminOrderDetailPage() {
       setFeedback({
         tone: "success",
         title: "Estado actualizado",
-        description: `${updated.orderNumber} avanzÃ³ a ${getOrderStatusMeta(updated.status).label}.`,
+        description: `${updated.orderNumber} avanzó a ${getOrderStatusMeta(updated.status).label}.`,
       });
     } catch (error: unknown) {
       setFeedback({
@@ -166,7 +166,7 @@ export function AdminOrderDetailPage() {
       setFeedback({
         tone: "success",
         title: "Pedido cancelado",
-        description: `La cancelaciÃ³n de ${updated.orderNumber} quedÃ³ registrada en la auditorÃ­a.`,
+        description: `La cancelación de ${updated.orderNumber} quedó registrada en la auditoría.`,
       });
     } catch (error: unknown) {
       setCancelReasonError(getErrorMessage(error));
@@ -186,7 +186,7 @@ export function AdminOrderDetailPage() {
       <PageHeader
         eyebrow="Pedido operativo"
         title={order.orderNumber}
-        description={`Creado el ${formatDateTime(order.createdAt)} Â· Actualizado el ${formatDateTime(order.updatedAt)}`}
+        description={`Creado el ${formatDateTime(order.createdAt)} · Actualizado el ${formatDateTime(order.updatedAt)}`}
         actions={<Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>}
       />
 
@@ -213,7 +213,7 @@ export function AdminOrderDetailPage() {
             <CardContent>
               <p className="text-sm leading-6 text-ink-600">
                 {statusMeta.description} Las acciones disponibles respetan la secuencia
-                Pago pendiente â†’ Pagado â†’ En preparaciÃ³n â†’ Listo â†’ Completado.
+                Pago pendiente → Pagado → En preparación → Listo → Completado.
               </p>
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 {nextStatus ? (
@@ -223,12 +223,12 @@ export function AdminOrderDetailPage() {
                     onClick={() => void handleTransition()}
                   >
                     {transitionMutation.isPending
-                      ? "Actualizandoâ€¦"
+                      ? "Actualizando…"
                       : `Avanzar a ${getOrderStatusMeta(nextStatus).label}`}
                   </Button>
                 ) : (
                   <p className="rounded-xl bg-ink-50 px-4 py-3 text-sm font-semibold text-ink-700">
-                    Este estado no tiene una transiciÃ³n operativa posterior.
+                    Este estado no tiene una transición operativa posterior.
                   </p>
                 )}
                 {canCancelOrder(order.status) ? (
@@ -253,7 +253,7 @@ export function AdminOrderDetailPage() {
               ) : null}
               {order.cancellationReason ? (
                 <Alert className="mt-5" tone="warning">
-                  <AlertTitle>Motivo de cancelaciÃ³n</AlertTitle>
+                  <AlertTitle>Motivo de cancelación</AlertTitle>
                   <AlertDescription>{order.cancellationReason}</AlertDescription>
                 </Alert>
               ) : null}
@@ -273,7 +273,7 @@ export function AdminOrderDetailPage() {
                   <div>
                     <p className="font-bold text-ink-950">{item.name}</p>
                     <p className="mt-1 text-xs text-ink-500">
-                      SKU {item.sku} Â· {item.quantity} Ã— {formatClp(item.unitPrice)}
+                      SKU {item.sku} · {item.quantity} × {formatClp(item.unitPrice)}
                     </p>
                   </div>
                   <p className="font-extrabold text-ink-900">
@@ -286,7 +286,18 @@ export function AdminOrderDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>AuditorÃ­a de estados</CardTitle>
+              <CardTitle>Notas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm leading-6 text-ink-600">
+                {order.notes ?? "Este pedido no tiene notas registradas."}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Auditoría de estados</CardTitle>
             </CardHeader>
             <CardContent>
               <ol className="space-y-0" aria-label="Eventos del pedido">
@@ -366,12 +377,15 @@ export function AdminOrderDetailPage() {
                 <span>Descuento</span><span>-{formatClp(order.discountTotal)}</span>
               </div>
               <div className="flex justify-between gap-4 text-ink-600">
-                <span>Entrega</span><span>{formatClp(order.deliveryFee)}</span>
+                <span>Costo de entrega</span><span>{formatClp(order.deliveryFee)}</span>
               </div>
               <div className="flex justify-between gap-4 border-t border-ink-100 pt-4 text-base font-extrabold text-ink-950">
                 <span>Total</span><span>{formatClp(order.total)}</span>
               </div>
               <div className="border-t border-ink-100 pt-4 text-ink-600">
+                Modalidad: {order.fulfillmentMethod === "PICKUP" ? "Retiro" : "Despacho"}
+              </div>
+              <div className="text-ink-600">
                 Pago: {order.paymentStatus === "PAID" ? "Pagado" : order.paymentStatus === "REFUNDED" ? "Reembolsado" : "Pendiente"}
               </div>
             </CardContent>
@@ -394,8 +408,8 @@ export function AdminOrderDetailPage() {
       <ConfirmationDialog
         open={cancelDialogOpen}
         title={`Cancelar ${order.orderNumber}`}
-        description="Esta acciÃ³n detiene el flujo del pedido y quedarÃ¡ registrada con tu identidad."
-        confirmLabel="Confirmar cancelaciÃ³n"
+        description="Esta acción detiene el flujo del pedido y quedará registrada con tu identidad."
+        confirmLabel="Confirmar cancelación"
         cancelLabel="Conservar pedido"
         pending={cancelMutation.isPending}
         tone="danger"
@@ -409,7 +423,7 @@ export function AdminOrderDetailPage() {
           }
         }}
       >
-        <Label htmlFor="order-cancellation-reason">Motivo de cancelaciÃ³n</Label>
+        <Label htmlFor="order-cancellation-reason">Motivo de cancelación</Label>
         <textarea
           id="order-cancellation-reason"
           rows={4}
@@ -418,7 +432,7 @@ export function AdminOrderDetailPage() {
           aria-invalid={Boolean(cancelReasonError)}
           aria-describedby={cancelReasonError ? "order-cancellation-error" : undefined}
           className="mt-1.5 w-full resize-y rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-60"
-          placeholder="Ej.: cliente solicitÃ³ anular antes de la preparaciÃ³n"
+          placeholder="Ej.: cliente solicitó anular antes de la preparación"
           onChange={(event) => {
             setCancelReason(event.target.value);
             if (cancelReasonError) setCancelReasonError(null);
