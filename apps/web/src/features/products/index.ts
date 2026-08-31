@@ -7,9 +7,3 @@ export {
   ProductNotFoundError,
   ProductStateError,
 } from "./services/product-service";
-export {
-  AdminProductCreatePage,
-  AdminProductDetailPage,
-  AdminProductEditPage,
-  AdminProductsPage,
-} from "./pages/admin-products-pages";

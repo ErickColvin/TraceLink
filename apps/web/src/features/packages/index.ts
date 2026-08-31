@@ -1,9 +1,6 @@
 export * from "./domain";
 export * from "./queries/package-queries";
 export * from "./queries/staff-package-queries";
-export { AdminPackageCreatePage } from "./pages/admin-package-create-page";
-export { AdminPackageDetailPage } from "./pages/admin-package-detail-page";
-export { AdminPackagesPage } from "./pages/admin-packages-page";
 export * from "./schemas/package-receipt-schema";
 export * from "./workflow/package-workflow";
 export { packageService, staffPackageService } from "./services";

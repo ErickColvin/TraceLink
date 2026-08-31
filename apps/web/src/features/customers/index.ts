@@ -14,6 +14,3 @@ export {
   CustomerConflictError,
   CustomerNotFoundError,
 } from "./services/customer-service";
-export { AdminCustomerDetailPage } from "./pages/admin-customer-detail-page";
-export { AdminCustomersPage } from "./pages/admin-customers-page";
-export { CustomerProfilePage } from "./pages/customer-profile-page";
