@@ -7,6 +7,7 @@ import { ContactPage } from "@/features/content/pages/contact-page";
 import { NotFoundPage } from "@/features/content/pages/not-found-page";
 import { CustomerHomePage } from "@/features/customers/pages/customer-home-page";
 import { CustomerProfilePage } from "@/features/customers/pages/customer-profile-page";
+import { AdminCustomerDetailPage, AdminCustomersPage } from "@/features/customers";
 import { AdminComingSoonPage } from "@/features/dashboard/pages/admin-coming-soon-page";
 import { AdminDashboardPage } from "@/features/dashboard/pages/admin-dashboard-page";
 import { AdminInventoryMovementsPage, AdminInventoryPage } from "@/features/inventory";
@@ -16,6 +17,11 @@ import { AdminOrderDetailPage } from "@/features/orders/pages/admin-order-detail
 import { AdminOrdersPage } from "@/features/orders/pages/admin-orders-page";
 import { CustomerPackageDetailPage } from "@/features/packages/pages/customer-package-detail-page";
 import { CustomerPackagesPage } from "@/features/packages/pages/customer-packages-page";
+import {
+  AdminPackageCreatePage,
+  AdminPackageDetailPage,
+  AdminPackagesPage,
+} from "@/features/packages";
 import { CatalogPage } from "@/features/products/pages/catalog-page";
 import { HomePage } from "@/features/products/pages/home-page";
 import { ProductDetailPage } from "@/features/products/pages/product-detail-page";
@@ -85,10 +91,15 @@ export function AppRouter() {
             <Route path="orders/:id" element={<AdminOrderDetailPage />} />
           </Route>
           <Route element={<StaffRoute permission="packages.view" />}>
-            <Route path="packages/*" element={<AdminComingSoonPage title="Paquetes" description="Recepción, almacenamiento, trazabilidad y entrega." />} />
+            <Route path="packages" element={<AdminPackagesPage />} />
+            <Route element={<StaffRoute permission="packages.receive" />}>
+              <Route path="packages/new" element={<AdminPackageCreatePage />} />
+            </Route>
+            <Route path="packages/:id" element={<AdminPackageDetailPage />} />
           </Route>
           <Route element={<StaffRoute permission="customers.view" />}>
-            <Route path="customers" element={<AdminComingSoonPage title="Clientes" description="Gestión operacional de clientes con acceso autorizado." />} />
+            <Route path="customers" element={<AdminCustomersPage />} />
+            <Route path="customers/:id" element={<AdminCustomerDetailPage />} />
           </Route>
           <Route element={<StaffRoute permission="users.view" />}>
             <Route path="users" element={<AdminUsersPage />} />
