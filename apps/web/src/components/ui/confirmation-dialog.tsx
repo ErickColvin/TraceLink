@@ -49,6 +49,13 @@ export function ConfirmationDialog({
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const onOpenChangeRef = useRef(onOpenChange);
+  const pendingRef = useRef(pending);
+
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+    pendingRef.current = pending;
+  }, [onOpenChange, pending]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -61,9 +68,9 @@ export function ConfirmationDialog({
     window.requestAnimationFrame(() => cancelButtonRef.current?.focus());
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !pending) {
+      if (event.key === "Escape" && !pendingRef.current) {
         event.preventDefault();
-        onOpenChange(false);
+        onOpenChangeRef.current(false);
         return;
       }
 
@@ -89,7 +96,7 @@ export function ConfirmationDialog({
       window.removeEventListener("keydown", handleKeyDown);
       window.requestAnimationFrame(() => returnFocusRef.current?.focus());
     };
-  }, [onOpenChange, open, pending]);
+  }, [open]);
 
   if (!open) return null;
 
