@@ -67,5 +67,9 @@ export const mockDashboardOverview = {
       orderNumber: "CH-2026-0837",
     },
   ],
+  thresholds: {
+    expirationWarningDays: 14,
+    packageAlertDays: 2,
+  },
   generatedAt: "2026-08-29T15:00:00.000Z",
 } satisfies DashboardOverview;

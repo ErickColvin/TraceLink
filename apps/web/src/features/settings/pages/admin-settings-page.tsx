@@ -39,6 +39,7 @@ export function AdminSettingsPage() {
       pickupAddress: settingsQuery.data.pickupAddress,
       pickupInstructions: settingsQuery.data.pickupInstructions,
       lowStockThreshold: settingsQuery.data.lowStockThreshold,
+      packageAlertDays: settingsQuery.data.packageAlertDays,
       expirationWarningDays: settingsQuery.data.expirationWarningDays,
     });
   }, [reset, settingsQuery.data]);
@@ -106,6 +107,7 @@ export function AdminSettingsPage() {
           <CardHeader><CardTitle>Umbrales operativos</CardTitle></CardHeader>
           <CardContent className="grid gap-5 md:grid-cols-2">
             <div><Label htmlFor="settings-low-stock">Stock bajo general</Label><Input id="settings-low-stock" type="number" min={0} disabled={updateSettings.isPending} aria-invalid={Boolean(errors.lowStockThreshold)} {...register("lowStockThreshold", { valueAsNumber: true })} /><FieldError id="settings-low-stock-error" message={errors.lowStockThreshold?.message} /></div>
+            <div><Label htmlFor="settings-package-alert">Paquete almacenado (días)</Label><Input id="settings-package-alert" type="number" min={1} disabled={updateSettings.isPending} aria-invalid={Boolean(errors.packageAlertDays)} {...register("packageAlertDays", { valueAsNumber: true })} /><FieldError id="settings-package-alert-error" message={errors.packageAlertDays?.message} /></div>
             <div><Label htmlFor="settings-expiration">Aviso de vencimiento (días)</Label><Input id="settings-expiration" type="number" min={1} disabled={updateSettings.isPending} aria-invalid={Boolean(errors.expirationWarningDays)} {...register("expirationWarningDays", { valueAsNumber: true })} /><FieldError id="settings-expiration-error" message={errors.expirationWarningDays?.message} /></div>
           </CardContent>
         </Card>

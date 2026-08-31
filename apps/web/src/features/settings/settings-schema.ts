@@ -10,6 +10,7 @@ export const settingsSchema = z.object({
   pickupAddress: z.string().trim().min(8, "Ingresa la dirección de retiro."),
   pickupInstructions: z.string().trim().min(10, "Agrega instrucciones claras de retiro.").max(500),
   lowStockThreshold: z.number().int().min(0).max(10_000),
+  packageAlertDays: z.number().int().min(1).max(365),
   expirationWarningDays: z.number().int().min(1).max(365),
 });
 

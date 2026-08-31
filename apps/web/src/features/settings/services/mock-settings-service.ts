@@ -14,6 +14,7 @@ const initialSettings: OrganizationSettings = {
   pickupAddress: `${tenantBrand.serviceArea} (dirección demo)`,
   pickupInstructions: "Presenta la confirmación del pedido y espera la validación del personal.",
   lowStockThreshold: 8,
+  packageAlertDays: 2,
   expirationWarningDays: 14,
   updatedAt: "2026-08-29T18:00:00.000Z",
 };

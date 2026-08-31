@@ -21,8 +21,9 @@ export function useUpdateSettings() {
 
   return useMutation({
     mutationFn: (input: UpdateOrganizationSettingsInput) => settingsService.update(input),
-    onSuccess: (settings) => {
+    onSuccess: async (settings) => {
       queryClient.setQueryData(settingsKeys.detail(), settings);
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }

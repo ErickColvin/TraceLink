@@ -4,7 +4,9 @@ import type { InventoryService } from "@/features/inventory/services/inventory-s
 import type { OrderStatus, StaffOrder } from "@/features/orders/domain";
 import type { StaffOrderService } from "@/features/orders/services/staff-order-service";
 import type { PackageStatus, StaffPackage } from "@/features/packages/domain";
+import { getPackageStorageDuration } from "@/features/packages/presentation/package-storage-duration";
 import type { StaffPackageService } from "@/features/packages/services/staff-package-service";
+import type { SettingsService } from "@/features/settings/services/settings-service";
 import { delay } from "@/lib/delay";
 
 import type {
@@ -15,7 +17,7 @@ import type {
 import type { DashboardService } from "./dashboard-service";
 
 const MAX_OPERATIONAL_RECORDS = 10_000;
-const EXPIRING_SOON_DAYS = 14;
+const DAY_MS = 24 * 60 * 60 * 1_000;
 
 const PENDING_ORDER_STATUSES = new Set<OrderStatus>([
   "PENDING_PAYMENT",
@@ -35,6 +37,7 @@ export type MockDashboardServiceDependencies = Readonly<{
   inventoryService: InventoryService;
   staffOrderService: StaffOrderService;
   staffPackageService: StaffPackageService;
+  settingsService: SettingsService;
 }>;
 
 export type MockDashboardServiceOptions = Readonly<{
@@ -99,13 +102,14 @@ function buildTrend(
 function isExpiringSoon(
   item: InventoryItem,
   currentDateKey: string,
+  expirationWarningDays: number,
 ): boolean {
   if (!item.expiresAt || item.status === "EXPIRED") return false;
 
   const expiryDateKey = calendarDateKey(item.expiresAt);
   return (
     expiryDateKey >= currentDateKey &&
-    expiryDateKey <= addCalendarDays(currentDateKey, EXPIRING_SOON_DAYS)
+    expiryDateKey <= addCalendarDays(currentDateKey, expirationWarningDays)
   );
 }
 
@@ -134,7 +138,7 @@ function buildInventoryAlerts(
     title: "Lote próximo a vencer",
     message: `${item.productName} requiere revisión de vencimiento.`,
     occurredAt: item.updatedAt,
-    href: "/app/inventory?expiry=EXPIRING",
+    href: "/app/inventory?expiry=WITH_EXPIRY",
     inventoryItemId: item.id,
     batch: item.batch ?? "Sin lote registrado",
     expiresAt: item.expiresAt ?? item.updatedAt,
@@ -143,8 +147,12 @@ function buildInventoryAlerts(
   return [...stockAlerts, ...expiryAlerts];
 }
 
-function buildPackageAlerts(packages: readonly StaffPackage[]): DashboardAlert[] {
-  return packages
+function buildPackageAlerts(
+  packages: readonly StaffPackage[],
+  currentTime: number,
+  packageAlertDays: number,
+): DashboardAlert[] {
+  const incidentAlerts = packages
     .filter((customerPackage) => PACKAGE_ALERT_STATUSES.has(customerPackage.status))
     .map((customerPackage) => {
       const latestEvent = customerPackage.events.at(-1);
@@ -166,6 +174,35 @@ function buildPackageAlerts(packages: readonly StaffPackage[]): DashboardAlert[]
         trackingCode: customerPackage.trackingCode,
       } satisfies DashboardAlert;
     });
+  const storageThreshold = packageAlertDays * DAY_MS;
+  const storageAlerts = packages
+    .filter((customerPackage) => customerPackage.status === "STORED")
+    .flatMap((customerPackage) => {
+      const storageDuration = getPackageStorageDuration(
+        customerPackage,
+        currentTime,
+      );
+      if (!storageDuration || storageDuration.milliseconds < storageThreshold) {
+        return [];
+      }
+
+      const { days: daysStored, storedSince } = storageDuration;
+      return [{
+        id: `dashboard-package-storage-${customerPackage.id}`,
+        type: "PACKAGE_STORED_TOO_LONG",
+        severity: "WARNING",
+        title: "Paquete almacenado por demasiado tiempo",
+        message: `${customerPackage.trackingCode} lleva ${daysStored} días en custodia.`,
+        occurredAt: storedSince,
+        href: `/app/packages?status=STORED&tracking=${encodeURIComponent(customerPackage.trackingCode)}`,
+        packageId: customerPackage.id,
+        trackingCode: customerPackage.trackingCode,
+        storedSince,
+        daysStored,
+      } satisfies DashboardAlert];
+    });
+
+  return [...incidentAlerts, ...storageAlerts];
 }
 
 function buildDelayedOrderAlerts(
@@ -230,7 +267,7 @@ export class MockDashboardService implements DashboardService {
 
   async getOverview(): Promise<DashboardOverview> {
     await delay(this.latencyMs);
-    const [inventoryPage, orderPage, packagePage] = await Promise.all([
+    const [inventoryPage, orderPage, packagePage, settings] = await Promise.all([
       this.dependencies.inventoryService.list({
         page: 1,
         pageSize: MAX_OPERATIONAL_RECORDS,
@@ -245,6 +282,7 @@ export class MockDashboardService implements DashboardService {
         pageSize: MAX_OPERATIONAL_RECORDS,
         sort: "NEWEST",
       }),
+      this.dependencies.settingsService.get(),
     ]);
     const now = this.now();
     const currentDateKey = calendarDateKey(now);
@@ -255,14 +293,22 @@ export class MockDashboardService implements DashboardService {
       (item) => item.status === "LOW" || item.status === "OUT",
     );
     const expiringItems = inventoryItems.filter((item) =>
-      isExpiringSoon(item, currentDateKey),
+      isExpiringSoon(
+        item,
+        currentDateKey,
+        settings.expirationWarningDays,
+      ),
     );
     const ordersToday = orders.filter(
       (order) => calendarDateKey(order.createdAt) === currentDateKey,
     );
     const alerts = sortAlerts([
       ...buildInventoryAlerts(criticalItems, expiringItems),
-      ...buildPackageAlerts(packages),
+      ...buildPackageAlerts(
+        packages,
+        now.getTime(),
+        settings.packageAlertDays,
+      ),
       ...buildDelayedOrderAlerts(orders, now.getTime()),
     ]);
 
@@ -283,6 +329,10 @@ export class MockDashboardService implements DashboardService {
       },
       salesTrend: buildTrend(orders, currentDateKey),
       alerts,
+      thresholds: {
+        expirationWarningDays: settings.expirationWarningDays,
+        packageAlertDays: settings.packageAlertDays,
+      },
       generatedAt: now.toISOString(),
     };
   }

@@ -22,7 +22,7 @@ export function AdminDashboardPage() {
     return <ErrorState title="No pudimos cargar el dashboard" description="Los indicadores operativos no están disponibles en este momento." action={<Button onClick={() => void dashboardQuery.refetch()}>Reintentar</Button>} />;
   }
 
-  const { alerts, generatedAt, kpis, salesTrend } = dashboardQuery.data;
+  const { alerts, generatedAt, kpis, salesTrend, thresholds } = dashboardQuery.data;
   const maxSales = Math.max(1, ...salesTrend.map((point) => point.salesClp));
   const metrics = [
     { label: "Ventas hoy", value: formatClp(kpis.salesTodayClp), helper: "Total confirmado", icon: DollarSign, tone: "bg-brand-700 text-white" },
@@ -30,7 +30,7 @@ export function AdminDashboardPage() {
     { label: "Pedidos pendientes", value: String(kpis.pendingOrders), helper: "Requieren acción", icon: ClipboardList, tone: "bg-coral-50 text-coral-700" },
     { label: "Paquetes almacenados", value: String(kpis.storedPackages), helper: "En custodia", icon: PackageSearch, tone: "bg-brand-50 text-brand-700" },
     { label: "Stock crítico", value: String(kpis.criticalStockItems), helper: "Bajo mínimo", icon: Box, tone: "bg-coral-50 text-coral-700" },
-    { label: "Próximos a vencer", value: String(kpis.expiringSoonItems), helper: "Dentro de 14 días", icon: CalendarClock, tone: "bg-coral-50 text-coral-700" },
+    { label: "Próximos a vencer", value: String(kpis.expiringSoonItems), helper: `Dentro de ${thresholds.expirationWarningDays} días`, icon: CalendarClock, tone: "bg-coral-50 text-coral-700" },
   ] as const;
 
   return (

@@ -8,6 +8,7 @@ export type OrganizationSettings = {
   pickupAddress: string;
   pickupInstructions: string;
   lowStockThreshold: number;
+  packageAlertDays: number;
   expirationWarningDays: number;
   updatedAt: string;
 };

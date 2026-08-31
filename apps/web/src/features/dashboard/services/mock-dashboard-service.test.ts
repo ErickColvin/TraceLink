@@ -9,6 +9,7 @@ import {
   mockStaffPackages,
 } from "@/features/packages/data/mock-staff-packages";
 import { MockStaffPackageService } from "@/features/packages/services/mock-staff-package-service";
+import { MockSettingsService } from "@/features/settings/services/mock-settings-service";
 import { describe, expect, it } from "vitest";
 
 import { MockDashboardService } from "./mock-dashboard-service";
@@ -21,6 +22,7 @@ function createDashboardService() {
       inventoryService: new MockInventoryService(
         mockInventoryItems,
         mockInventoryMovements,
+        () => FIXED_NOW,
       ),
       staffOrderService: new MockStaffOrderService({
         latencyMs: 0,
@@ -30,6 +32,7 @@ function createDashboardService() {
         latencyMs: 0,
         now: () => FIXED_NOW,
       }),
+      settingsService: new MockSettingsService(),
     },
     { latencyMs: 0, now: () => FIXED_NOW },
   );
@@ -64,12 +67,17 @@ describe("MockDashboardService", () => {
         expect.objectContaining({
           type: "EXPIRING_BATCH",
           inventoryItemId: "inventory-jugo-l1808",
-          href: "/app/inventory?expiry=EXPIRING",
+          href: "/app/inventory?expiry=WITH_EXPIRY",
         }),
         expect.objectContaining({
           type: "PACKAGE_INCIDENT",
           packageId: "package-ch-38107",
           href: "/app/packages?status=INCIDENT&search=CHM-38107-CL",
+        }),
+        expect.objectContaining({
+          type: "PACKAGE_STORED_TOO_LONG",
+          packageId: "package-ch-40991",
+          href: "/app/packages?status=STORED&tracking=CHM-40991-CL",
         }),
         expect.objectContaining({
           type: "DELAYED_ORDER",
@@ -148,7 +156,12 @@ describe("MockDashboardService", () => {
       now: () => FIXED_NOW,
     });
     const dashboardService = new MockDashboardService(
-      { inventoryService, staffOrderService, staffPackageService },
+      {
+        inventoryService,
+        staffOrderService,
+        staffPackageService,
+        settingsService: new MockSettingsService(),
+      },
       { latencyMs: 0, now: () => FIXED_NOW },
     );
 
@@ -216,6 +229,7 @@ describe("MockDashboardService", () => {
           seed: mockStaffPackages.slice(0, 0),
           latencyMs: 0,
         }),
+        settingsService: new MockSettingsService(),
       },
       { latencyMs: 0, now: () => FIXED_NOW },
     );
