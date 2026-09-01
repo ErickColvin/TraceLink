@@ -3,10 +3,6 @@
 // Prisma 8 RC data contract for the authoritative TraceLink PostgreSQL model.
 // Connection details live in prisma.config.ts, never in this contract.
 
-types {
-  Uuid = String @db.Uuid
-}
-
 enum UserStatus {
   @@type("pg/text@1")
   ACTIVE
@@ -95,14 +91,14 @@ enum IdempotencyStatus {
 
 model Organization {
   id        Uuid     @id @default(dbgenerated("gen_random_uuid()"))
-  name      String   @db.VarChar(160)
-  slug      String   @unique(map: "organization_slug_key") @db.VarChar(80)
-  locale    String   @default("es-CL") @db.VarChar(20)
-  currency  String   @default("CLP") @db.VarChar(3)
-  timezone  String   @default("America/Santiago") @db.VarChar(80)
+  name      VarChar(160)
+  slug      VarChar(80)   @unique(map: "organization_slug_key")
+  locale    VarChar(20)   @default("es-CL")
+  currency  VarChar(3)   @default("CLP")
+  timezone  VarChar(80)   @default("America/Santiago")
   active    Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt Timestamptz(3) @default(now()) @map("created_at")
+  updatedAt temporal.updatedAt() @map("updated_at")
 
   roles                Role[]
   memberships          Membership[]
@@ -125,19 +121,19 @@ model Organization {
   auditLogs            AuditLog[]
   idempotencyRecords   IdempotencyRecord[]
 
-  @@check(expression: "char_length(btrim(\"name\")) > 0 AND \"slug\" = lower(btrim(\"slug\")) AND char_length(\"currency\") = 3", map: "organization_identity_valid")
+  @@check(expression: "char_length(btrim(\"name\")) > 0 AND \"slug\" = lower(btrim(\"slug\")) AND char_length(\"currency\") = 3", name: "organization_identity_valid")
   @@map("organizations")
 }
 
 model User {
   id              Uuid       @id @default(dbgenerated("gen_random_uuid()"))
-  email           String     @db.VarChar(320)
-  emailNormalized String     @unique(map: "user_email_normalized_key") @map("email_normalized") @db.VarChar(320)
-  passwordHash    String     @map("password_hash") @db.VarChar(512)
+  email           VarChar(320)
+  emailNormalized VarChar(320)     @unique(map: "user_email_normalized_key") @map("email_normalized")
+  passwordHash    VarChar(512)     @map("password_hash")
   status          UserStatus @default(ACTIVE)
-  emailVerifiedAt DateTime?  @map("email_verified_at") @db.Timestamptz(3)
-  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  emailVerifiedAt Timestamptz(3)?  @map("email_verified_at")
+  createdAt       Timestamptz(3)   @default(now()) @map("created_at")
+  updatedAt       temporal.updatedAt() @map("updated_at")
 
   memberships          Membership[]
   customers            Customer[]
@@ -150,7 +146,7 @@ model User {
   auditLogs            AuditLog[] @relation("AuditActor")
   idempotencyRecords   IdempotencyRecord[] @relation("IdempotencyActor")
 
-  @@check(expression: "\"email_normalized\" = lower(btrim(\"email_normalized\")) AND char_length(\"password_hash\") > 0", map: "user_identity_valid")
+  @@check(expression: "\"email_normalized\" = lower(btrim(\"email_normalized\")) AND char_length(\"password_hash\") > 0", name: "user_identity_valid")
   @@index([status], map: "user_status_idx")
   @@map("users")
 }
@@ -158,12 +154,12 @@ model User {
 model Role {
   id             Uuid     @id @default(dbgenerated("gen_random_uuid()"))
   organizationId Uuid     @map("organization_id")
-  code           String   @db.VarChar(80)
-  label          String   @db.VarChar(120)
-  description    String?  @db.Text
+  code           VarChar(80)
+  label          VarChar(120)
+  description    String?
   system         Boolean  @default(false)
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt      Timestamptz(3) @default(now()) @map("created_at")
+  updatedAt      temporal.updatedAt() @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "role_organization_fkey")
   memberships Membership[]
@@ -171,27 +167,27 @@ model Role {
 
   @@unique([organizationId, id], map: "role_tenant_id_key")
   @@unique([organizationId, code], map: "role_tenant_code_key")
-  @@check(expression: "char_length(btrim(\"code\")) > 0 AND char_length(btrim(\"label\")) > 0", map: "role_identity_valid")
+  @@check(expression: "char_length(btrim(\"code\")) > 0 AND char_length(btrim(\"label\")) > 0", name: "role_identity_valid")
   @@index([organizationId], map: "role_organization_idx")
   @@map("roles")
 }
 
 model Permission {
-  key         String   @id @db.VarChar(120)
-  description String?  @db.VarChar(240)
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  key         VarChar(120)   @id
+  description VarChar(240)?
+  createdAt   Timestamptz(3) @default(now()) @map("created_at")
 
   roles RolePermission[]
 
-  @@check(expression: "\"key\" ~ '^[a-z][a-z0-9_-]*\\.[a-z][a-z0-9_-]*$'", map: "permission_key_valid")
+  @@check(expression: "\"key\" ~ '^[a-z][a-z0-9_-]*\\.[a-z][a-z0-9_-]*$'", name: "permission_key_valid")
   @@map("permissions")
 }
 
 model RolePermission {
   organizationId Uuid     @map("organization_id")
   roleId         Uuid     @map("role_id")
-  permissionKey  String   @map("permission_key") @db.VarChar(120)
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  permissionKey  VarChar(120)   @map("permission_key")
+  createdAt      Timestamptz(3) @default(now()) @map("created_at")
 
   role       Role       @relation(fields: [organizationId, roleId], references: [organizationId, id], onDelete: Cascade, map: "role_permission_role_fkey")
   permission Permission @relation(fields: [permissionKey], references: [key], onDelete: Restrict, map: "role_permission_permission_fkey")
@@ -207,8 +203,8 @@ model Membership {
   userId         Uuid             @map("user_id")
   roleId         Uuid             @map("role_id")
   status         MembershipStatus @default(ACTIVE)
-  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt      Timestamptz(3)         @default(now()) @map("created_at")
+  updatedAt      temporal.updatedAt() @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "membership_organization_fkey")
   user         User         @relation(fields: [userId], references: [id], onDelete: Restrict, map: "membership_user_fkey")
@@ -226,20 +222,20 @@ model Customer {
   id              Uuid           @id @default(dbgenerated("gen_random_uuid()"))
   organizationId  Uuid           @map("organization_id")
   userId          Uuid?          @map("user_id")
-  firstName       String         @map("first_name") @db.VarChar(100)
-  lastName        String         @map("last_name") @db.VarChar(100)
-  email           String         @db.VarChar(320)
-  emailNormalized String         @map("email_normalized") @db.VarChar(320)
-  phone           String?        @db.VarChar(40)
-  taxId           String?        @map("tax_id") @db.VarChar(40)
-  addressLine1    String?        @map("address_line_1") @db.VarChar(240)
-  addressLine2    String?        @map("address_line_2") @db.VarChar(240)
-  commune         String?        @db.VarChar(120)
-  city            String?        @db.VarChar(120)
-  region          String?        @db.VarChar(120)
+  firstName       VarChar(100)         @map("first_name")
+  lastName        VarChar(100)         @map("last_name")
+  email           VarChar(320)
+  emailNormalized VarChar(320)         @map("email_normalized")
+  phone           VarChar(40)?
+  taxId           VarChar(40)?        @map("tax_id")
+  addressLine1    VarChar(240)?        @map("address_line_1")
+  addressLine2    VarChar(240)?        @map("address_line_2")
+  commune         VarChar(120)?
+  city            VarChar(120)?
+  region          VarChar(120)?
   status          CustomerStatus @default(ACTIVE)
-  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt       Timestamptz(3)       @default(now()) @map("created_at")
+  updatedAt       temporal.updatedAt() @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "customer_organization_fkey")
   user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull, map: "customer_user_fkey")
@@ -251,7 +247,7 @@ model Customer {
   @@unique([organizationId, emailNormalized], map: "customer_tenant_email_key")
   @@index([organizationId, status, createdAt], map: "customer_tenant_status_created_idx")
   @@index([userId], map: "customer_user_idx")
-  @@check(expression: "char_length(btrim(\"first_name\")) > 0 AND char_length(btrim(\"last_name\")) > 0 AND \"email_normalized\" = lower(btrim(\"email_normalized\"))", map: "customer_identity_valid")
+  @@check(expression: "char_length(btrim(\"first_name\")) > 0 AND char_length(btrim(\"last_name\")) > 0 AND \"email_normalized\" = lower(btrim(\"email_normalized\"))", name: "customer_identity_valid")
   @@map("customers")
 }
 
@@ -263,18 +259,18 @@ model Session {
   membershipId     Uuid?        @map("membership_id")
   customerId       Uuid?        @map("customer_id")
   tokenHash        Bytes        @unique(map: "session_token_hash_key") @map("token_hash")
-  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
-  expiresAt        DateTime     @map("expires_at") @db.Timestamptz(3)
-  lastSeenAt       DateTime     @default(now()) @map("last_seen_at") @db.Timestamptz(3)
-  revokedAt        DateTime?    @map("revoked_at") @db.Timestamptz(3)
-  revocationReason String?      @map("revocation_reason") @db.VarChar(160)
+  createdAt        Timestamptz(3)     @default(now()) @map("created_at")
+  expiresAt        Timestamptz(3)     @map("expires_at")
+  lastSeenAt       Timestamptz(3)     @default(now()) @map("last_seen_at")
+  revokedAt        Timestamptz(3)?    @map("revoked_at")
+  revocationReason VarChar(160)?      @map("revocation_reason")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "session_organization_fkey")
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade, map: "session_user_fkey")
   membership   Membership?  @relation(fields: [organizationId, membershipId], references: [organizationId, id], onDelete: Restrict, map: "session_membership_fkey")
   customer     Customer?    @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: Restrict, map: "session_customer_fkey")
 
-  @@check(expression: "octet_length(\"token_hash\") = 32 AND \"expires_at\" > \"created_at\" AND ((\"audience\" = 'STAFF' AND \"membership_id\" IS NOT NULL AND \"customer_id\" IS NULL) OR (\"audience\" = 'CUSTOMER' AND \"customer_id\" IS NOT NULL AND \"membership_id\" IS NULL))", map: "session_context_valid")
+  @@check(expression: "octet_length(\"token_hash\") = 32 AND \"expires_at\" > \"created_at\" AND ((\"audience\" = 'STAFF' AND \"membership_id\" IS NOT NULL AND \"customer_id\" IS NULL) OR (\"audience\" = 'CUSTOMER' AND \"customer_id\" IS NOT NULL AND \"membership_id\" IS NULL))", name: "session_context_valid")
   @@index([userId, revokedAt, expiresAt], map: "session_user_validity_idx")
   @@index([organizationId, audience, expiresAt], map: "session_tenant_audience_idx")
   @@map("sessions")
@@ -283,20 +279,20 @@ model Session {
 model Category {
   id             Uuid     @id @default(dbgenerated("gen_random_uuid()"))
   organizationId Uuid     @map("organization_id")
-  slug           String   @db.VarChar(100)
-  name           String   @db.VarChar(140)
-  description    String?  @db.Text
-  imageUrl       String?  @map("image_url") @db.VarChar(2048)
+  slug           VarChar(100)
+  name           VarChar(140)
+  description    String?
+  imageUrl       VarChar(2048)?  @map("image_url")
   active         Boolean  @default(true)
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt      Timestamptz(3) @default(now()) @map("created_at")
+  updatedAt      temporal.updatedAt() @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "category_organization_fkey")
   products     Product[]
 
   @@unique([organizationId, id], map: "category_tenant_id_key")
   @@unique([organizationId, slug], map: "category_tenant_slug_key")
-  @@check(expression: "\"slug\" = lower(btrim(\"slug\")) AND char_length(btrim(\"name\")) > 0", map: "category_identity_valid")
+  @@check(expression: "\"slug\" = lower(btrim(\"slug\")) AND char_length(btrim(\"name\")) > 0", name: "category_identity_valid")
   @@index([organizationId, active], map: "category_tenant_active_idx")
   @@map("categories")
 }
@@ -305,20 +301,20 @@ model Product {
   id             Uuid     @id @default(dbgenerated("gen_random_uuid()"))
   organizationId Uuid     @map("organization_id")
   categoryId     Uuid     @map("category_id")
-  sku            String   @db.VarChar(100)
-  barcode        String?  @db.VarChar(100)
-  slug           String   @db.VarChar(160)
-  name           String   @db.VarChar(200)
-  description    String?  @db.Text
-  brand          String?  @db.VarChar(160)
+  sku            VarChar(100)
+  barcode        VarChar(100)?
+  slug           VarChar(160)
+  name           VarChar(200)
+  description    String?
+  brand          VarChar(160)?
   salePrice      Int      @map("sale_price")
   minimumStock   Int      @default(0) @map("minimum_stock")
-  imageUrl       String?  @map("image_url") @db.VarChar(2048)
+  imageUrl       VarChar(2048)?  @map("image_url")
   published      Boolean  @default(false)
   active         Boolean  @default(true)
   featured       Boolean  @default(false)
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt      Timestamptz(3) @default(now()) @map("created_at")
+  updatedAt      temporal.updatedAt() @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "product_organization_fkey")
   category     Category     @relation(fields: [organizationId, categoryId], references: [organizationId, id], onDelete: Restrict, map: "product_category_fkey")
@@ -332,7 +328,7 @@ model Product {
   @@unique([organizationId, sku], map: "product_tenant_sku_key")
   @@unique([organizationId, slug], map: "product_tenant_slug_key")
   @@unique([organizationId, barcode], map: "product_tenant_barcode_key")
-  @@check(expression: "char_length(btrim(\"sku\")) > 0 AND \"slug\" = lower(btrim(\"slug\")) AND char_length(btrim(\"name\")) > 0 AND \"sale_price\" >= 0 AND \"minimum_stock\" >= 0", map: "product_values_valid")
+  @@check(expression: "char_length(btrim(\"sku\")) > 0 AND \"slug\" = lower(btrim(\"slug\")) AND char_length(btrim(\"name\")) > 0 AND \"sale_price\" >= 0 AND \"minimum_stock\" >= 0", name: "product_values_valid")
   @@index([organizationId, categoryId, active, published], map: "product_catalog_idx")
   @@index([organizationId, createdAt], map: "product_tenant_created_idx")
   @@map("products")
@@ -341,11 +337,11 @@ model Product {
 model InventoryLocation {
   id             Uuid     @id @default(dbgenerated("gen_random_uuid()"))
   organizationId Uuid     @map("organization_id")
-  name           String   @db.VarChar(160)
-  code           String   @db.VarChar(80)
+  name           VarChar(160)
+  code           VarChar(80)
   active         Boolean  @default(true)
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt      Timestamptz(3) @default(now()) @map("created_at")
+  updatedAt      temporal.updatedAt() @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "inventory_location_organization_fkey")
   balances     InventoryBalance[]
@@ -355,7 +351,7 @@ model InventoryLocation {
 
   @@unique([organizationId, id], map: "inventory_location_tenant_id_key")
   @@unique([organizationId, code], map: "inventory_location_tenant_code_key")
-  @@check(expression: "char_length(btrim(\"name\")) > 0 AND char_length(btrim(\"code\")) > 0", map: "inventory_location_identity_valid")
+  @@check(expression: "char_length(btrim(\"name\")) > 0 AND char_length(btrim(\"code\")) > 0", name: "inventory_location_identity_valid")
   @@index([organizationId, active], map: "inventory_location_active_idx")
   @@map("inventory_locations")
 }
@@ -364,9 +360,9 @@ model InventoryLot {
   id             Uuid      @id @default(dbgenerated("gen_random_uuid()"))
   organizationId Uuid      @map("organization_id")
   productId      Uuid      @map("product_id")
-  lotNumber      String    @map("lot_number") @db.VarChar(120)
-  expirationDate DateTime? @map("expiration_date") @db.Date
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lotNumber      VarChar(120)    @map("lot_number")
+  expirationDate Date? @map("expiration_date")
+  createdAt      Timestamptz(3)  @default(now()) @map("created_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "inventory_lot_organization_fkey")
   product      Product      @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: Restrict, map: "inventory_lot_product_fkey")
@@ -377,7 +373,7 @@ model InventoryLot {
   @@unique([organizationId, id], map: "inventory_lot_tenant_id_key")
   @@unique([organizationId, productId, id], map: "inventory_lot_tenant_product_id_key")
   @@unique([organizationId, productId, lotNumber], map: "inventory_lot_tenant_number_key")
-  @@check(expression: "char_length(btrim(\"lot_number\")) > 0", map: "inventory_lot_number_valid")
+  @@check(expression: "char_length(btrim(\"lot_number\")) > 0", name: "inventory_lot_number_valid")
   @@index([organizationId, productId, expirationDate], map: "inventory_lot_expiration_idx")
   @@map("inventory_lots")
 }
@@ -390,7 +386,7 @@ model InventoryBalance {
   lotId            Uuid?    @map("lot_id")
   physicalQuantity Int      @default(0) @map("physical_quantity")
   reservedQuantity Int      @default(0) @map("reserved_quantity")
-  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedAt        temporal.updatedAt() @map("updated_at")
 
   organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "inventory_balance_organization_fkey")
   product      Product           @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: Restrict, map: "inventory_balance_product_fkey")
@@ -399,8 +395,9 @@ model InventoryBalance {
   movements    InventoryMovement[]
 
   @@unique([organizationId, id], map: "inventory_balance_tenant_id_key")
-  @@index([organizationId, productId, locationId, lotId], map: "inventory_balance_lookup_idx")
-  @@check(expression: "\"physical_quantity\" >= 0 AND \"reserved_quantity\" >= 0 AND \"reserved_quantity\" <= \"physical_quantity\"", map: "inventory_balance_quantities_valid")
+  @@index([organizationId, productId, locationId, lotId], name: "inventory_balance_lot_key", unique: true, where: "\"lot_id\" IS NOT NULL")
+  @@index([organizationId, productId, locationId], name: "inventory_balance_no_lot_key", unique: true, where: "\"lot_id\" IS NULL")
+  @@check(expression: "\"physical_quantity\" >= 0 AND \"reserved_quantity\" >= 0 AND \"reserved_quantity\" <= \"physical_quantity\"", name: "inventory_balance_quantities_valid")
   @@map("inventory_balances")
 }
 
@@ -416,9 +413,9 @@ model InventoryMovement {
   previousPhysicalQuantity Int                   @map("previous_physical_quantity")
   newPhysicalQuantity      Int                   @map("new_physical_quantity")
   actorUserId              Uuid                  @map("actor_user_id")
-  reason                   String?               @db.VarChar(240)
-  notes                    String?               @db.Text
-  createdAt                DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  reason                   VarChar(240)?
+  notes                    String?
+  createdAt                Timestamptz(3)              @default(now()) @map("created_at")
 
   organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "inventory_movement_organization_fkey")
   balance      InventoryBalance  @relation(fields: [organizationId, balanceId], references: [organizationId, id], onDelete: Restrict, map: "inventory_movement_balance_fkey")
@@ -428,7 +425,7 @@ model InventoryMovement {
   actor        User              @relation("InventoryMovementActor", fields: [actorUserId], references: [id], onDelete: Restrict, map: "inventory_movement_actor_fkey")
 
   @@unique([organizationId, id], map: "inventory_movement_tenant_id_key")
-  @@check(expression: "\"quantity_delta\" <> 0 AND \"previous_physical_quantity\" >= 0 AND \"new_physical_quantity\" >= 0 AND \"new_physical_quantity\" = \"previous_physical_quantity\" + \"quantity_delta\"", map: "inventory_movement_quantities_valid")
+  @@check(expression: "\"quantity_delta\" <> 0 AND \"previous_physical_quantity\" >= 0 AND \"new_physical_quantity\" >= 0 AND \"new_physical_quantity\" = \"previous_physical_quantity\" + \"quantity_delta\"", name: "inventory_movement_quantities_valid")
   @@index([organizationId, productId, createdAt], map: "inventory_movement_product_created_idx")
   @@index([organizationId, type, createdAt], map: "inventory_movement_type_created_idx")
   @@index([organizationId, balanceId, createdAt], map: "inventory_movement_balance_created_idx")
@@ -444,9 +441,9 @@ model InventoryReservation {
   lotId          Uuid?                      @map("lot_id")
   quantity       Int
   status         InventoryReservationStatus @default(ACTIVE)
-  expiresAt      DateTime                   @map("expires_at") @db.Timestamptz(3)
-  createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  expiresAt      Timestamptz(3)                   @map("expires_at")
+  createdAt      Timestamptz(3)                   @default(now()) @map("created_at")
+  updatedAt      temporal.updatedAt() @map("updated_at")
 
   organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "inventory_reservation_organization_fkey")
   order        Order?             @relation(fields: [organizationId, orderId], references: [organizationId, id], onDelete: Restrict, map: "inventory_reservation_order_fkey")
@@ -455,7 +452,7 @@ model InventoryReservation {
   lot          InventoryLot?      @relation(fields: [organizationId, productId, lotId], references: [organizationId, productId, id], onDelete: Restrict, map: "inventory_reservation_lot_fkey")
 
   @@unique([organizationId, id], map: "inventory_reservation_tenant_id_key")
-  @@check(expression: "\"quantity\" > 0 AND \"expires_at\" > \"created_at\"", map: "inventory_reservation_values_valid")
+  @@check(expression: "\"quantity\" > 0 AND \"expires_at\" > \"created_at\"", name: "inventory_reservation_values_valid")
   @@index([organizationId, status, expiresAt], map: "inventory_reservation_expiry_idx")
   @@index([organizationId, productId, locationId, lotId], map: "inventory_reservation_stock_idx")
   @@index([organizationId, orderId], map: "inventory_reservation_order_idx")
@@ -466,7 +463,7 @@ model Order {
   id              Uuid            @id @default(dbgenerated("gen_random_uuid()"))
   organizationId  Uuid            @map("organization_id")
   customerId      Uuid            @map("customer_id")
-  orderNumber     String          @map("order_number") @db.VarChar(80)
+  orderNumber     VarChar(80)          @map("order_number")
   status          OrderStatus     @default(PENDING_PAYMENT)
   paymentStatus   PaymentStatus   @default(PENDING) @map("payment_status")
   fulfillmentType FulfillmentType @map("fulfillment_type")
@@ -474,11 +471,11 @@ model Order {
   discount        Int             @default(0)
   shipping        Int             @default(0)
   total           Int
-  notes           String?         @db.Text
-  estimatedReadyAt DateTime?      @map("estimated_ready_at") @db.Timestamptz(3)
-  completedAt     DateTime?       @map("completed_at") @db.Timestamptz(3)
-  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  notes           String?
+  estimatedReadyAt Timestamptz(3)?      @map("estimated_ready_at")
+  completedAt     Timestamptz(3)?       @map("completed_at")
+  createdAt       Timestamptz(3)        @default(now()) @map("created_at")
+  updatedAt       temporal.updatedAt() @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "order_organization_fkey")
   customer     Customer     @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: Restrict, map: "order_customer_fkey")
@@ -489,7 +486,7 @@ model Order {
 
   @@unique([organizationId, id], map: "order_tenant_id_key")
   @@unique([organizationId, orderNumber], map: "order_tenant_number_key")
-  @@check(expression: "\"subtotal\" >= 0 AND \"discount\" >= 0 AND \"shipping\" >= 0 AND \"discount\" <= \"subtotal\" AND \"total\" = \"subtotal\" - \"discount\" + \"shipping\"", map: "order_amounts_valid")
+  @@check(expression: "\"subtotal\" >= 0 AND \"discount\" >= 0 AND \"shipping\" >= 0 AND \"discount\" <= \"subtotal\" AND \"total\" = \"subtotal\" - \"discount\" + \"shipping\"", name: "order_amounts_valid")
   @@index([organizationId, customerId, createdAt], map: "order_customer_created_idx")
   @@index([organizationId, status, createdAt], map: "order_status_created_idx")
   @@index([organizationId, paymentStatus, createdAt], map: "order_payment_created_idx")
@@ -501,8 +498,8 @@ model OrderItem {
   organizationId      Uuid   @map("organization_id")
   orderId             Uuid   @map("order_id")
   productId           Uuid   @map("product_id")
-  skuSnapshot         String @map("sku_snapshot") @db.VarChar(100)
-  productNameSnapshot String @map("product_name_snapshot") @db.VarChar(200)
+  skuSnapshot         VarChar(100) @map("sku_snapshot")
+  productNameSnapshot VarChar(200) @map("product_name_snapshot")
   unitPrice           Int    @map("unit_price")
   quantity            Int
   lineTotal           Int    @map("line_total")
@@ -512,7 +509,7 @@ model OrderItem {
   product      Product      @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: Restrict, map: "order_item_product_fkey")
 
   @@unique([organizationId, id], map: "order_item_tenant_id_key")
-  @@check(expression: "\"unit_price\" >= 0 AND \"quantity\" > 0 AND \"line_total\" = \"unit_price\" * \"quantity\"", map: "order_item_amounts_valid")
+  @@check(expression: "\"unit_price\" >= 0 AND \"quantity\" > 0 AND \"line_total\" = \"unit_price\" * \"quantity\"", name: "order_item_amounts_valid")
   @@index([organizationId, orderId], map: "order_item_order_idx")
   @@index([organizationId, productId], map: "order_item_product_idx")
   @@map("order_items")
@@ -525,15 +522,15 @@ model OrderStatusEvent {
   fromStatus     OrderStatus? @map("from_status")
   toStatus       OrderStatus  @map("to_status")
   actorUserId    Uuid?        @map("actor_user_id")
-  reason         String?      @db.VarChar(500)
-  occurredAt     DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  reason         VarChar(500)?
+  occurredAt     Timestamptz(3)     @default(now()) @map("occurred_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "order_status_event_organization_fkey")
   order        Order        @relation(fields: [organizationId, orderId], references: [organizationId, id], onDelete: Cascade, map: "order_status_event_order_fkey")
   actor        User?        @relation("OrderStatusEventActor", fields: [actorUserId], references: [id], onDelete: SetNull, map: "order_status_event_actor_fkey")
 
   @@unique([organizationId, id], map: "order_status_event_tenant_id_key")
-  @@check(expression: "\"from_status\" IS NULL OR \"from_status\" <> \"to_status\"", map: "order_status_event_transition_valid")
+  @@check(expression: "\"from_status\" IS NULL OR \"from_status\" <> \"to_status\"", name: "order_status_event_transition_valid")
   @@index([organizationId, orderId, occurredAt], map: "order_status_event_order_time_idx")
   @@map("order_status_events")
 }
@@ -543,25 +540,25 @@ model Package {
   organizationId        Uuid          @map("organization_id")
   customerId            Uuid          @map("customer_id")
   orderId               Uuid?         @map("order_id")
-  trackingCode          String        @map("tracking_code") @db.VarChar(160)
-  carrier               String        @db.VarChar(160)
-  description           String?       @db.Text
+  trackingCode          VarChar(160)        @map("tracking_code")
+  carrier               VarChar(160)
+  description           String?
   itemCount             Int           @default(1) @map("item_count")
   requiresColdStorage   Boolean       @default(false) @map("requires_cold_storage")
-  weightKg              Decimal?      @map("weight_kg") @db.Decimal(10, 3)
+  weightKg              Decimal?      @map("weight_kg")
   storageLocationId     Uuid?         @map("storage_location_id")
   status                PackageStatus @default(EXPECTED)
   pickupCodeHash        Bytes?        @map("pickup_code_hash")
-  pickupCodeConsumedAt  DateTime?     @map("pickup_code_consumed_at") @db.Timestamptz(3)
-  receivedAt            DateTime?     @map("received_at") @db.Timestamptz(3)
-  storedAt              DateTime?     @map("stored_at") @db.Timestamptz(3)
-  readyAt               DateTime?     @map("ready_at") @db.Timestamptz(3)
-  pickupDeadline        DateTime?     @map("pickup_deadline") @db.Timestamptz(3)
-  pickedUpAt            DateTime?     @map("picked_up_at") @db.Timestamptz(3)
+  pickupCodeConsumedAt  Timestamptz(3)?     @map("pickup_code_consumed_at")
+  receivedAt            Timestamptz(3)?     @map("received_at")
+  storedAt              Timestamptz(3)?     @map("stored_at")
+  readyAt               Timestamptz(3)?     @map("ready_at")
+  pickupDeadline        Timestamptz(3)?     @map("pickup_deadline")
+  pickedUpAt            Timestamptz(3)?     @map("picked_up_at")
   receivedByUserId      Uuid?         @map("received_by_user_id")
-  notes                 String?       @db.Text
-  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  notes                 String?
+  createdAt             Timestamptz(3)      @default(now()) @map("created_at")
+  updatedAt             temporal.updatedAt() @map("updated_at")
 
   organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "package_organization_fkey")
   customer       Customer           @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: Restrict, map: "package_customer_fkey")
@@ -573,7 +570,7 @@ model Package {
 
   @@unique([organizationId, id], map: "package_tenant_id_key")
   @@unique([organizationId, trackingCode], map: "package_tenant_tracking_key")
-  @@check(expression: "char_length(btrim(\"tracking_code\")) > 0 AND char_length(btrim(\"carrier\")) > 0 AND \"item_count\" > 0 AND (\"weight_kg\" IS NULL OR \"weight_kg\" > 0) AND (\"pickup_code_hash\" IS NULL OR octet_length(\"pickup_code_hash\") = 32)", map: "package_values_valid")
+  @@check(expression: "char_length(btrim(\"tracking_code\")) > 0 AND char_length(btrim(\"carrier\")) > 0 AND \"item_count\" > 0 AND (\"weight_kg\" IS NULL OR \"weight_kg\" > 0) AND (\"pickup_code_hash\" IS NULL OR octet_length(\"pickup_code_hash\") = 32)", name: "package_values_valid")
   @@index([organizationId, customerId, createdAt], map: "package_customer_created_idx")
   @@index([organizationId, status, createdAt], map: "package_status_created_idx")
   @@index([organizationId, storageLocationId, status], map: "package_location_status_idx")
@@ -586,18 +583,18 @@ model TrackingEvent {
   packageId      Uuid          @map("package_id")
   previousStatus PackageStatus? @map("previous_status")
   newStatus      PackageStatus @map("new_status")
-  description    String        @db.VarChar(500)
-  location       String?       @db.VarChar(240)
+  description    VarChar(500)
+  location       VarChar(240)?
   actorUserId    Uuid?         @map("actor_user_id")
-  notes          String?       @db.Text
-  occurredAt     DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  notes          String?
+  occurredAt     Timestamptz(3)      @default(now()) @map("occurred_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "tracking_event_organization_fkey")
   package      Package      @relation(fields: [organizationId, packageId], references: [organizationId, id], onDelete: Cascade, map: "tracking_event_package_fkey")
   actor        User?        @relation("TrackingEventActor", fields: [actorUserId], references: [id], onDelete: SetNull, map: "tracking_event_actor_fkey")
 
   @@unique([organizationId, id], map: "tracking_event_tenant_id_key")
-  @@check(expression: "char_length(btrim(\"description\")) > 0 AND (\"previous_status\" IS NULL OR \"previous_status\" <> \"new_status\")", map: "tracking_event_values_valid")
+  @@check(expression: "char_length(btrim(\"description\")) > 0 AND (\"previous_status\" IS NULL OR \"previous_status\" <> \"new_status\")", name: "tracking_event_values_valid")
   @@index([organizationId, packageId, occurredAt], map: "tracking_event_package_time_idx")
   @@map("tracking_events")
 }
@@ -605,37 +602,38 @@ model TrackingEvent {
 model PackagePickupReceipt {
   id                    Uuid     @id @default(dbgenerated("gen_random_uuid()"))
   organizationId        Uuid     @map("organization_id")
-  packageId             Uuid     @unique(map: "package_pickup_receipt_package_key") @map("package_id")
-  receivedBy            String   @map("received_by") @db.VarChar(200)
+  packageId             Uuid     @map("package_id")
+  receivedBy            VarChar(200)   @map("received_by")
   deliveredByUserId     Uuid     @map("delivered_by_user_id")
   pickupCodeVerified    Boolean  @default(true) @map("pickup_code_verified")
-  deliveredAt           DateTime @default(now()) @map("delivered_at") @db.Timestamptz(3)
+  deliveredAt           Timestamptz(3) @default(now()) @map("delivered_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "package_pickup_receipt_organization_fkey")
   package      Package      @relation(fields: [organizationId, packageId], references: [organizationId, id], onDelete: Restrict, map: "package_pickup_receipt_package_fkey")
   deliveredBy  User         @relation("PickupReceiptDeliverer", fields: [deliveredByUserId], references: [id], onDelete: Restrict, map: "package_pickup_receipt_deliverer_fkey")
 
   @@unique([organizationId, id], map: "package_pickup_receipt_tenant_id_key")
-  @@check(expression: "char_length(btrim(\"received_by\")) > 0 AND \"pickup_code_verified\"", map: "package_pickup_receipt_values_valid")
+  @@unique([organizationId, packageId], map: "package_pickup_receipt_package_key")
+  @@check(expression: "char_length(btrim(\"received_by\")) > 0 AND \"pickup_code_verified\"", name: "package_pickup_receipt_values_valid")
   @@index([organizationId, deliveredAt], map: "package_pickup_receipt_time_idx")
   @@map("package_pickup_receipts")
 }
 
 model OrganizationSettings {
   organizationId       Uuid     @id @map("organization_id")
-  contactEmail         String   @map("contact_email") @db.VarChar(320)
-  contactPhone         String   @map("contact_phone") @db.VarChar(40)
-  pickupAddress        String   @map("pickup_address") @db.VarChar(300)
-  pickupInstructions   String   @map("pickup_instructions") @db.Text
+  contactEmail         VarChar(320)   @map("contact_email")
+  contactPhone         VarChar(40)   @map("contact_phone")
+  pickupAddress        VarChar(300)   @map("pickup_address")
+  pickupInstructions   String   @map("pickup_instructions")
   lowStockThreshold    Int      @default(5) @map("low_stock_threshold")
   packageAlertDays     Int      @default(5) @map("package_alert_days")
   expirationWarningDays Int    @default(30) @map("expiration_warning_days")
-  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt            Timestamptz(3) @default(now()) @map("created_at")
+  updatedAt            temporal.updatedAt() @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, map: "organization_settings_organization_fkey")
 
-  @@check(expression: "\"low_stock_threshold\" >= 0 AND \"package_alert_days\" >= 0 AND \"expiration_warning_days\" >= 0", map: "organization_settings_thresholds_valid")
+  @@check(expression: "\"low_stock_threshold\" >= 0 AND \"package_alert_days\" >= 0 AND \"expiration_warning_days\" >= 0", name: "organization_settings_thresholds_valid")
   @@map("organization_settings")
 }
 
@@ -643,19 +641,19 @@ model AuditLog {
   id             Uuid     @id @default(dbgenerated("gen_random_uuid()"))
   organizationId Uuid     @map("organization_id")
   actorUserId    Uuid?    @map("actor_user_id")
-  action         String   @db.VarChar(160)
-  entityType     String   @map("entity_type") @db.VarChar(120)
+  action         VarChar(160)
+  entityType     VarChar(120)   @map("entity_type")
   entityId       Uuid?    @map("entity_id")
-  beforeJson     Json?    @map("before_json") @db.JsonB
-  afterJson      Json?    @map("after_json") @db.JsonB
+  beforeJson     Json?    @map("before_json")
+  afterJson      Json?    @map("after_json")
   requestId      Uuid     @map("request_id")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdAt      Timestamptz(3) @default(now()) @map("created_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "audit_log_organization_fkey")
   actor        User?        @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull, map: "audit_log_actor_fkey")
 
   @@unique([organizationId, id], map: "audit_log_tenant_id_key")
-  @@check(expression: "char_length(btrim(\"action\")) > 0 AND char_length(btrim(\"entity_type\")) > 0", map: "audit_log_identity_valid")
+  @@check(expression: "char_length(btrim(\"action\")) > 0 AND char_length(btrim(\"entity_type\")) > 0", name: "audit_log_identity_valid")
   @@index([organizationId, createdAt], map: "audit_log_tenant_created_idx")
   @@index([organizationId, entityType, entityId, createdAt], map: "audit_log_entity_created_idx")
   @@index([requestId], map: "audit_log_request_idx")
@@ -668,22 +666,22 @@ model IdempotencyRecord {
   actorUserId       Uuid              @map("actor_user_id")
   keyHash           Bytes             @map("key_hash")
   requestHash       Bytes             @map("request_hash")
-  operation         String            @db.VarChar(160)
+  operation         VarChar(160)
   status            IdempotencyStatus @default(IN_PROGRESS)
   responseStatus    Int?              @map("response_status")
-  responseJson      Json?             @map("response_json") @db.JsonB
-  resourceType      String?           @map("resource_type") @db.VarChar(120)
+  responseJson      Json?             @map("response_json")
+  resourceType      VarChar(120)?           @map("resource_type")
   resourceId        Uuid?             @map("resource_id")
   originalRequestId Uuid              @map("original_request_id")
-  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
-  expiresAt         DateTime          @map("expires_at") @db.Timestamptz(3)
+  createdAt         Timestamptz(3)          @default(now()) @map("created_at")
+  expiresAt         Timestamptz(3)          @map("expires_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "idempotency_record_organization_fkey")
   actor        User         @relation("IdempotencyActor", fields: [actorUserId], references: [id], onDelete: Restrict, map: "idempotency_record_actor_fkey")
 
   @@unique([organizationId, id], map: "idempotency_record_tenant_id_key")
   @@unique([organizationId, actorUserId, keyHash], map: "idempotency_record_scope_key")
-  @@check(expression: "octet_length(\"key_hash\") = 32 AND octet_length(\"request_hash\") = 32 AND \"expires_at\" > \"created_at\" AND ((\"status\" = 'IN_PROGRESS' AND \"response_status\" IS NULL AND \"response_json\" IS NULL) OR (\"status\" = 'COMPLETED' AND \"response_status\" BETWEEN 200 AND 599 AND \"response_json\" IS NOT NULL))", map: "idempotency_record_state_valid")
+  @@check(expression: "octet_length(\"key_hash\") = 32 AND octet_length(\"request_hash\") = 32 AND \"expires_at\" > \"created_at\" AND ((\"status\" = 'IN_PROGRESS' AND \"response_status\" IS NULL AND \"response_json\" IS NULL) OR (\"status\" = 'COMPLETED' AND \"response_status\" BETWEEN 200 AND 599 AND \"response_json\" IS NOT NULL))", name: "idempotency_record_state_valid")
   @@index([expiresAt], map: "idempotency_record_expiry_idx")
   @@index([organizationId, resourceType, resourceId], map: "idempotency_record_resource_idx")
   @@map("idempotency_records")
@@ -691,16 +689,16 @@ model IdempotencyRecord {
 
 model RateLimitBucket {
   id              Uuid     @id @default(dbgenerated("gen_random_uuid()"))
-  scope           String   @db.VarChar(120)
+  scope           VarChar(120)
   keyHash         Bytes    @map("key_hash")
-  windowStartedAt DateTime @map("window_started_at") @db.Timestamptz(3)
+  windowStartedAt Timestamptz(3) @map("window_started_at")
   count           Int      @default(0)
-  blockedUntil    DateTime? @map("blocked_until") @db.Timestamptz(3)
-  expiresAt       DateTime @map("expires_at") @db.Timestamptz(3)
-  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  blockedUntil    Timestamptz(3)? @map("blocked_until")
+  expiresAt       Timestamptz(3) @map("expires_at")
+  updatedAt       temporal.updatedAt() @map("updated_at")
 
   @@unique([scope, keyHash], map: "rate_limit_bucket_scope_key")
-  @@check(expression: "char_length(btrim(\"scope\")) > 0 AND octet_length(\"key_hash\") = 32 AND \"count\" >= 0 AND \"expires_at\" >= \"window_started_at\"", map: "rate_limit_bucket_values_valid")
+  @@check(expression: "char_length(btrim(\"scope\")) > 0 AND octet_length(\"key_hash\") = 32 AND \"count\" >= 0 AND \"expires_at\" >= \"window_started_at\"", name: "rate_limit_bucket_values_valid")
   @@index([expiresAt], map: "rate_limit_bucket_expiry_idx")
   @@map("rate_limit_buckets")
 }

@@ -50,9 +50,7 @@ export function createApp(options: CreateAppOptions): Express {
           return;
         }
 
-        callback(
-          new Error("CORS origin rejected."),
-        );
+        callback(null, false);
       },
       credentials: true,
       methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -62,7 +60,11 @@ export function createApp(options: CreateAppOptions): Express {
         "Idempotency-Key",
         "X-Request-ID",
       ],
-      exposedHeaders: ["X-Request-ID"],
+      exposedHeaders: [
+        "X-Request-ID",
+        "Idempotency-Replayed",
+        "Retry-After",
+      ],
       maxAge: 600,
       optionsSuccessStatus: 204,
     }),

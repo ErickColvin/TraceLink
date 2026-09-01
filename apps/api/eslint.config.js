@@ -3,7 +3,14 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "coverage"] },
+  {
+    ignores: [
+      "dist",
+      "coverage",
+      "migrations",
+      "prisma/contract.d.ts",
+    ],
+  },
   {
     files: ["**/*.ts"],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

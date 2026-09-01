@@ -26,6 +26,7 @@
     "db:plan": "pnpm --filter @tracelink/api db:plan",
     "db:migrate": "pnpm --filter @tracelink/api db:migrate",
     "db:verify": "pnpm --filter @tracelink/api db:verify",
+    "db:migration:check": "pnpm --filter @tracelink/api db:migration:check",
     "db:seed": "pnpm --filter @tracelink/api db:seed",
     "preview": "pnpm --filter @tracelink/web preview",
     "review:visual": "node tools/visual-review.mjs"

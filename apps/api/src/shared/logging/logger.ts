@@ -1,5 +1,5 @@
 import pino, { type Logger } from "pino";
-import pinoHttp from "pino-http";
+import { pinoHttp } from "pino-http";
 
 import type { AppConfig } from "../../config/env.js";
 import { REQUEST_ID_HEADER } from "../../middleware/request-id.js";

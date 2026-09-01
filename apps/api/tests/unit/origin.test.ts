@@ -9,6 +9,9 @@ describe("isAllowedOrigin", () => {
     expect(isAllowedOrigin(allowed, allowed)).toBe(true);
     expect(isAllowedOrigin("http://localhost:5173", allowed)).toBe(false);
     expect(isAllowedOrigin(`${allowed}/`, allowed)).toBe(false);
+    expect(isAllowedOrigin(`${allowed}.example.com`, allowed)).toBe(false);
+    expect(isAllowedOrigin("null", allowed)).toBe(false);
+    expect(isAllowedOrigin(allowed.toUpperCase(), allowed)).toBe(false);
     expect(isAllowedOrigin(undefined, allowed)).toBe(false);
   });
 });

@@ -5,12 +5,16 @@ import type { Logger } from "pino";
 
 import { createApp } from "./app.js";
 import { loadEnvironment, type AppConfig } from "./config/env.js";
+import {
+  createPostgresDatabase,
+} from "./database/index.js";
 import type { ReadinessCheck } from "./modules/health/health-routes.js";
 import { createLogger } from "./shared/logging/logger.js";
 
 export type StartServerOptions = Readonly<{
   config?: AppConfig;
   logger?: Logger;
+  database?: ReturnType<typeof createPostgresDatabase>;
   readinessCheck?: ReadinessCheck;
   onShutdown?: () => Promise<void>;
 }>;
@@ -63,12 +67,14 @@ export async function startServer(
 ): Promise<RunningServer> {
   const config = options.config ?? loadEnvironment();
   const logger = options.logger ?? createLogger(config);
+  const database =
+    options.database ??
+    createPostgresDatabase({ databaseUrl: config.databaseUrl });
   const appOptions = {
     config,
     logger,
-    ...(options.readinessCheck === undefined
-      ? {}
-      : { readinessCheck: options.readinessCheck }),
+    readinessCheck:
+      options.readinessCheck ?? (() => database.readinessCheck()),
   };
   const server = createServer(createApp(appOptions));
   let shutdownPromise: Promise<void> | undefined;
@@ -76,7 +82,11 @@ export async function startServer(
   const performShutdown = async (reason: string) => {
     logger.info({ reason }, "Graceful shutdown started");
     await closeServer(server, config.shutdownTimeoutMs);
-    await options.onShutdown?.();
+    if (options.onShutdown === undefined) {
+      await database.close();
+    } else {
+      await options.onShutdown();
+    }
     logger.info({ reason }, "Graceful shutdown completed");
   };
 

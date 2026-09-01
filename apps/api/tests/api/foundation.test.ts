@@ -77,13 +77,18 @@ describe("API foundation", () => {
       config.webOrigin,
     );
     expect(allowed.headers["access-control-allow-credentials"]).toBe("true");
+    expect(allowed.headers["access-control-expose-headers"]).toBe(
+      "X-Request-ID,Idempotency-Replayed,Retry-After",
+    );
 
     const rejected = await request(createTestApp())
       .get("/api/v1/health/live")
       .set("Origin", "http://localhost:5173");
 
-    expect(rejected.status).toBe(500);
+    expect(rejected.status).toBe(200);
     expect(rejected.headers["access-control-allow-origin"]).toBeUndefined();
+    expect(rejected.headers["access-control-allow-credentials"]).toBeUndefined();
+    expect(rejected.headers["access-control-expose-headers"]).toBeUndefined();
   });
 
   it("rejects mutating requests with a missing origin", async () => {
@@ -91,6 +96,47 @@ describe("API foundation", () => {
 
     expect(response.status).toBe(403);
     expect(response.body.error.code).toBe("ORIGIN_NOT_ALLOWED");
+    expect(response.body.requestId).toBe(response.headers["x-request-id"]);
+  });
+
+  it.each([
+    "http://localhost:5173",
+    `${config.webOrigin}/`,
+    `${config.webOrigin}.example.com`,
+  ])(
+    "rejects a mutating request from non-exact origin %s with a stable error",
+    async (origin) => {
+      const response = await request(createTestApp())
+        .post("/missing")
+        .set("Origin", origin)
+        .send({});
+
+      expect(response.status).toBe(403);
+      expect(response.headers["access-control-allow-origin"]).toBeUndefined();
+      expect(response.body).toEqual({
+        error: {
+          code: "ORIGIN_NOT_ALLOWED",
+          message: "El origen de la solicitud no está autorizado.",
+        },
+        requestId: response.headers["x-request-id"],
+      });
+    },
+  );
+
+  it("keeps the standard error envelope after CORS accepts a mutation", async () => {
+    const response = await request(createTestApp())
+      .post("/missing")
+      .set("Origin", config.webOrigin)
+      .send({});
+
+    expect(response.status).toBe(404);
+    expect(response.headers["access-control-allow-origin"]).toBe(
+      config.webOrigin,
+    );
+    expect(response.body).toMatchObject({
+      error: { code: "NOT_FOUND" },
+      requestId: response.headers["x-request-id"],
+    });
   });
 
   it("normalizes malformed JSON and oversized payload errors", async () => {

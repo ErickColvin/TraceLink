@@ -1,8 +1,8 @@
 name: tracelink
 
 services:
-  postgres:
-    image: postgres:18-alpine
+  db:
+    image: postgres:18.6-alpine3.24
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
@@ -24,6 +24,27 @@ services:
       # PostgreSQL 18 moved the official image volume root to this path.
       - tracelink_postgres_data:/var/lib/postgresql
 
+  db-test:
+    image: postgres:18.6-alpine3.24
+    profiles: ["test"]
+    restart: "no"
+    environment:
+      POSTGRES_DB: ${POSTGRES_TEST_DB:-tracelink_test}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    ports:
+      - "127.0.0.1:${POSTGRES_TEST_PORT:-5433}:5432"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 2s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    tmpfs:
+      - /var/lib/postgresql
+
 volumes:
   tracelink_postgres_data:
-
