@@ -210,7 +210,7 @@ La API usa los seis códigos de rol del dominio, no el union reducido de tres et
 | --- | --- | --- | --- | --- | --- | --- |
 | `getOverview()` | `GET /api/v1/staff/dashboard` | Sin entrada | `DashboardOverview` | Staff activo | Ninguno adicional | Agregados calculados exclusivamente dentro del tenant. |
 
-No se inventa `dashboard.view`: no existe en las 20 permissions actuales. El backend devuelve tipos e identificadores de alerta; el adapter construye el `href` de React Router para evitar acoplar la API al router. Un permiso dedicado puede evaluarse en una fase posterior como cambio de producto.
+No se inventa `dashboard.view`: no existe en las 19 permissions actuales. El backend devuelve tipos e identificadores de alerta; el adapter construye el `href` de React Router para evitar acoplar la API al router. Un permiso dedicado puede evaluarse en una fase posterior como cambio de producto.
 
 ## ReportService — 1 método
 
