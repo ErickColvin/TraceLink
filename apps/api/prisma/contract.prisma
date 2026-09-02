@@ -414,7 +414,11 @@ model InventoryMovement {
   quantityDelta            Int                   @map("quantity_delta")
   previousPhysicalQuantity Int                   @map("previous_physical_quantity")
   newPhysicalQuantity      Int                   @map("new_physical_quantity")
+  previousReservedQuantity Int                   @default(0) @map("previous_reserved_quantity")
+  newReservedQuantity      Int                   @default(0) @map("new_reserved_quantity")
   actorUserId              Uuid                  @map("actor_user_id")
+  originLocation           VarChar(200)          @default("Sin especificar") @map("origin_location")
+  destinationLocation      VarChar(200)?         @map("destination_location")
   reason                   VarChar(240)?
   notes                    String?
   createdAt                Timestamptz(3)              @default(now()) @map("created_at")
@@ -427,7 +431,7 @@ model InventoryMovement {
   actor        User              @relation("InventoryMovementActor", fields: [actorUserId], references: [id], onDelete: Restrict, map: "inventory_movement_actor_fkey")
 
   @@unique([organizationId, id], map: "inventory_movement_tenant_id_key")
-  @@check(expression: "\"quantity_delta\" <> 0 AND \"previous_physical_quantity\" >= 0 AND \"new_physical_quantity\" >= 0 AND \"new_physical_quantity\" = \"previous_physical_quantity\" + \"quantity_delta\"", name: "inventory_movement_quantities_valid")
+  @@check(expression: "\"quantity_delta\" <> 0 AND \"previous_physical_quantity\" >= 0 AND \"new_physical_quantity\" >= 0 AND \"new_physical_quantity\" = \"previous_physical_quantity\" + \"quantity_delta\" AND \"previous_reserved_quantity\" >= 0 AND \"previous_reserved_quantity\" <= \"previous_physical_quantity\" AND \"new_reserved_quantity\" >= 0 AND \"new_reserved_quantity\" <= \"new_physical_quantity\"", name: "inventory_movement_quantities_valid")
   @@index([organizationId, productId, createdAt], map: "inventory_movement_product_created_idx")
   @@index([organizationId, type, createdAt], map: "inventory_movement_type_created_idx")
   @@index([organizationId, balanceId, createdAt], map: "inventory_movement_balance_created_idx")

@@ -68,7 +68,13 @@ const PRODUCT_COLUMNS = `
   p.published,
   p.active,
   p.featured,
-  COALESCE(SUM(ib.physical_quantity - ib.reserved_quantity), 0)::integer
+  COALESCE(SUM(
+    CASE
+      WHEN inventory_lot.expiration_date IS NOT NULL
+       AND inventory_lot.expiration_date <= CURRENT_DATE THEN 0
+      ELSE ib.physical_quantity - ib.reserved_quantity
+    END
+  ), 0)::integer
     AS "availableStock"`;
 
 const PRODUCT_FROM = `
@@ -79,7 +85,10 @@ const PRODUCT_FROM = `
    AND c.id = p.category_id
   LEFT JOIN inventory_balances ib
     ON ib.organization_id = p.organization_id
-   AND ib.product_id = p.id`;
+   AND ib.product_id = p.id
+  LEFT JOIN inventory_lots inventory_lot
+    ON inventory_lot.organization_id = ib.organization_id
+   AND inventory_lot.id = ib.lot_id`;
 
 function optional<Value>(value: Value | null): Value | undefined {
   return value === null ? undefined : value;

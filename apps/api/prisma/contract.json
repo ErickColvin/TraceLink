@@ -1686,6 +1686,16 @@
                   }
                 }
               },
+              "destinationLocation": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 200
+                  }
+                }
+              },
               "id": {
                 "nullable": false,
                 "type": {
@@ -1714,6 +1724,13 @@
                   "kind": "scalar"
                 }
               },
+              "newReservedQuantity": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "notes": {
                 "nullable": true,
                 "type": {
@@ -1728,7 +1745,24 @@
                   "kind": "scalar"
                 }
               },
+              "originLocation": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 200
+                  }
+                }
+              },
               "previousPhysicalQuantity": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "previousReservedQuantity": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/int4@1",
@@ -1886,6 +1920,9 @@
                 "createdAt": {
                   "column": "created_at"
                 },
+                "destinationLocation": {
+                  "column": "destination_location"
+                },
                 "id": {
                   "column": "id"
                 },
@@ -1898,14 +1935,23 @@
                 "newPhysicalQuantity": {
                   "column": "new_physical_quantity"
                 },
+                "newReservedQuantity": {
+                  "column": "new_reserved_quantity"
+                },
                 "notes": {
                   "column": "notes"
                 },
                 "organizationId": {
                   "column": "organization_id"
                 },
+                "originLocation": {
+                  "column": "origin_location"
+                },
                 "previousPhysicalQuantity": {
                   "column": "previous_physical_quantity"
+                },
+                "previousReservedQuantity": {
+                  "column": "previous_reserved_quantity"
                 },
                 "productId": {
                   "column": "product_id"
@@ -6692,8 +6738,8 @@
             "inventory_movements": {
               "checks": [
                 {
-                  "expression": "\"quantity_delta\" <> 0 AND \"previous_physical_quantity\" >= 0 AND \"new_physical_quantity\" >= 0 AND \"new_physical_quantity\" = \"previous_physical_quantity\" + \"quantity_delta\"",
-                  "name": "inventory_movement_quantities_valid_c6f6647e",
+                  "expression": "\"quantity_delta\" <> 0 AND \"previous_physical_quantity\" >= 0 AND \"new_physical_quantity\" >= 0 AND \"new_physical_quantity\" = \"previous_physical_quantity\" + \"quantity_delta\" AND \"previous_reserved_quantity\" >= 0 AND \"previous_reserved_quantity\" <= \"previous_physical_quantity\" AND \"new_reserved_quantity\" >= 0 AND \"new_reserved_quantity\" <= \"new_physical_quantity\"",
+                  "name": "inventory_movement_quantities_valid_29612697",
                   "prefix": "inventory_movement_quantities_valid"
                 },
                 {
@@ -6725,6 +6771,14 @@
                     "precision": 3
                   }
                 },
+                "destination_location": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 200
+                  }
+                },
                 "id": {
                   "codecId": "pg/uuid@1",
                   "default": {
@@ -6749,6 +6803,15 @@
                   "nativeType": "int4",
                   "nullable": false
                 },
+                "new_reserved_quantity": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
                 "notes": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -6759,8 +6822,29 @@
                   "nativeType": "uuid",
                   "nullable": false
                 },
+                "origin_location": {
+                  "codecId": "sql/varchar@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "Sin especificar"
+                  },
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 200
+                  }
+                },
                 "previous_physical_quantity": {
                   "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "previous_reserved_quantity": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
                   "nativeType": "int4",
                   "nullable": false
                 },
@@ -10198,7 +10282,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "c35ce1f00bd0d905022218508b3cc282934124b88a20ba20ad1ed01d6f867c4f"
+    "storageHash": "ea69501fa51002568568a701edee9bd659f192773925b28f266236dfa06a4e37"
   },
   "execution": {
     "executionHash": "af0e6dd3c0f70543593347aec45c7552a5871e9ee48dd288251d0a437a746587",

@@ -1,0 +1,254 @@
+[
+  {
+    "id": "dropCheckConstraint.inventory_movements.inventory_movement_quantities_valid_c6f6647e",
+    "label": "Drop check constraint \"inventory_movement_quantities_valid_c6f6647e\" on \"inventory_movements\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "checkConstraint",
+        "name": "inventory_movement_quantities_valid_c6f6647e",
+        "table": "inventory_movements"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"inventory_movement_quantities_valid_c6f6647e\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "inventory_movement_quantities_valid_c6f6647e",
+          "public",
+          "\"public\".\"inventory_movements\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop check constraint \"inventory_movement_quantities_valid_c6f6647e\"",
+        "sql": "ALTER TABLE \"public\".\"inventory_movements\" DROP CONSTRAINT \"inventory_movement_quantities_valid_c6f6647e\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"inventory_movement_quantities_valid_c6f6647e\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "inventory_movement_quantities_valid_c6f6647e",
+          "public",
+          "\"public\".\"inventory_movements\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.inventory_movements.destination_location",
+    "label": "Add column \"destination_location\" to \"inventory_movements\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "destination_location",
+        "table": "inventory_movements"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"destination_location\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "inventory_movements",
+          "destination_location"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"destination_location\"",
+        "sql": "ALTER TABLE \"public\".\"inventory_movements\" ADD COLUMN \"destination_location\" character varying(200)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"destination_location\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "inventory_movements",
+          "destination_location"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.inventory_movements.new_reserved_quantity",
+    "label": "Add column \"new_reserved_quantity\" to \"inventory_movements\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "new_reserved_quantity",
+        "table": "inventory_movements"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"new_reserved_quantity\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "inventory_movements",
+          "new_reserved_quantity"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"new_reserved_quantity\"",
+        "sql": "ALTER TABLE \"public\".\"inventory_movements\" ADD COLUMN \"new_reserved_quantity\" int4 DEFAULT 0 NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"new_reserved_quantity\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "inventory_movements",
+          "new_reserved_quantity"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.inventory_movements.origin_location",
+    "label": "Add column \"origin_location\" to \"inventory_movements\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "origin_location",
+        "table": "inventory_movements"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"origin_location\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "inventory_movements",
+          "origin_location"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"origin_location\"",
+        "sql": "ALTER TABLE \"public\".\"inventory_movements\" ADD COLUMN \"origin_location\" character varying(200) DEFAULT 'Sin especificar' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"origin_location\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "inventory_movements",
+          "origin_location"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.inventory_movements.previous_reserved_quantity",
+    "label": "Add column \"previous_reserved_quantity\" to \"inventory_movements\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "previous_reserved_quantity",
+        "table": "inventory_movements"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"previous_reserved_quantity\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "inventory_movements",
+          "previous_reserved_quantity"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"previous_reserved_quantity\"",
+        "sql": "ALTER TABLE \"public\".\"inventory_movements\" ADD COLUMN \"previous_reserved_quantity\" int4 DEFAULT 0 NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"previous_reserved_quantity\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "inventory_movements",
+          "previous_reserved_quantity"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "checkConstraint.inventory_movements.inventory_movement_quantities_valid_29612697",
+    "label": "Add check constraint \"inventory_movement_quantities_valid_29612697\" on \"inventory_movements\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "checkConstraint",
+        "name": "inventory_movement_quantities_valid_29612697",
+        "table": "inventory_movements"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"inventory_movement_quantities_valid_29612697\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "inventory_movement_quantities_valid_29612697",
+          "public",
+          "\"public\".\"inventory_movements\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add check constraint \"inventory_movement_quantities_valid_29612697\"",
+        "sql": "ALTER TABLE \"public\".\"inventory_movements\" ADD CONSTRAINT \"inventory_movement_quantities_valid_29612697\" CHECK (\"quantity_delta\" <> 0 AND \"previous_physical_quantity\" >= 0 AND \"new_physical_quantity\" >= 0 AND \"new_physical_quantity\" = \"previous_physical_quantity\" + \"quantity_delta\" AND \"previous_reserved_quantity\" >= 0 AND \"previous_reserved_quantity\" <= \"previous_physical_quantity\" AND \"new_reserved_quantity\" >= 0 AND \"new_reserved_quantity\" <= \"new_physical_quantity\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"inventory_movement_quantities_valid_29612697\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "inventory_movement_quantities_valid_29612697",
+          "public",
+          "\"public\".\"inventory_movements\""
+        ]
+      }
+    ]
+  }
+]
