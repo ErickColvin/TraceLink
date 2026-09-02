@@ -648,7 +648,7 @@ model AuditLog {
   entityId       Uuid?    @map("entity_id")
   beforeJson     Json?    @map("before_json")
   afterJson      Json?    @map("after_json")
-  requestId      Uuid     @map("request_id")
+  requestId      VarChar(128) @map("request_id")
   createdAt      Timestamptz(3) @default(now()) @map("created_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "audit_log_organization_fkey")
@@ -674,7 +674,7 @@ model IdempotencyRecord {
   responseJson      Json?             @map("response_json")
   resourceType      VarChar(120)?           @map("resource_type")
   resourceId        Uuid?             @map("resource_id")
-  originalRequestId Uuid              @map("original_request_id")
+  originalRequestId VarChar(128)       @map("original_request_id")
   createdAt         Timestamptz(3)          @default(now()) @map("created_at")
   expiresAt         Timestamptz(3)          @map("expires_at")
 

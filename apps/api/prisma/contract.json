@@ -411,8 +411,11 @@
               "requestId": {
                 "nullable": false,
                 "type": {
-                  "codecId": "pg/uuid@1",
-                  "kind": "scalar"
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 128
+                  }
                 }
               }
             },
@@ -999,8 +1002,11 @@
               "originalRequestId": {
                 "nullable": false,
                 "type": {
-                  "codecId": "pg/uuid@1",
-                  "kind": "scalar"
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 128
+                  }
                 }
               },
               "requestHash": {
@@ -5488,9 +5494,12 @@
                   "nullable": false
                 },
                 "request_id": {
-                  "codecId": "pg/uuid@1",
-                  "nativeType": "uuid",
-                  "nullable": false
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 128
+                  }
                 }
               },
               "foreignKeys": [
@@ -6035,9 +6044,12 @@
                   "nullable": false
                 },
                 "original_request_id": {
-                  "codecId": "pg/uuid@1",
-                  "nativeType": "uuid",
-                  "nullable": false
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 128
+                  }
                 },
                 "request_hash": {
                   "codecId": "pg/bytea@1",
@@ -10186,7 +10198,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "8889bedd55538398790f64ad265e516b000bc65af72ffed7bf5076a53f44fa55"
+    "storageHash": "c35ce1f00bd0d905022218508b3cc282934124b88a20ba20ad1ed01d6f867c4f"
   },
   "execution": {
     "executionHash": "af0e6dd3c0f70543593347aec45c7552a5871e9ee48dd288251d0a437a746587",

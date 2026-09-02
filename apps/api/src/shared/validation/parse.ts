@@ -34,6 +34,9 @@ export function parseWithSchema<Schema extends z.ZodType>(
       source === "response"
         ? "La respuesta recibida no cumple el contrato esperado."
         : "La solicitud contiene datos inválidos.",
-    details: { issues },
+    fieldErrors: issues.reduce<Record<string, string[]>>((fieldErrors, issue) => {
+      (fieldErrors[issue.path] ??= []).push(issue.message);
+      return fieldErrors;
+    }, {}),
   });
 }

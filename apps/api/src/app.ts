@@ -12,6 +12,7 @@ import {
   type ReadinessCheck,
 } from "./modules/health/health-routes.js";
 import { createAuthRouter } from "./modules/auth/auth-routes.js";
+import { createApiRouter } from "./modules/api-routes.js";
 import { createLogger, createRequestLogger } from "./shared/logging/logger.js";
 import {
   enforceMutationOrigin,
@@ -87,6 +88,10 @@ export function createApp(options: CreateAppOptions): Express {
     app.use(
       "/api/v1/auth",
       createAuthRouter({ database: options.database, config }),
+    );
+    app.use(
+      "/api/v1",
+      createApiRouter({ database: options.database, config }),
     );
   }
   app.use(notFoundHandler());

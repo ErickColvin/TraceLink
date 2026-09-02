@@ -81,9 +81,9 @@ export function errorHandler(logger: Logger): ErrorRequestHandler {
       error: {
         code: normalized.code,
         message: normalized.message,
-        ...(normalized.details === undefined
+        ...(normalized.fieldErrors === undefined
           ? {}
-          : { details: normalized.details }),
+          : { fieldErrors: normalized.fieldErrors }),
       },
       requestId,
     });
