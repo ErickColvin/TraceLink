@@ -4,12 +4,14 @@ import helmet from "helmet";
 import type { Logger } from "pino";
 
 import type { AppConfig } from "./config/env.js";
+import type { PostgresDatabase } from "./database/index.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import {
   createHealthRouter,
   type ReadinessCheck,
 } from "./modules/health/health-routes.js";
+import { createAuthRouter } from "./modules/auth/auth-routes.js";
 import { createLogger, createRequestLogger } from "./shared/logging/logger.js";
 import {
   enforceMutationOrigin,
@@ -20,6 +22,7 @@ export type CreateAppOptions = Readonly<{
   config: AppConfig;
   logger?: Logger;
   readinessCheck?: ReadinessCheck;
+  database?: PostgresDatabase;
 }>;
 
 const unavailableReadinessCheck: ReadinessCheck = async () => {
@@ -34,6 +37,7 @@ export function createApp(options: CreateAppOptions): Express {
   const app = express();
 
   app.disable("x-powered-by");
+  app.set("trust proxy", config.trustProxy);
   app.use(requestIdMiddleware);
   app.use(createRequestLogger(logger));
   app.use(helmet());
@@ -79,6 +83,12 @@ export function createApp(options: CreateAppOptions): Express {
   );
 
   app.use("/api/v1/health", createHealthRouter(readinessCheck));
+  if (options.database !== undefined) {
+    app.use(
+      "/api/v1/auth",
+      createAuthRouter({ database: options.database, config }),
+    );
+  }
   app.use(notFoundHandler());
   app.use(errorHandler(logger));
 

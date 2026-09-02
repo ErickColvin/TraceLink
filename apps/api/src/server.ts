@@ -73,6 +73,7 @@ export async function startServer(
   const appOptions = {
     config,
     logger,
+    database,
     readinessCheck:
       options.readinessCheck ?? (() => database.readinessCheck()),
   };

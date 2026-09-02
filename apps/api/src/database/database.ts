@@ -3,6 +3,12 @@ import "temporal-polyfill/full/global";
 import postgres, {
   type PostgresClient,
 } from "@prisma/orm-postgres/runtime";
+import {
+  Pool,
+  type PoolClient,
+  type QueryResult,
+  type QueryResultRow,
+} from "pg";
 
 import contractJson from "../../prisma/contract.json" with { type: "json" };
 import type { Contract } from "../../prisma/contract.js";
@@ -26,6 +32,7 @@ export type DatabaseRuntimeOptions<
 > = Readonly<{
   client: Client;
   probe(client: Client): Promise<void>;
+  dispose?: () => Promise<void>;
 }>;
 
 export class DatabaseUnavailableError extends AppError {
@@ -45,6 +52,7 @@ export class DatabaseRuntime<
 > {
   readonly client: Client;
   readonly #probe: (client: Client) => Promise<void>;
+  readonly #dispose: (() => Promise<void>) | undefined;
   #connectPromise: Promise<void> | undefined;
   #connected = false;
   #closed = false;
@@ -52,6 +60,7 @@ export class DatabaseRuntime<
   constructor(options: DatabaseRuntimeOptions<Transaction, Client>) {
     this.client = options.client;
     this.#probe = options.probe;
+    this.#dispose = options.dispose;
   }
 
   async connect(): Promise<void> {
@@ -112,8 +121,71 @@ export class DatabaseRuntime<
 
     this.#closed = true;
     await this.#connectPromise?.catch(() => undefined);
-    await this.client.close();
-    this.#connected = false;
+    try {
+      await this.client.close();
+    } finally {
+      await this.#dispose?.();
+      this.#connected = false;
+    }
+  }
+}
+
+export type SqlExecutor = Readonly<{
+  query<Row extends QueryResultRow>(
+    text: string,
+    values?: readonly unknown[],
+  ): Promise<QueryResult<Row>>;
+}>;
+
+function createSqlExecutor(client: PoolClient): SqlExecutor {
+  return {
+    query: <Row extends QueryResultRow>(
+      text: string,
+      values: readonly unknown[] = [],
+    ) => client.query<Row>(text, [...values]),
+  };
+}
+
+export class PostgresDatabase extends DatabaseRuntime<
+  DatabaseTransaction,
+  DatabaseClient
+> implements SqlExecutor {
+  readonly #pool: Pool;
+
+  constructor(client: DatabaseClient, pool: Pool) {
+    super({
+      client,
+      probe: probePostgres,
+      dispose: () => pool.end(),
+    });
+    this.#pool = pool;
+  }
+
+  async query<Row extends QueryResultRow>(
+    text: string,
+    values: readonly unknown[] = [],
+  ): Promise<QueryResult<Row>> {
+    await this.connect();
+    return this.#pool.query<Row>(text, [...values]);
+  }
+
+  async sqlTransaction<Result>(
+    callback: (transaction: SqlExecutor) => Promise<Result>,
+  ): Promise<Result> {
+    await this.connect();
+    const client = await this.#pool.connect();
+
+    try {
+      await client.query("BEGIN");
+      const result = await callback(createSqlExecutor(client));
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 
@@ -136,19 +208,20 @@ async function probePostgres(client: DatabaseClient): Promise<void> {
 
 export function createPostgresDatabase(
   options: CreatePostgresDatabaseOptions,
-): DatabaseRuntime<DatabaseTransaction, DatabaseClient> {
+): PostgresDatabase {
+  const pool = new Pool({
+    connectionString: options.databaseUrl,
+    ...(options.connectionTimeoutMillis === undefined
+      ? {}
+      : { connectionTimeoutMillis: options.connectionTimeoutMillis }),
+    ...(options.idleTimeoutMillis === undefined
+      ? {}
+      : { idleTimeoutMillis: options.idleTimeoutMillis }),
+  });
   const client = postgres<Contract>({
     contractJson,
-    url: options.databaseUrl,
-    poolOptions: {
-      ...(options.connectionTimeoutMillis === undefined
-        ? {}
-        : { connectionTimeoutMillis: options.connectionTimeoutMillis }),
-      ...(options.idleTimeoutMillis === undefined
-        ? {}
-        : { idleTimeoutMillis: options.idleTimeoutMillis }),
-    },
+    pg: pool,
   });
 
-  return new DatabaseRuntime({ client, probe: probePostgres });
+  return new PostgresDatabase(client, pool);
 }

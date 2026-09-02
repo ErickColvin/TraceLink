@@ -40,12 +40,23 @@ const databaseUrlSchema = z.string().trim().refine((value) => {
   }
 }, "DATABASE_URL debe ser una URL PostgreSQL válida.");
 
+const booleanEnvironmentSchema = z
+  .enum(["true", "false"])
+  .transform((value) => value === "true");
+
 const rawEnvironmentSchema = z.object({
   NODE_ENV: z.enum(NODE_ENVIRONMENTS).default("development"),
   HOST: z.string().trim().min(1).default("127.0.0.1"),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3001),
+  TRUST_PROXY: booleanEnvironmentSchema.default(false),
   DATABASE_URL: databaseUrlSchema,
   WEB_ORIGIN: webOriginSchema,
+  ORGANIZATION_SLUG: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .max(80)
+    .default("ch-market"),
   SESSION_SECRET: z.string().min(32),
   SESSION_TTL_SECONDS: z.coerce
     .number()
@@ -53,7 +64,16 @@ const rawEnvironmentSchema = z.object({
     .min(300)
     .max(2_592_000)
     .default(28_800),
+  SESSION_IDLE_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(300)
+    .max(86_400)
+    .default(1_800),
   CSRF_SECRET: z.string().min(32),
+  IDEMPOTENCY_SECRET: z.string().min(32),
+  RATE_LIMIT_SECRET: z.string().min(32),
+  PICKUP_CODE_SECRET: z.string().min(32),
   LOG_LEVEL: z.enum(LOG_LEVELS).default("info"),
   JSON_BODY_LIMIT_BYTES: z.coerce
     .number()
@@ -69,17 +89,31 @@ const rawEnvironmentSchema = z.object({
     .default(10_000),
   SEED_ADMIN_EMAIL: z.string().trim().email().optional(),
   SEED_ADMIN_PASSWORD: z.string().min(12).optional(),
+}).superRefine((value, context) => {
+  if (value.SESSION_IDLE_TTL_SECONDS > value.SESSION_TTL_SECONDS) {
+    context.addIssue({
+      code: "custom",
+      path: ["SESSION_IDLE_TTL_SECONDS"],
+      message: "SESSION_IDLE_TTL_SECONDS no puede superar SESSION_TTL_SECONDS.",
+    });
+  }
 });
 
 export type AppConfig = Readonly<{
   nodeEnv: (typeof NODE_ENVIRONMENTS)[number];
   host: string;
   port: number;
+  trustProxy: boolean;
   databaseUrl: string;
   webOrigin: string;
+  organizationSlug: string;
   sessionSecret: string;
   sessionTtlSeconds: number;
+  sessionIdleTtlSeconds: number;
   csrfSecret: string;
+  idempotencySecret: string;
+  rateLimitSecret: string;
+  pickupCodeSecret: string;
   logLevel: (typeof LOG_LEVELS)[number];
   jsonBodyLimitBytes: number;
   shutdownTimeoutMs: number;
@@ -116,11 +150,17 @@ export function parseEnvironment(
     nodeEnv: value.NODE_ENV,
     host: value.HOST,
     port: value.PORT,
+    trustProxy: value.TRUST_PROXY,
     databaseUrl: value.DATABASE_URL,
     webOrigin: value.WEB_ORIGIN,
+    organizationSlug: value.ORGANIZATION_SLUG,
     sessionSecret: value.SESSION_SECRET,
     sessionTtlSeconds: value.SESSION_TTL_SECONDS,
+    sessionIdleTtlSeconds: value.SESSION_IDLE_TTL_SECONDS,
     csrfSecret: value.CSRF_SECRET,
+    idempotencySecret: value.IDEMPOTENCY_SECRET,
+    rateLimitSecret: value.RATE_LIMIT_SECRET,
+    pickupCodeSecret: value.PICKUP_CODE_SECRET,
     logLevel: value.LOG_LEVEL,
     jsonBodyLimitBytes: value.JSON_BODY_LIMIT_BYTES,
     shutdownTimeoutMs: value.SHUTDOWN_TIMEOUT_MS,

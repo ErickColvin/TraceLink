@@ -5160,11 +5160,31 @@
                   }
                 }
               },
+              "firstName": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 100
+                  }
+                }
+              },
               "id": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/uuid@1",
                   "kind": "scalar"
+                }
+              },
+              "lastName": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 100
+                  }
                 }
               },
               "passwordHash": {
@@ -5364,8 +5384,14 @@
                 "emailVerifiedAt": {
                   "column": "email_verified_at"
                 },
+                "firstName": {
+                  "column": "first_name"
+                },
                 "id": {
                   "column": "id"
+                },
+                "lastName": {
+                  "column": "last_name"
                 },
                 "passwordHash": {
                   "column": "password_hash"
@@ -9922,8 +9948,8 @@
             "users": {
               "checks": [
                 {
-                  "expression": "\"email_normalized\" = lower(btrim(\"email_normalized\")) AND char_length(\"password_hash\") > 0",
-                  "name": "user_identity_valid_962ac172",
+                  "expression": "\"email_normalized\" = lower(btrim(\"email_normalized\")) AND char_length(btrim(\"first_name\")) > 0 AND char_length(btrim(\"last_name\")) > 0 AND char_length(\"password_hash\") > 0",
+                  "name": "user_identity_valid_05b3fcc0",
                   "prefix": "user_identity_valid"
                 },
                 {
@@ -9969,6 +9995,18 @@
                     "precision": 3
                   }
                 },
+                "first_name": {
+                  "codecId": "sql/varchar@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "Usuario"
+                  },
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 100
+                  }
+                },
                 "id": {
                   "codecId": "pg/uuid@1",
                   "default": {
@@ -9977,6 +10015,18 @@
                   },
                   "nativeType": "uuid",
                   "nullable": false
+                },
+                "last_name": {
+                  "codecId": "sql/varchar@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "TraceLink"
+                  },
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 100
+                  }
                 },
                 "password_hash": {
                   "codecId": "sql/varchar@1",
@@ -10136,7 +10186,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "f1112244edcdccb2193887f4d89457033866f875e88fe2d1a6278ccbbcaeeccf"
+    "storageHash": "8889bedd55538398790f64ad265e516b000bc65af72ffed7bf5076a53f44fa55"
   },
   "execution": {
     "executionHash": "af0e6dd3c0f70543593347aec45c7552a5871e9ee48dd288251d0a437a746587",

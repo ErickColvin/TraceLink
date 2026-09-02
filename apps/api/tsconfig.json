@@ -19,5 +19,12 @@
     "skipLibCheck": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src", "tests", "prisma.config.ts", "vitest.config.ts"]
+  "include": [
+    "src",
+    "tests",
+    "prisma.config.ts",
+    "prisma/seed.ts",
+    "vitest.integration.config.ts",
+    "vitest.config.ts"
+  ]
 }

@@ -26,7 +26,7 @@ describe("catálogos autoritativos", () => {
   });
 
   it("conserva el catálogo común de errores", () => {
-    expect(API_ERROR_CODES).toHaveLength(9);
+    expect(API_ERROR_CODES).toHaveLength(20);
     expect(
       apiErrorResponseSchema.safeParse({
         error: { code: "NOT_FOUND", message: "No encontrado" },

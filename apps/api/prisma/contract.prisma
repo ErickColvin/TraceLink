@@ -129,6 +129,8 @@ model User {
   id              Uuid       @id @default(dbgenerated("gen_random_uuid()"))
   email           VarChar(320)
   emailNormalized VarChar(320)     @unique(map: "user_email_normalized_key") @map("email_normalized")
+  firstName       VarChar(100)     @default("Usuario") @map("first_name")
+  lastName        VarChar(100)     @default("TraceLink") @map("last_name")
   passwordHash    VarChar(512)     @map("password_hash")
   status          UserStatus @default(ACTIVE)
   emailVerifiedAt Timestamptz(3)?  @map("email_verified_at")
@@ -146,7 +148,7 @@ model User {
   auditLogs            AuditLog[] @relation("AuditActor")
   idempotencyRecords   IdempotencyRecord[] @relation("IdempotencyActor")
 
-  @@check(expression: "\"email_normalized\" = lower(btrim(\"email_normalized\")) AND char_length(\"password_hash\") > 0", name: "user_identity_valid")
+  @@check(expression: "\"email_normalized\" = lower(btrim(\"email_normalized\")) AND char_length(btrim(\"first_name\")) > 0 AND char_length(btrim(\"last_name\")) > 0 AND char_length(\"password_hash\") > 0", name: "user_identity_valid")
   @@index([status], map: "user_status_idx")
   @@map("users")
 }
