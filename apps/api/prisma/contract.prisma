@@ -589,7 +589,7 @@ model TrackingEvent {
   packageId      Uuid          @map("package_id")
   previousStatus PackageStatus? @map("previous_status")
   newStatus      PackageStatus @map("new_status")
-  description    VarChar(500)
+  description    VarChar(2000)
   location       VarChar(240)?
   actorUserId    Uuid?         @map("actor_user_id")
   notes          String?

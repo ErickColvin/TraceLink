@@ -5005,7 +5005,7 @@
                   "codecId": "sql/varchar@1",
                   "kind": "scalar",
                   "typeParams": {
-                    "length": 500
+                    "length": 2000
                   }
                 }
               },
@@ -9862,7 +9862,7 @@
                   "nativeType": "character varying",
                   "nullable": false,
                   "typeParams": {
-                    "length": 500
+                    "length": 2000
                   }
                 },
                 "id": {
@@ -10282,7 +10282,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "952d39a88bdde782cbbdc991c216ee0f55539cdd058bd308c3565a05049ae8f1"
+    "storageHash": "8ef4a570dfab349ebb0db12a55c418867dced833652a4d2b5dfa87ea23c3c2eb"
   },
   "execution": {
     "executionHash": "af0e6dd3c0f70543593347aec45c7552a5871e9ee48dd288251d0a437a746587",

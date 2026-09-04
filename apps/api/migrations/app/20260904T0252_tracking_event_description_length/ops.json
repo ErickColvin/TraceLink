@@ -1,0 +1,48 @@
+[
+  {
+    "id": "alterType.tracking_events.description",
+    "label": "Alter type of \"tracking_events\".\"description\" to character varying(2000)",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "description",
+        "table": "tracking_events"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"description\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "tracking_events",
+          "description"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "alter type of \"description\"",
+        "sql": "ALTER TABLE \"public\".\"tracking_events\" ALTER COLUMN \"description\" TYPE character varying(2000) USING \"description\"::character varying(2000)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"description\" has type \"character varying(2000)\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "tracking_events",
+          "description",
+          "character varying(2000)"
+        ]
+      }
+    ],
+    "meta": {
+      "warning": "TABLE_REWRITE"
+    }
+  }
+]
