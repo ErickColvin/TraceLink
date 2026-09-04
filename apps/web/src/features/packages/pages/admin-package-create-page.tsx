@@ -5,9 +5,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeader } from "../../../components";
 import { Button, buttonStyles } from "../../../components/ui";
 import { useAuth, useHasPermission } from "../../auth";
-import { useStaffCustomers } from "../../customers";
 import { PackageReceiptForm } from "../components/package-receipt-form";
-import { useReceiveStaffPackage } from "../queries/staff-package-queries";
+import {
+  usePackageCustomerOptions,
+  useReceiveStaffPackage,
+} from "../queries/staff-package-queries";
 import type { PackageReceiptValues } from "../schemas/package-receipt-schema";
 
 function toLocalDateTimeInputValue(date: Date): string {
@@ -25,9 +27,7 @@ export function AdminPackageCreatePage() {
   const navigate = useNavigate();
   const { session } = useAuth();
   const canReceive = useHasPermission("packages.receive");
-  const customersQuery = useStaffCustomers({
-    status: "ACTIVE",
-    sort: "NAME_ASC",
+  const customersQuery = usePackageCustomerOptions({
     page: 1,
     pageSize: 100,
   });
@@ -113,7 +113,6 @@ export function AdminPackageCreatePage() {
           <EmptyState
             title="No hay clientes activos"
             description="Activa o registra un cliente antes de recibir el paquete."
-            action={<Link to="/app/customers" className={buttonStyles()}>Ir a clientes</Link>}
           />
         ) : null}
         {customersQuery.data && customersQuery.data.items.length > 0 ? (

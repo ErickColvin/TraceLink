@@ -23,6 +23,7 @@ import { AuthError, type AuthService } from "./auth-service";
  * the authoritative authentication backend is available.
  */
 export class MockAuthService implements AuthService {
+  readonly demoSessionsEnabled = true;
   private currentSession: AuthSession = ANONYMOUS_SESSION;
   private readonly now: () => Date;
   private readonly sessionContext: MockSessionContext;
@@ -97,7 +98,7 @@ export class MockAuthService implements AuthService {
         firstName: "Camila",
         lastName: "Torres",
         email: "camila.torres@example.cl",
-        role: "administrator",
+        role: "ADMIN",
         roleLabel: "Administración",
       },
       permissions: PERMISSIONS,

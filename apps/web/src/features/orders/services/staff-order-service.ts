@@ -5,14 +5,18 @@ import type {
   StaffOrderPage,
   TransitionStaffOrderInput,
 } from "../domain";
+import type { RequestOptions } from "../../../lib/http/http-client";
 
 export interface StaffOrderService {
   /** Lists the operational queue. This contract is never used by customer pages. */
   list(params?: StaffOrderListParams): Promise<StaffOrderPage>;
   /** Staff lookup is intentionally separate from the current-customer lookup. */
   getById(id: string): Promise<StaffOrder>;
-  transitionStatus(input: TransitionStaffOrderInput): Promise<StaffOrder>;
-  cancel(input: CancelStaffOrderInput): Promise<StaffOrder>;
+  transitionStatus(
+    input: TransitionStaffOrderInput,
+    options?: RequestOptions,
+  ): Promise<StaffOrder>;
+  cancel(input: CancelStaffOrderInput, options?: RequestOptions): Promise<StaffOrder>;
 }
 
 export class StaffOrderNotFoundError extends Error {

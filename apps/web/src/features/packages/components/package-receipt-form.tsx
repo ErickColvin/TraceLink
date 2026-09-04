@@ -12,8 +12,7 @@ import {
   Input,
   Label,
 } from "../../../components/ui";
-import type { Customer } from "../../customers";
-import { PACKAGE_CARRIERS } from "../domain";
+import { PACKAGE_CARRIERS, type PackageCustomerOption } from "../domain";
 import {
   packageReceiptSchema,
   type PackageReceiptValues,
@@ -31,7 +30,7 @@ function FieldError({ id, message }: Readonly<{ id: string; message?: string }>)
 }
 
 export type PackageReceiptFormProps = Readonly<{
-  customers: readonly Customer[];
+  customers: readonly PackageCustomerOption[];
   defaultReceivedAt: string;
   errorMessage?: string;
   pending: boolean;
@@ -96,7 +95,7 @@ export function PackageReceiptForm({
               <option value="">Selecciona un cliente activo</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
-                  {customer.firstName} {customer.lastName} · {customer.email}
+                  {customer.displayName} · {customer.email}
                 </option>
               ))}
             </select>

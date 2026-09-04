@@ -1,14 +1,14 @@
-import { MockCustomerService } from "./services/mock-customer-service";
 import type {
   CustomerSelfService,
   CustomerService,
   StaffCustomerService,
 } from "./services/customer-service";
+import { applicationServices } from "../service-composition";
 
-const mockCustomerService = new MockCustomerService();
-
-export const customerSelfService: CustomerSelfService = mockCustomerService;
-export const staffCustomerService: StaffCustomerService = mockCustomerService;
+export const customerSelfService: CustomerSelfService =
+  applicationServices.customerSelfService;
+export const staffCustomerService: StaffCustomerService =
+  applicationServices.staffCustomerService;
 
 /** @deprecated Prefer customerSelfService or staffCustomerService. */
-export const customerService: CustomerService = mockCustomerService;
+export const customerService: CustomerService = applicationServices.customerService;

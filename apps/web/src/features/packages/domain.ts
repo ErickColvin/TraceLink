@@ -137,6 +137,26 @@ export interface StaffPackagePage {
   totalPages: number;
 }
 
+export type PackageCustomerOption = Readonly<{
+  id: string;
+  displayName: string;
+  email: string;
+}>;
+
+export type PackageCustomerOptionListParams = Readonly<{
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}>;
+
+export type PackageCustomerOptionPage = Readonly<{
+  items: PackageCustomerOption[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}>;
+
 export type PackageActor = Readonly<{
   id: string;
   name: string;

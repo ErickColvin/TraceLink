@@ -21,7 +21,7 @@ import {
   type AuthError,
   type AuthService,
 } from "../services/auth-service";
-import { MockAuthService } from "../services/mock-auth-service";
+import { applicationServices } from "../../service-composition";
 import { clearCustomerPrivateQueries } from "../query-scope";
 import {
   AuthContext,
@@ -37,7 +37,7 @@ export type AuthProviderProps = Readonly<{
 export function AuthProvider({ children, service }: AuthProviderProps) {
   const queryClient = useQueryClient();
   const [authService] = useState<AuthService>(
-    () => service ?? new MockAuthService(),
+    () => service ?? applicationServices.authService,
   );
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [session, setSession] = useState<AuthSession>(ANONYMOUS_SESSION);
@@ -147,6 +147,7 @@ export function AuthProvider({ children, service }: AuthProviderProps) {
     () => ({
       status,
       session,
+      demoSessionsEnabled: authService.demoSessionsEnabled,
       isPending,
       error,
       signIn,
@@ -158,6 +159,7 @@ export function AuthProvider({ children, service }: AuthProviderProps) {
     [
       status,
       session,
+      authService,
       isPending,
       error,
       signIn,

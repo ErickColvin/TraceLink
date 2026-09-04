@@ -8,6 +8,7 @@ import type {
   InventoryMovementPage,
   InventoryPage,
 } from "../domain";
+import type { RequestOptions } from "../../../lib/http/http-client";
 
 export interface InventoryService {
   list(params?: InventoryListParams): Promise<InventoryPage>;
@@ -18,6 +19,7 @@ export interface InventoryService {
   ): Promise<InventoryMovementPage>;
   createMovement(
     input: CreateInventoryMovementInput,
+    options?: RequestOptions,
   ): Promise<InventoryMovement>;
 }
 

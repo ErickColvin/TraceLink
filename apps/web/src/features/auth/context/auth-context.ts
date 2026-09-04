@@ -14,6 +14,7 @@ export type AuthStatus = "loading" | "ready";
 export type AuthContextValue = Readonly<{
   status: AuthStatus;
   session: AuthSession;
+  demoSessionsEnabled: boolean;
   isPending: boolean;
   error: AuthError | null;
   signIn(credentials: SignInCredentials): Promise<AuthenticatedSession>;

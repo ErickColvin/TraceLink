@@ -54,6 +54,7 @@ export function LoginPage() {
   const {
     session,
     status,
+    demoSessionsEnabled,
     isPending,
     signIn,
     startDemoSession,
@@ -215,11 +216,15 @@ export function LoginPage() {
           <CardContent className="space-y-6">
             <Alert tone="info">
               <Info aria-hidden="true" />
-              <AlertTitle>Autenticación real en preparación</AlertTitle>
+              <AlertTitle>
+                {demoSessionsEnabled
+                  ? "Autenticación real en preparación"
+                  : "Acceso protegido"}
+              </AlertTitle>
               <AlertDescription>
-                El formulario ya valida tus datos, pero todavía no los envía a
-                un servidor. Para recorrer la plataforma, usa uno de los accesos
-                de demostración.
+                {demoSessionsEnabled
+                  ? "El formulario ya valida tus datos, pero todavía no los envía a un servidor. Para recorrer la plataforma, usa uno de los accesos de demostración."
+                  : "Tu sesión se mantiene en una cookie segura y los permisos se validan en el servidor."}
               </AlertDescription>
             </Alert>
 
@@ -316,45 +321,50 @@ export function LoginPage() {
               </Button>
             </form>
 
-            <div className="relative py-1" role="separator">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-ink-200" />
-              </div>
-              <div className="relative flex justify-center">
-                <span className="bg-white px-3 text-xs font-medium uppercase tracking-wide text-ink-600">
-                  Explorar demostración
-                </span>
-              </div>
-            </div>
+            {demoSessionsEnabled ? (
+              <>
+                <div className="relative py-1" role="separator">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-ink-200" />
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-white px-3 text-xs font-medium uppercase tracking-wide text-ink-600">
+                      Explorar demostración
+                    </span>
+                  </div>
+                </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Button
-                disabled={interactionPending}
-                onClick={() => void enterDemo("customer")}
-                type="button"
-                variant="outline"
-              >
-                {activeDemo === "customer"
-                  ? "Abriendo…"
-                  : "Entrar como cliente"}
-              </Button>
-              <Button
-                disabled={interactionPending}
-                onClick={() => void enterDemo("staff")}
-                type="button"
-                variant="outline"
-              >
-                {activeDemo === "staff"
-                  ? "Abriendo…"
-                  : "Entrar como personal"}
-              </Button>
-            </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Button
+                    disabled={interactionPending}
+                    onClick={() => void enterDemo("customer")}
+                    type="button"
+                    variant="outline"
+                  >
+                    {activeDemo === "customer"
+                      ? "Abriendo…"
+                      : "Entrar como cliente"}
+                  </Button>
+                  <Button
+                    disabled={interactionPending}
+                    onClick={() => void enterDemo("staff")}
+                    type="button"
+                    variant="outline"
+                  >
+                    {activeDemo === "staff"
+                      ? "Abriendo…"
+                      : "Entrar como personal"}
+                  </Button>
+                </div>
+              </>
+            ) : null}
           </CardContent>
 
           <CardFooter className="bg-ink-50">
             <p className="text-xs leading-5 text-ink-600">
-              Los accesos demo no usan credenciales y su sesión vive únicamente
-              en memoria. No ingreses una contraseña real en este entorno.
+              {demoSessionsEnabled
+                ? "Los accesos demo no usan credenciales y su sesión vive únicamente en memoria. No ingreses una contraseña real en este entorno."
+                : "Las credenciales se envían solo a la API configurada. El navegador no almacena tokens de sesión."}
             </p>
           </CardFooter>
         </Card>

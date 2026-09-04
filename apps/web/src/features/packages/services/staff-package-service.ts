@@ -1,19 +1,34 @@
 import type {
   DeliverStaffPackageInput,
+  PackageCustomerOptionListParams,
+  PackageCustomerOptionPage,
   ReceiveStaffPackageInput,
   StaffPackage,
   StaffPackageListParams,
   StaffPackagePage,
   TransitionStaffPackageInput,
 } from "../domain";
+import type { RequestOptions } from "../../../lib/http/http-client";
 
 export interface StaffPackageService {
   /** Operational access; never used to resolve the current customer's scope. */
   list(params?: StaffPackageListParams): Promise<StaffPackagePage>;
   getById(id: string): Promise<StaffPackage>;
-  receive(input: ReceiveStaffPackageInput): Promise<StaffPackage>;
-  transitionStatus(input: TransitionStaffPackageInput): Promise<StaffPackage>;
-  deliver(input: DeliverStaffPackageInput): Promise<StaffPackage>;
+  listCustomerOptions(
+    params?: PackageCustomerOptionListParams,
+  ): Promise<PackageCustomerOptionPage>;
+  receive(
+    input: ReceiveStaffPackageInput,
+    options?: RequestOptions,
+  ): Promise<StaffPackage>;
+  transitionStatus(
+    input: TransitionStaffPackageInput,
+    options?: RequestOptions,
+  ): Promise<StaffPackage>;
+  deliver(
+    input: DeliverStaffPackageInput,
+    options?: RequestOptions,
+  ): Promise<StaffPackage>;
 }
 
 export class StaffPackageNotFoundError extends Error {

@@ -6,6 +6,8 @@ import {
 } from "../data/mock-staff-packages";
 import type {
   DeliverStaffPackageInput,
+  PackageCustomerOptionListParams,
+  PackageCustomerOptionPage,
   PackageStatus,
   ReceiveStaffPackageInput,
   StaffPackage,
@@ -198,6 +200,37 @@ export class MockStaffPackageService implements StaffPackageService {
     const customerPackage = this.packages.find((candidate) => candidate.id === id);
     if (!customerPackage) throw new StaffPackageNotFoundError(id);
     return cloneStaffPackage(customerPackage);
+  }
+
+  async listCustomerOptions(
+    params: PackageCustomerOptionListParams = {},
+  ): Promise<PackageCustomerOptionPage> {
+    await delay(this.latencyMs);
+    const page = Math.max(1, Math.trunc(params.page ?? 1));
+    const pageSize = Math.max(1, Math.trunc(params.pageSize ?? DEFAULT_PAGE_SIZE));
+    const search = normalizeSearch(params.search ?? "");
+    const items = Object.values(this.customers)
+      .filter((customer) =>
+        normalizeSearch(`${customer.fullName} ${customer.email}`).includes(search),
+      )
+      .sort((left, right) => left.fullName.localeCompare(right.fullName, "es-CL"))
+      .map((customer) => ({
+        id: customer.id,
+        displayName: customer.fullName,
+        email: customer.email,
+      }));
+    const totalItems = items.length;
+    const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize);
+    const safePage = totalPages === 0 ? 1 : Math.min(page, totalPages);
+    const start = (safePage - 1) * pageSize;
+
+    return {
+      items: items.slice(start, start + pageSize),
+      page: safePage,
+      pageSize,
+      totalItems,
+      totalPages,
+    };
   }
 
   async receive(input: ReceiveStaffPackageInput): Promise<StaffPackage> {

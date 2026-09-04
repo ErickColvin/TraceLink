@@ -1,4 +1,7 @@
-import { PERMISSIONS, type Permission } from "@/features/auth";
+import {
+  PERMISSIONS,
+  type Permission,
+} from "@/features/auth/model/auth";
 import { delay } from "@/lib/delay";
 
 import { mockStaffRoles } from "../data/mock-roles";

@@ -7,7 +7,11 @@ import type {
 
 export type AuthErrorCode =
   | "AUTH_NOT_CONFIGURED"
+  | "ACCOUNT_DISABLED"
+  | "FORBIDDEN"
   | "INVALID_CREDENTIALS"
+  | "RATE_LIMITED"
+  | "SESSION_EXPIRED"
   | "SESSION_UNAVAILABLE"
   | "UNKNOWN";
 
@@ -26,6 +30,7 @@ export class AuthError extends Error {
  * exchange credentials with the backend and rely on its server-side session.
  */
 export interface AuthService {
+  readonly demoSessionsEnabled: boolean;
   getSession(): Promise<AuthSession>;
   signIn(credentials: SignInCredentials): Promise<AuthenticatedSession>;
   startDemoSession(audience: AuthAudience): Promise<AuthenticatedSession>;

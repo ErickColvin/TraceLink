@@ -33,7 +33,16 @@ export type CustomerAccount = Readonly<{
   email: string;
 }>;
 
-export type StaffRole = "administrator" | "operations" | "inventory";
+export const STAFF_ROLE_CODES = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "INVENTORY",
+  "OPERATIONS",
+  "SALES",
+  "WAREHOUSE",
+] as const;
+
+export type StaffRole = (typeof STAFF_ROLE_CODES)[number];
 
 export type StaffAccount = Readonly<{
   id: string;

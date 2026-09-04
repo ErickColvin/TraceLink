@@ -21,6 +21,7 @@ import type { AuthService } from "../services/auth-service";
 
 function createStaticService(session: AuthSession): AuthService {
   return {
+    demoSessionsEnabled: false,
     getSession: async () => session,
     signIn: async (credentials: SignInCredentials) => {
       void credentials;
@@ -68,7 +69,7 @@ const limitedStaffSession: StaffSession = {
     firstName: "Camila",
     lastName: "Torres",
     email: "camila.torres@example.cl",
-    role: "operations",
+    role: "OPERATIONS",
     roleLabel: "Operaciones",
   },
   permissions: ["orders.view"],

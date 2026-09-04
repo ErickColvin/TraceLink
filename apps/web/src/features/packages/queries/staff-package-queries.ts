@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
   DeliverStaffPackageInput,
+  PackageCustomerOptionListParams,
   ReceiveStaffPackageInput,
   StaffPackageListParams,
   TransitionStaffPackageInput,
@@ -15,6 +16,8 @@ export const staffPackageKeys = {
     [...staffPackageKeys.lists(), params] as const,
   details: () => [...staffPackageKeys.all, "detail"] as const,
   detail: (id: string) => [...staffPackageKeys.details(), id] as const,
+  customerOptions: (params: PackageCustomerOptionListParams) =>
+    [...staffPackageKeys.all, "customer-options", params] as const,
 };
 
 export function useStaffPackages(params: StaffPackageListParams = {}) {
@@ -22,6 +25,16 @@ export function useStaffPackages(params: StaffPackageListParams = {}) {
     queryKey: staffPackageKeys.list(params),
     queryFn: () => staffPackageService.list(params),
     staleTime: 15_000,
+  });
+}
+
+export function usePackageCustomerOptions(
+  params: PackageCustomerOptionListParams = {},
+) {
+  return useQuery({
+    queryKey: staffPackageKeys.customerOptions(params),
+    queryFn: () => staffPackageService.listCustomerOptions(params),
+    staleTime: 30_000,
   });
 }
 
