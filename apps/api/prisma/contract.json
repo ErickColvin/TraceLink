@@ -3002,7 +3002,7 @@
                   "codecId": "sql/varchar@1",
                   "kind": "scalar",
                   "typeParams": {
-                    "length": 20
+                    "length": 35
                   }
                 }
               },
@@ -3032,7 +3032,7 @@
                   "codecId": "sql/varchar@1",
                   "kind": "scalar",
                   "typeParams": {
-                    "length": 80
+                    "length": 100
                   }
                 }
               },
@@ -3446,7 +3446,7 @@
                   "codecId": "sql/varchar@1",
                   "kind": "scalar",
                   "typeParams": {
-                    "length": 300
+                    "length": 500
                   }
                 }
               },
@@ -8262,7 +8262,7 @@
                   "nativeType": "character varying",
                   "nullable": false,
                   "typeParams": {
-                    "length": 300
+                    "length": 500
                   }
                 },
                 "pickup_instructions": {
@@ -8364,7 +8364,7 @@
                   "nativeType": "character varying",
                   "nullable": false,
                   "typeParams": {
-                    "length": 20
+                    "length": 35
                   }
                 },
                 "name": {
@@ -8392,7 +8392,7 @@
                   "nativeType": "character varying",
                   "nullable": false,
                   "typeParams": {
-                    "length": 80
+                    "length": 100
                   }
                 },
                 "updated_at": {
@@ -10282,7 +10282,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "8ef4a570dfab349ebb0db12a55c418867dced833652a4d2b5dfa87ea23c3c2eb"
+    "storageHash": "8043015b27b719508697e4eb1e9d67b20bf2e86e084981a0e244069229ca7db8"
   },
   "execution": {
     "executionHash": "af0e6dd3c0f70543593347aec45c7552a5871e9ee48dd288251d0a437a746587",

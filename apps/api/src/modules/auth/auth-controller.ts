@@ -22,6 +22,10 @@ function setPrivateResponseHeaders(response: Parameters<RequestHandler>[1]): voi
 export function createAuthController(
   service: AuthServicePort,
   config: AppConfig,
+  resetRateLimit?: (
+    scope: "auth.login" | "auth.register",
+    request: Parameters<RequestHandler>[0],
+  ) => Promise<void>,
 ): Readonly<{
   login: RequestHandler;
   register: RequestHandler;
@@ -35,6 +39,7 @@ export function createAuthController(
     login: async (request, response) => {
       const input = parseWithSchema(signInRequestSchema, request.body, "body");
       const result = await service.signIn(input);
+      await resetRateLimit?.("auth.login", request);
       setPrivateResponseHeaders(response);
       response.setHeader(
         "Set-Cookie",
@@ -50,6 +55,7 @@ export function createAuthController(
     register: async (request, response) => {
       const input = parseWithSchema(registerRequestSchema, request.body, "body");
       const result = await service.register(input);
+      await resetRateLimit?.("auth.register", request);
       setPrivateResponseHeaders(response);
       response.setHeader(
         "Set-Cookie",
@@ -77,4 +83,3 @@ export function createAuthController(
     },
   };
 }
-

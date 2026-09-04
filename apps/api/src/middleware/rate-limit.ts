@@ -79,6 +79,29 @@ export class PersistentRateLimiter {
       ),
     };
   }
+
+  async reset(options: Readonly<{ scope: string; key: string }>): Promise<void> {
+    const keyHash = hmacSha256(this.#secret, "rate-limit", options.key);
+    await this.#database.query(
+      `DELETE FROM rate_limit_buckets WHERE scope = $1 AND key_hash = $2`,
+      [options.scope, keyHash],
+    );
+  }
+}
+
+export function authRateLimitKey(
+  request: Parameters<RequestHandler>[0],
+): string {
+  const body = request.body;
+  const emailValue =
+    typeof body === "object" && body !== null
+      ? Reflect.get(body, "email")
+      : undefined;
+  const email =
+    typeof emailValue === "string"
+      ? emailValue.trim().toLowerCase()
+      : "invalid";
+  return `${request.ip}|${email}`;
 }
 
 export function createAuthRateLimit(options: Readonly<{
@@ -90,18 +113,9 @@ export function createAuthRateLimit(options: Readonly<{
 }>): RequestHandler {
   return async (request, response, next) => {
     try {
-      const body = request.body;
-      const emailValue =
-        typeof body === "object" && body !== null
-          ? Reflect.get(body, "email")
-          : undefined;
-      const email =
-        typeof emailValue === "string"
-          ? emailValue.trim().toLowerCase()
-          : "invalid";
       const outcome = await options.limiter.consume({
         scope: options.scope,
-        key: `${request.ip}|${email}`,
+        key: authRateLimitKey(request),
         maxAttempts: options.maxAttempts ?? 5,
         windowSeconds: options.windowSeconds ?? 15 * 60,
         blockSeconds: options.blockSeconds ?? 15 * 60,

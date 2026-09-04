@@ -5,6 +5,7 @@ import type { PostgresDatabase } from "../../database/index.js";
 import { createAuthenticate } from "../../middleware/authenticate.js";
 import { requireCsrf } from "../../middleware/csrf.js";
 import {
+  authRateLimitKey,
   createAuthRateLimit,
   PersistentRateLimiter,
 } from "../../middleware/rate-limit.js";
@@ -24,10 +25,17 @@ export function createAuthRouter(options: Readonly<{
     csrfSecret: options.config.csrfSecret,
     sessionTtlSeconds: options.config.sessionTtlSeconds,
   });
-  const controller = createAuthController(service, options.config);
   const limiter = new PersistentRateLimiter(
     options.database,
     options.config.rateLimitSecret,
+  );
+  const controller = createAuthController(
+    service,
+    options.config,
+    (scope, request) => limiter.reset({
+      scope,
+      key: authRateLimitKey(request),
+    }),
   );
   const authenticate = createAuthenticate({
     repository,
@@ -53,4 +61,3 @@ export function createAuthRouter(options: Readonly<{
 
   return router;
 }
-

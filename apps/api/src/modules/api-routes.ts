@@ -9,6 +9,9 @@ import { createCustomerRouter } from "./customers/customer-routes.js";
 import { createInventoryRouter } from "./inventory/inventory-routes.js";
 import { createOrderRouter } from "./orders/order-routes.js";
 import { createPackageRouter } from "./packages/package-routes.js";
+import { createRoleRouter } from "./roles/role-routes.js";
+import { createSettingsRouter } from "./settings/settings-routes.js";
+import { createUserRouter } from "./users/user-routes.js";
 import { createProductRouter } from "./products/product-routes.js";
 
 export function createApiRouter(options: Readonly<{
@@ -56,6 +59,27 @@ export function createApiRouter(options: Readonly<{
     createPackageRouter({
       database: options.database,
       config: options.config,
+      authenticate,
+      csrf,
+    }),
+  );
+  router.use(
+    createUserRouter({
+      database: options.database,
+      authenticate,
+      csrf,
+    }),
+  );
+  router.use(
+    createRoleRouter({
+      database: options.database,
+      authenticate,
+      csrf,
+    }),
+  );
+  router.use(
+    createSettingsRouter({
+      database: options.database,
       authenticate,
       csrf,
     }),
