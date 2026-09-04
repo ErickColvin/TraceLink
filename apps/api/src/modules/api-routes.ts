@@ -7,6 +7,7 @@ import { requireCsrf } from "../middleware/csrf.js";
 import { PostgresAuthRepository } from "./auth/auth-repository.js";
 import { createCustomerRouter } from "./customers/customer-routes.js";
 import { createInventoryRouter } from "./inventory/inventory-routes.js";
+import { createOrderRouter } from "./orders/order-routes.js";
 import { createProductRouter } from "./products/product-routes.js";
 
 export function createApiRouter(options: Readonly<{
@@ -36,6 +37,14 @@ export function createApiRouter(options: Readonly<{
   );
   router.use(
     createInventoryRouter({
+      database: options.database,
+      config: options.config,
+      authenticate,
+      csrf,
+    }),
+  );
+  router.use(
+    createOrderRouter({
       database: options.database,
       config: options.config,
       authenticate,

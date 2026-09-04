@@ -528,7 +528,7 @@ model OrderStatusEvent {
   fromStatus     OrderStatus? @map("from_status")
   toStatus       OrderStatus  @map("to_status")
   actorUserId    Uuid?        @map("actor_user_id")
-  reason         VarChar(500)?
+  reason         VarChar(1000)?
   occurredAt     Timestamptz(3)     @default(now()) @map("occurred_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "order_status_event_organization_fkey")
