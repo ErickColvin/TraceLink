@@ -160,7 +160,10 @@ beforeAll(async () => {
        VALUES ($1, 'contacto@chmarket.test', '+56900000000',
                'Sucursal CH Market Huechuraba', 'Presentar identificación',
                5, 5, 30, now(), now())
-       ON CONFLICT (organization_id) DO NOTHING`,
+       ON CONFLICT (organization_id) DO UPDATE
+         SET pickup_address = EXCLUDED.pickup_address,
+             pickup_instructions = EXCLUDED.pickup_instructions,
+             updated_at = now()`,
       [organizationId],
     );
     const category = await executor.query<IdRow>(

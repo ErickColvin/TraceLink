@@ -6,6 +6,7 @@ import { createAuthenticate } from "../middleware/authenticate.js";
 import { requireCsrf } from "../middleware/csrf.js";
 import { PostgresAuthRepository } from "./auth/auth-repository.js";
 import { createCustomerRouter } from "./customers/customer-routes.js";
+import { createDashboardRouter } from "./dashboard/dashboard-routes.js";
 import { createInventoryRouter } from "./inventory/inventory-routes.js";
 import { createOrderRouter } from "./orders/order-routes.js";
 import { createPackageRouter } from "./packages/package-routes.js";
@@ -13,6 +14,7 @@ import { createRoleRouter } from "./roles/role-routes.js";
 import { createSettingsRouter } from "./settings/settings-routes.js";
 import { createUserRouter } from "./users/user-routes.js";
 import { createProductRouter } from "./products/product-routes.js";
+import { createReportRouter } from "./reports/report-routes.js";
 
 export function createApiRouter(options: Readonly<{
   database: PostgresDatabase;
@@ -82,6 +84,18 @@ export function createApiRouter(options: Readonly<{
       database: options.database,
       authenticate,
       csrf,
+    }),
+  );
+  router.use(
+    createDashboardRouter({
+      database: options.database,
+      authenticate,
+    }),
+  );
+  router.use(
+    createReportRouter({
+      database: options.database,
+      authenticate,
     }),
   );
   return router;
