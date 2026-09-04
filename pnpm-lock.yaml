@@ -108,6 +108,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.102.8
         version: 5.102.8(react@19.2.8)
+      '@tracelink/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
