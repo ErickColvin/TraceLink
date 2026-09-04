@@ -22,6 +22,10 @@ export const positiveIntegerSchema = z
   .max(Number.MAX_SAFE_INTEGER);
 export const idempotencyKeySchema = z.string().trim().min(8).max(255);
 export const csrfTokenSchema = z.string().trim().min(32).max(512);
+export const booleanQuerySchema = z.union([
+  z.boolean(),
+  z.enum(["true", "false"]).transform((value) => value === "true"),
+]);
 
 export type EntityId = z.infer<typeof entityIdSchema>;
 export type ClpAmount = z.infer<typeof clpAmountSchema>;

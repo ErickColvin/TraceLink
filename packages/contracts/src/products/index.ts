@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  booleanQuerySchema,
   clpAmountSchema,
   entityIdSchema,
   nonNegativeIntegerSchema,
@@ -89,7 +90,7 @@ export const productListParamsSchema = z
     categoryId: entityIdSchema.optional(),
     availability: productAvailabilitySchema.optional(),
     sort: productSortSchema.optional(),
-    featured: z.coerce.boolean().optional(),
+    featured: booleanQuerySchema.optional(),
     page: pageSchema.optional(),
     pageSize: pageSizeSchema.optional(),
   })

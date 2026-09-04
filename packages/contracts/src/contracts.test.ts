@@ -6,14 +6,17 @@ import {
   ROLE_CODES,
   apiErrorResponseSchema,
   authSessionEnvelopeSchema,
+  booleanQuerySchema,
   createInventoryMovementRequestSchema,
   orderTransitionRequestSchema,
   packageTransitionTargetSchema,
   paginationQuerySchema,
   productCommercialInputSchema,
+  productListParamsSchema,
   receivePackageRequestSchema,
   roleCodeSchema,
   settingsSchemaForTest,
+  staffPackageListParamsSchema,
 } from "./test-exports.js";
 
 describe("catálogos autoritativos", () => {
@@ -96,6 +99,17 @@ describe("integridad de DTO", () => {
   it("limita la paginación", () => {
     expect(paginationQuerySchema.safeParse({ page: "1", pageSize: "100" }).success).toBe(true);
     expect(paginationQuerySchema.safeParse({ page: "0", pageSize: "101" }).success).toBe(false);
+  });
+
+  it("interpreta booleanos de query sin convertir 'false' en true", () => {
+    expect(booleanQuerySchema.parse("true")).toBe(true);
+    expect(booleanQuerySchema.parse("false")).toBe(false);
+    expect(productListParamsSchema.parse({ featured: "false" }).featured).toBe(
+      false,
+    );
+    expect(
+      staffPackageListParamsSchema.parse({ coldStorage: "false" }).coldStorage,
+    ).toBe(false);
   });
 
   it("exige contexto customer o staff coherente", () => {

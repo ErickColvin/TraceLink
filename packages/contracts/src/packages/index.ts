@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  booleanQuerySchema,
   entityIdSchema,
   isoDateTimeSchema,
   positiveIntegerSchema,
@@ -159,7 +160,7 @@ export const staffPackageListParamsSchema = z
     carrier: z.string().trim().max(120).optional(),
     location: z.string().trim().max(200).optional(),
     statuses: z.array(packageStatusSchema).optional(),
-    coldStorage: z.boolean().optional(),
+    coldStorage: booleanQuerySchema.optional(),
     sort: staffPackageSortSchema.optional(),
     page: pageSchema.optional(),
     pageSize: pageSizeSchema.optional(),
