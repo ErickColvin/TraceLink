@@ -20,4 +20,10 @@ describe("runtime config", () => {
     expect(parseDataMode("http")).toBe("http");
     expect(() => parseDataMode("automatic")).toThrow(/mock.*http/u);
   });
+
+  it("mantiene Vitest aislado del modo HTTP del entorno local", () => {
+    expect(
+      readRuntimeConfig({ MODE: "test", VITE_DATA_MODE: "http" }).dataMode,
+    ).toBe("mock");
+  });
 });

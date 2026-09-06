@@ -26,13 +26,16 @@ export function normalizeApiBaseUrl(value: string | undefined): string {
 
 export function readRuntimeConfig(
   environment: Readonly<{
+    MODE?: string;
     VITE_API_BASE_URL?: string;
     VITE_DATA_MODE?: string;
   }> = import.meta.env,
 ): RuntimeConfig {
   return Object.freeze({
     apiBaseUrl: normalizeApiBaseUrl(environment.VITE_API_BASE_URL),
-    dataMode: parseDataMode(environment.VITE_DATA_MODE),
+    dataMode: parseDataMode(
+      environment.MODE === "test" ? "mock" : environment.VITE_DATA_MODE,
+    ),
   });
 }
 

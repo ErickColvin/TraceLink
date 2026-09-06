@@ -69,7 +69,7 @@ export function AdminInventoryMovementsPage() {
   const [successMessage, setSuccessMessage] = useState<string>();
   const inventoryQuery = useInventory({
     sort: "PRODUCT_ASC",
-    pageSize: 200,
+    pageSize: 100,
   });
   const movementQuery = useInventoryMovements({
     search: search || undefined,

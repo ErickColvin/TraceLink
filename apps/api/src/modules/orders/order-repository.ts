@@ -607,7 +607,7 @@ export class PostgresOrderRepository {
         packageIdsByOrder: new Map(),
       };
     }
-    const itemsPromise = executor.query<OrderItemRow>(
+    const items = await executor.query<OrderItemRow>(
       `SELECT item.id, item.order_id AS "orderId",
               item.product_id AS "productId", item.sku_snapshot AS sku,
               item.product_name_snapshot AS name, product.image_url AS "imageUrl",
@@ -622,15 +622,15 @@ export class PostgresOrderRepository {
         ORDER BY item.order_id ASC, item.id ASC`,
       [organizationId, orderIds],
     );
-    const packagesPromise = executor.query<OrderPackageRow>(
+    const packages = await executor.query<OrderPackageRow>(
       `SELECT order_id AS "orderId", id AS "packageId"
          FROM packages
         WHERE organization_id = $1 AND order_id = ANY($2::uuid[])
         ORDER BY order_id ASC, created_at ASC, id ASC`,
       [organizationId, orderIds],
     );
-    const eventsPromise = includeEvents
-      ? executor.query<OrderStatusEventRow>(
+    const events = includeEvents
+      ? await executor.query<OrderStatusEventRow>(
           `SELECT event.id, event.order_id AS "orderId",
                   event.from_status AS "fromStatus", event.to_status AS "toStatus",
                   event.occurred_at AS "occurredAt",
@@ -646,12 +646,7 @@ export class PostgresOrderRepository {
             ORDER BY event.order_id ASC, event.occurred_at ASC, event.id ASC`,
           [organizationId, orderIds],
         )
-      : Promise.resolve({ rows: [] as OrderStatusEventRow[] });
-    const [items, packages, events] = await Promise.all([
-      itemsPromise,
-      packagesPromise,
-      eventsPromise,
-    ]);
+      : { rows: [] as OrderStatusEventRow[] };
     return {
       itemsByOrder: groupRows(items.rows, (row) => row.orderId, toOrderItem),
       eventsByOrder: groupRows(

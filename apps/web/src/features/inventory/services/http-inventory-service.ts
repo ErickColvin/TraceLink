@@ -22,6 +22,29 @@ import type { InventoryService } from "./inventory-service";
 
 const inventoryCategoryListSchema = inventoryCategorySchema.array();
 
+function optionalTrimmed(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  return normalized ? normalized : undefined;
+}
+
+function toMovementRequest(input: CreateInventoryMovementInput) {
+  const originLocation = optionalTrimmed(input.originLocation);
+  const destinationLocation = optionalTrimmed(input.destinationLocation);
+  const reason = optionalTrimmed(input.reason);
+  const notes = optionalTrimmed(input.notes);
+
+  return {
+    inventoryItemId: input.inventoryItemId,
+    type: input.type,
+    quantity: input.quantity,
+    adjustmentDirection: input.adjustmentDirection,
+    ...(originLocation === undefined ? {} : { originLocation }),
+    ...(destinationLocation === undefined ? {} : { destinationLocation }),
+    ...(reason === undefined ? {} : { reason }),
+    ...(notes === undefined ? {} : { notes }),
+  };
+}
+
 export class HttpInventoryService implements InventoryService {
   constructor(private readonly client: HttpClient) {}
 
@@ -57,7 +80,7 @@ export class HttpInventoryService implements InventoryService {
   ) {
     return this.client.request("/staff/inventory/movements", {
       method: "POST",
-      body: input,
+      body: toMovementRequest(input),
       csrf: true,
       idempotencyKey: resolveIdempotencyKey(options),
       responseSchema: inventoryMovementSchema,
