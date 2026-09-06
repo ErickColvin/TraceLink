@@ -7,6 +7,9 @@ import { fileURLToPath } from "node:url";
 
 import EmbeddedPostgres from "embedded-postgres";
 
+import { runWithCleanup } from "./runner-lifecycle.js";
+import { verifySeedDataset } from "./verify-seed.js";
+
 async function findAvailablePort(): Promise<number> {
   const server = createServer();
   await new Promise<void>((resolve, reject) => {
@@ -67,40 +70,60 @@ async function main(): Promise<void> {
     onError: () => undefined,
   });
 
-  try {
-    await postgres.initialise();
-    await postgres.start();
-    await postgres.createDatabase(databaseName);
-    const databaseUrl =
-      `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}` +
-      `@127.0.0.1:${port}/${databaseName}?schema=public`;
-    const environment = {
-      ...process.env,
-      NODE_ENV: "test",
-      DATABASE_URL: databaseUrl,
-      TEST_DATABASE_URL: databaseUrl,
-      SEED_ADMIN_EMAIL: "admin@chmarket.test",
-      SEED_ADMIN_PASSWORD: "Admin-Test-Password-123!",
-    } satisfies NodeJS.ProcessEnv;
+  await runWithCleanup(
+    async () => {
+      await postgres.initialise();
+      await postgres.start();
+      await postgres.createDatabase(databaseName);
+      const databaseUrl =
+        `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}` +
+        `@127.0.0.1:${port}/${databaseName}?schema=public`;
+      const environment = {
+        ...process.env,
+        NODE_ENV: "test",
+        DATABASE_URL: databaseUrl,
+        TEST_DATABASE_URL: databaseUrl,
+        PICKUP_CODE_SECRET: "integration-pickup-code-secret-32-characters",
+        SEED_ADMIN_EMAIL: "admin@chmarket.test",
+        SEED_ADMIN_PASSWORD: "Admin-Test-Password-123!",
+        SEED_STAFF_EMAIL: "staff@chmarket.test",
+        SEED_STAFF_PASSWORD: "Staff-Test-Password-123!",
+        SEED_CUSTOMER_EMAIL: "seed-customer@chmarket.test",
+        SEED_CUSTOMER_PASSWORD: "Customer-Test-Password-123!",
+        SEED_PACKAGE_PICKUP_CODE: "Integration-Pickup-Code-42",
+      } satisfies NodeJS.ProcessEnv;
 
-    await runNode(
-      packageEntrypoint("prisma", "dist/prisma.js"),
-      ["db", "migrate", "--advance-ref", "db"],
-      environment,
-    );
-    await runNode(
-      packageEntrypoint("tsx", "dist/cli.mjs"),
-      ["prisma/seed.ts"],
-      environment,
-    );
-    await runNode(
-      packageEntrypoint("vitest", "vitest.mjs"),
-      ["run", "--config", "vitest.integration.config.ts"],
-      environment,
-    );
-  } finally {
-    await postgres.stop().catch(() => undefined);
-  }
+      await runNode(
+        packageEntrypoint("prisma", "dist/prisma.js"),
+        ["db", "migrate", "--advance-ref", "db"],
+        environment,
+      );
+      await runNode(
+        packageEntrypoint("tsx", "dist/cli.mjs"),
+        ["prisma/seed.ts"],
+        environment,
+      );
+      await runNode(
+        packageEntrypoint("tsx", "dist/cli.mjs"),
+        ["prisma/seed.ts"],
+        environment,
+      );
+      await verifySeedDataset({
+        adminEmail: environment.SEED_ADMIN_EMAIL,
+        databaseUrl,
+        customerEmail: environment.SEED_CUSTOMER_EMAIL,
+        packagePickupCode: environment.SEED_PACKAGE_PICKUP_CODE,
+        pickupCodeSecret: environment.PICKUP_CODE_SECRET,
+        staffEmail: environment.SEED_STAFF_EMAIL,
+      });
+      await runNode(
+        packageEntrypoint("vitest", "vitest.mjs"),
+        ["run", "--config", "vitest.integration.config.ts"],
+        environment,
+      );
+    },
+    [{ label: "PostgreSQL embebido", run: () => postgres.stop() }],
+  );
 }
 
 void main().catch((error: unknown) => {

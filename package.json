@@ -17,7 +17,7 @@
     "test:unit": "pnpm --filter @tracelink/api test:unit",
     "test:integration": "pnpm --filter @tracelink/api test:integration",
     "test:api": "pnpm --filter @tracelink/api test:api",
-    "test:e2e": "node tools/visual-review.mjs",
+    "test:e2e": "pnpm --filter @tracelink/api test:e2e",
     "test:watch": "pnpm --filter @tracelink/web test:watch",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",
