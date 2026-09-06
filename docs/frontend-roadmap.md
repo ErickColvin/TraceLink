@@ -44,7 +44,7 @@ Verificación de cierre:
 ```text
 contracts:             10 tests
 frontend:             129 tests
-backend unit:          69 tests
+backend unit:          70 tests
 backend API:           12 tests
 backend integration:   33 tests / 8 files
 E2E HTTP real:          8 checkpoints críticos

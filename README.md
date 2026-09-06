@@ -276,3 +276,4 @@ Consulta [docs/security.md](docs/security.md) antes de desplegar.
 - [docs/ui-review-phase-3.md](docs/ui-review-phase-3.md): revisión visual y mejoras posibles.
 - [FinFase 2.txt](FinFase%202.txt): informe de cierre anterior.
 - `FinFase 3.txt`: informe integral generado al cerrar esta fase.
+- [QUE HACER.txt](QUE%20HACER.txt): pasos locales y datos necesarios para preparar la siguiente fase.

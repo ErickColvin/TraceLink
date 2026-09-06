@@ -513,8 +513,8 @@ corepack pnpm dev
 Direcciones locales predeterminadas:
 
 - Frontend: http://127.0.0.1:5173
-- API: http://127.0.0.1:3000
-- Health: http://127.0.0.1:3000/api/v1/health
+- API: http://127.0.0.1:3001/api/v1
+- Health: http://127.0.0.1:3001/api/v1/health
 
 Iniciar por separado:
 
