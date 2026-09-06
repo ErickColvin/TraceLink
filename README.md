@@ -1,64 +1,184 @@
 # TraceLink V2 · CH Market
 
-Frontend completo de TraceLink V2 para CH Market, desarrollado por Colvin Solutions. La aplicación reúne una tienda pública, un portal privado de cliente y un portal operativo para personal sobre contratos tipados y adapters mock reemplazables por HTTP.
+TraceLink V2 es la plataforma de comercio, inventario, pedidos y trazabilidad de Colvin Solutions. Esta entrega integra la UI completa de CH Market con una API autoritativa, sesiones server-side y PostgreSQL, manteniendo un modo mock local.
 
-## Estado de la entrega
+## Estado
 
-La Fase 2 de frontend incluye:
+Fase 3 incluye:
 
-- storefront responsive con catálogo, producto, carrito y checkout visual;
-- login y sesiones demo diferenciadas para cliente y personal;
-- portal cliente con pedidos, paquetes, trazabilidad y perfil editable;
-- administración de productos, inventario, pedidos, paquetes y clientes;
-- usuarios, seis roles iniciales y permisos granulares;
-- dashboard derivado de la operación mock, reportes CSV y configuración;
-- stock público/administrativo proyectado desde inventario y alertas gobernadas por umbrales configurables;
-- estados loading, error, empty, success, pending y disabled;
-- confirmaciones accesibles para acciones de riesgo;
-- 111 pruebas automatizadas en 36 archivos y un E2E responsive de los cuatro recorridos críticos.
+- storefront responsive, carrito y checkout visual;
+- portales customer y staff con la UX de Fase 2 intacta;
+- API Express 5 modular bajo `/api/v1`;
+- PostgreSQL 18 y 25 modelos tenant-scoped;
+- contrato Prisma 8 y migraciones versionadas;
+- auth con Argon2id, cookie HttpOnly, sesión revocable y CSRF;
+- seis roles, 19 permisos y enforcement en servidor;
+- productos, clientes, inventario transaccional, pedidos y paquetes persistidos;
+- AuditLog, request IDs, idempotencia y rate limits persistentes;
+- dashboard/reportes derivados de PostgreSQL;
+- 14 adapters HTTP con validación Zod y modo mock intercambiable;
+- tests unitarios, API, integración PostgreSQL, seguridad y E2E browser real.
 
-No hay backend, pagos reales, reserva transaccional de stock, autenticación remota ni persistencia de sesión. Los datos demo viven en memoria y se restablecen al recargar la aplicación.
+El checkout continúa siendo visual: no cobra, no crea un pedido real ni reserva stock. Pagos y ecommerce autoritativo pertenecen a Fase 4.
 
 ## Requisitos
 
-- Node.js 22.12 o superior.
-- pnpm 11.24.0. Los ejemplos usan Corepack, por lo que no es necesario instalar pnpm globalmente.
-- Chrome o Microsoft Edge para el smoke E2E.
+- Node.js 24 LTS (`>=24`).
+- Corepack y pnpm 11.24.0.
+- Docker Desktop/Engine para la base de desarrollo.
+- Chrome, Microsoft Edge o Chromium para E2E/revisión visual. Si no está en una ruta estándar, define `CHROME_PATH`.
 
-## Cómo iniciar el proyecto
+Comprueba las versiones:
+
+```powershell
+node --version
+corepack pnpm --version
+docker compose version
+```
+
+## Primera instalación en modo HTTP
 
 Desde la carpeta `TraceLink`:
 
 ```powershell
 corepack pnpm install
+Copy-Item .env.example .env
+```
+
+Edita `.env` antes de continuar:
+
+- usa una contraseña PostgreSQL exclusivamente local;
+- genera valores independientes de al menos 32 bytes para `SESSION_SECRET`, `CSRF_SECRET`, `IDEMPOTENCY_SECRET`, `RATE_LIMIT_SECRET` y `PICKUP_CODE_SECRET`;
+- define email/password locales para las identidades seed;
+- deja `VITE_DATA_MODE=http`.
+
+Puedes generar cada secreto con:
+
+```powershell
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+```
+
+Levanta PostgreSQL, aplica la cadena y carga datos coherentes:
+
+```powershell
+corepack pnpm db:up
+corepack pnpm db:migrate
+corepack pnpm db:seed
+```
+
+El seed es idempotente. Usa las variables `SEED_ADMIN_*`, `SEED_STAFF_*`, `SEED_CUSTOMER_*` y `SEED_PACKAGE_PICKUP_CODE`; no contiene una contraseña productiva en el código. Requiere `NODE_ENV=development|test`, rechaza producción y los placeholders de `.env.example` antes de abrir una conexión.
+
+Inicia frontend y API:
+
+```powershell
 corepack pnpm dev
 ```
 
-Abre `http://127.0.0.1:5173` o la dirección indicada por Vite.
+Abre:
 
-En `/login` existen dos accesos sin credenciales:
+- web: `http://127.0.0.1:5173`;
+- API: `http://127.0.0.1:3001/api/v1`;
+- salud: `http://127.0.0.1:3001/api/v1/health`;
+- readiness DB: `http://127.0.0.1:3001/api/v1/health/ready`.
 
-- **Entrar como cliente** abre `/mi-cuenta` con registros privados mock.
-- **Entrar como personal** abre `/app/dashboard` con todos los permisos demo.
+En modo HTTP, inicia sesión con los valores de email/password que configuraste para el seed. Los accesos demo se ocultan.
 
-## Comandos de calidad
+## Inicio rápido en modo mock
+
+Para recorrer solamente el frontend sin Docker/API, define en `.env`:
+
+```text
+VITE_DATA_MODE=mock
+```
+
+Luego:
+
+```powershell
+corepack pnpm dev:web
+```
+
+En `/login` aparecerán “Entrar como cliente” y “Entrar como personal”. Los datos y mutaciones mock viven en memoria y se reinician al recargar.
+
+## Comandos de desarrollo
+
+```powershell
+# Frontend + API
+corepack pnpm dev
+
+# Solo una aplicación
+corepack pnpm dev:web
+corepack pnpm dev:api
+
+# Compilar y previsualizar frontend compilado
+corepack pnpm build
+corepack pnpm preview
+```
+
+Vite proxyea `/api` a `VITE_API_PROXY_TARGET`, por defecto `http://127.0.0.1:3001`, para aproximar same-origin en desarrollo.
+
+## Comandos de base de datos
+
+```powershell
+# Contenedor PostgreSQL 18 persistente de desarrollo
+corepack pnpm db:up
+corepack pnpm db:down
+
+# PostgreSQL separado del perfil de tests manual
+corepack pnpm db:test:up
+
+# Contrato y migraciones Prisma 8
+corepack pnpm db:contract
+corepack pnpm db:plan
+corepack pnpm db:migrate
+corepack pnpm db:verify
+corepack pnpm db:migration:check
+
+# Dataset de desarrollo idempotente
+corepack pnpm db:seed
+```
+
+`db:down` detiene los servicios y conserva el volumen de desarrollo. Ningún script de este proyecto hace reset o drop automático de una base productiva.
+
+## Calidad y pruebas
+
+Gates completos:
 
 ```powershell
 corepack pnpm lint
 corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm build
+corepack pnpm test:e2e
 ```
 
-Para el E2E, deja el servidor de desarrollo ejecutándose en otra terminal y usa:
+Suites backend por separado:
 
 ```powershell
-corepack pnpm test:e2e
-# alias del mismo flujo
+corepack pnpm test:unit
+corepack pnpm test:api
+corepack pnpm test:integration
+```
+
+`test:integration` y `test:e2e` levantan un PostgreSQL 18 embebido y aislado. El E2E aplica migraciones, carga fixtures, inicia API y Vite en modo HTTP, ejecuta Chrome/Edge y libera los procesos; no requiere dejar servidores abiertos.
+
+Revisión responsive del modo mock con Vite ya iniciado:
+
+```powershell
+corepack pnpm dev:web
+# En otra terminal:
 corepack pnpm review:visual
 ```
 
-El script usa `playwright-core` con el navegador instalado. Revisa 375, 768, 1024 y 1440 px, detecta overflow horizontal y errores de página, genera 29 capturas y recorre tienda, cliente, personal y el ciclo completo de un paquete.
+La revisión genera 29 capturas temporales y verifica 375, 768, 1024 y 1440 px, overflow, errores de página, foco/drawer y el flujo de paquete.
+
+## Modos de datos
+
+| Variable | Resultado |
+| --- | --- |
+| `VITE_DATA_MODE=mock` | Adapters en memoria y accesos demo. |
+| `VITE_DATA_MODE=http` | Adapters HTTP, cookie de sesión real y PostgreSQL autoritativo. |
+
+La selección ocurre en `apps/web/src/features/service-composition.ts`; no hay condicionales de modo dispersos por las pantallas.
 
 ## Rutas principales
 
@@ -75,9 +195,9 @@ El script usa `playwright-core` con el navegador instalado. Revisa 375, 768, 102
 /login
 ```
 
-`/registro` continúa como redirección explícita a login hasta que exista un contrato de alta real.
+`/registro` sigue redirigiendo a login hasta diseñar el flujo público completo sobre el endpoint ya disponible.
 
-### Portal cliente
+### Portal customer
 
 ```text
 /mi-cuenta
@@ -88,7 +208,7 @@ El script usa `playwright-core` con el navegador instalado. Revisa 375, 768, 102
 /mi-cuenta/perfil
 ```
 
-### Portal de personal
+### Portal staff
 
 ```text
 /app/dashboard
@@ -112,67 +232,47 @@ El script usa `playwright-core` con el navegador instalado. Revisa 375, 768, 102
 /app/settings
 ```
 
-## Arquitectura
+## Arquitectura resumida
 
 ```text
-Pantalla → hook/use case de feature → interfaz de servicio → adapter mock
-                                                     └── adapter HTTP futuro
+React page
+  -> feature service interface
+  -> mock adapter o HTTP adapter
+  -> shared HttpClient
+  -> Express middleware/controller/service/repository
+  -> PostgreSQL
 ```
 
-- `apps/web/src/app`: router, providers y configuración global.
-- `apps/web/src/components`: primitivas y composiciones compartidas.
-- `apps/web/src/features`: dominio, schemas, queries, servicios y páginas por feature.
-- `apps/web/src/layouts`: shells público, cliente y administrativo.
-- `apps/web/src/lib`: formato CLP/fechas y utilidades transversales.
-- `apps/web/src/styles`: tokens y estilos globales.
+- `apps/web/src/app`: router, providers y configuración runtime.
+- `apps/web/src/features`: dominio, queries, contratos y adapters.
+- `apps/web/src/lib/http`: cliente HTTP reutilizable.
+- `apps/api/src/modules`: módulos de negocio por capas.
+- `apps/api/src/middleware` y `shared`: seguridad y comportamiento transversal.
+- `packages/contracts`: DTOs Zod compartidos.
 
-Los componentes no importan fixtures ni llaman `fetch`. TanStack Query representa estado de servidor; React conserva únicamente estado local como carrito y sesión demo.
+## Seguridad operativa
 
-## Contratos preparados para backend
+- Nunca subas `.env`, credenciales, cookies ni tokens.
+- El tenant, actor y ownership se derivan de Session; no se aceptan como autoridad desde el navegador.
+- La cookie de producción es `__Host-`, HttpOnly, Secure, SameSite=Lax, Path=/ y sin Domain.
+- CSRF y Origin exacto protegen mutaciones autenticadas.
+- Passwords usan Argon2id; tokens/códigos se guardan únicamente como hashes.
+- Rate limits protegen auth y entrega; AuditLog omite secretos.
+- IDs fuera de tenant/customer responden `404` sin revelar existencia.
+- `TRUST_PROXY` debe coincidir con la topología real y el origen de API no debe quedar accesible saltándose el proxy autorizado.
 
-La UI ya consume interfaces separadas para:
-
-- `AuthService`;
-- `ProductService`;
-- `InventoryService`;
-- `OrderService` y `StaffOrderService`;
-- `PackageService` y `StaffPackageService`;
-- `CustomerSelfService` y `StaffCustomerService`;
-- `UserService`;
-- `RoleService`;
-- `DashboardService`;
-- `ReportService`;
-- `SettingsService`.
-
-Un adapter HTTP futuro debe validar respuestas externas, conservar estas fronteras semánticas y volver a comprobar identidad, propiedad y permisos en servidor.
-
-## Configuración regional y tenant
-
-La marca base vive en `apps/web/src/app/config/brand.ts`:
-
-- locale `es-CL`;
-- moneda `CLP` con montos enteros;
-- timezone `America/Santiago`;
-- organización y área de servicio centralizadas.
-
-La configuración operativa mock parte de esos valores; no introduce otro identificador de tenant disperso.
-
-## Seguridad y límites
-
-- No agregues `.env`, secretos ni tokens al repositorio.
-- La autorización frontend es UX; el backend será la frontera autoritativa.
-- Los datos privados usan contratos de “cliente actual”, nunca una búsqueda libre de propietario.
-- Las queries privadas se separan por identidad y se limpian al restaurar, cambiar o cerrar sesión.
-- El inventario solo cambia mediante movimientos auditables; ningún formulario edita stock directamente.
-- El checkout declara de forma visible que no cobra ni reserva inventario.
-- La exportación CSV neutraliza celdas que podrían interpretarse como fórmulas.
-
-Los adapters mock son deliberadamente locales: sesión, carrito y mutaciones se reinician al recargar. Las vistas cliente/personal de pedidos y paquetes, los reportes y la sesión demo aún no comparten una fuente remota autoritativa; esos límites corresponden a la integración backend de la siguiente fase.
+Consulta [docs/security.md](docs/security.md) antes de desplegar.
 
 ## Documentación
 
-- [`ARCHITECTURE.md`](ARCHITECTURE.md): arquitectura y límites del producto.
-- [`docs/frontend-design.md`](docs/frontend-design.md): sistema visual, layouts y patrones UX.
-- [`docs/frontend-roadmap.md`](docs/frontend-roadmap.md): `FRONTEND DONE / BACKEND NEXT / LATER`.
-- [`docs/legacy-audit.md`](docs/legacy-audit.md): auditoría de proyectos históricos y decisiones de reutilización.
-- [`FinFase 2.txt`](FinFase%202.txt): informe completo del trabajo y las verificaciones de la Fase 2.
+- [ARCHITECTURE.md](ARCHITECTURE.md): arquitectura vigente y límites.
+- [docs/backend-architecture.md](docs/backend-architecture.md): capas y transacciones.
+- [docs/api.md](docs/api.md): endpoints HTTP estables.
+- [docs/api-contract-map.md](docs/api-contract-map.md): equivalencia de los 14 servicios frontend.
+- [docs/database-model.md](docs/database-model.md): modelos, relaciones, índices y migraciones.
+- [docs/security.md](docs/security.md): controles y checklist de despliegue.
+- [docs/frontend-design.md](docs/frontend-design.md): sistema visual y patrones UX.
+- [docs/frontend-roadmap.md](docs/frontend-roadmap.md): fases terminadas y siguientes.
+- [docs/ui-review-phase-3.md](docs/ui-review-phase-3.md): revisión visual y mejoras posibles.
+- [FinFase 2.txt](FinFase%202.txt): informe de cierre anterior.
+- `FinFase 3.txt`: informe integral generado al cerrar esta fase.

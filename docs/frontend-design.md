@@ -2,13 +2,13 @@
 
 ## Estado y alcance
 
-Documento de implementación vigente al 31 de agosto de 2026. La Fase 2 deja navegables y funcionales con datos mock las tres superficies del producto:
+Documento de implementación actualizado al 4 de septiembre de 2026. La Fase 2 dejó navegables las tres superficies y la Fase 3 añadió integración HTTP sin reconstruirlas:
 
 1. storefront público de CH Market;
 2. portal privado del cliente;
 3. portal operativo de personal.
 
-El frontend modela las operaciones reales, pero no sustituye autenticación, autorización, pagos, inventario transaccional ni persistencia de backend.
+El frontend puede ejecutarse con adapters mock o contra la API autoritativa. La autenticación, autorización, ownership, transacciones e integridad se validan en servidor cuando `VITE_DATA_MODE=http`; pagos y checkout real siguen fuera de alcance.
 
 ## Principios
 
@@ -37,7 +37,7 @@ Router / layouts / providers
             |
       +-----+------+
       |            |
- adapter mock   adapter HTTP futuro
+ adapter mock   adapter HTTP
 ```
 
 Responsabilidades:
@@ -49,7 +49,7 @@ Responsabilidades:
 - `src/lib`: formato CLP/fechas y utilidades transversales.
 - `src/styles`: tokens y estilos base.
 
-TanStack Query administra datos con semántica de servidor. React mantiene estado local de vista, sesión demo y carrito. Los mocks mutables viven en memoria y entregan copias para que una pantalla no modifique el estado por referencia. Una raíz de composición compartida conecta inventario, catálogo, dashboard y configuración sin filtrar detalles mock hacia las pantallas.
+TanStack Query administra datos con semántica de servidor. React mantiene estado local de vista y carrito. Los mocks mutables viven en memoria y entregan copias; el modo HTTP usa una cookie HttpOnly y mantiene únicamente CSRF en memoria. Una raíz de composición compartida selecciona todo el grafo de servicios según `VITE_DATA_MODE`, sin filtrar detalles de transporte hacia las pantallas.
 
 ## Fronteras de servicio
 
@@ -67,9 +67,9 @@ TanStack Query administra datos con semántica de servidor. React mantiene estad
 | Reportes | `ReportService` |
 | Configuración | `SettingsService` |
 
-Los métodos de cliente actual nunca aceptan un `customerId`. Los contratos de personal son explícitamente distintos. El adapter HTTP futuro resolverá la identidad en servidor y responderá como no encontrado ante registros fuera de alcance.
+Los métodos de cliente actual nunca aceptan un `customerId`. Los contratos de personal son explícitamente distintos. Los adapters HTTP dejan que el servidor derive identidad/tenant y proyectan como no encontrado los registros fuera de alcance.
 
-El dashboard recibe los servicios operacionales por dependencia y calcula KPIs/alertas sobre sus estados actuales. Las mutaciones de inventario, pedidos y paquetes invalidan `dashboard`, evitando métricas desconectadas. Los umbrales de stock, vencimiento y permanencia de paquetes proceden de `SettingsService`; el catálogo proyecta su disponibilidad desde los lotes de `InventoryService`.
+En modo mock, el dashboard recibe los servicios operacionales por dependencia y calcula KPIs/alertas sobre sus estados actuales. En modo HTTP, `HttpDashboardService` consulta `/staff/dashboard` y el backend deriva los KPIs desde PostgreSQL. Las mutaciones de inventario, pedidos y paquetes invalidan `dashboard`, evitando métricas desconectadas. Los umbrales proceden de `SettingsService`; el catálogo proyecta disponibilidad desde inventario.
 
 ## Marca y tokens
 
@@ -116,7 +116,7 @@ Rutas:
 /login
 ```
 
-`/registro` redirige a login hasta que exista alta real. El checkout es visual y declara que no procesa pagos ni reserva stock.
+`/registro` redirige a login hasta diseñar la UI pública de alta, verificación y términos; el endpoint real `POST /auth/register` ya existe. El checkout es visual y declara que no procesa pagos ni reserva stock.
 
 ### Cliente
 
@@ -240,7 +240,7 @@ Las capacidades de la interfaz dependen de claves `Permission`, nunca de compara
 | 1024 px | Navegación pública desktop, sidebar cliente de 230 px y admin de 260 px; tablas operativas cuando su densidad lo permite. |
 | 1440 px | Contenido público centrado en `max-w-7xl`; paneles operativos amplios sin estirar líneas de lectura. |
 
-El E2E genera 29 capturas y comprueba overflow horizontal global, errores JavaScript, aislamiento del drawer y recorridos completos en los cuatro viewports. Solo permite overflow en contenedores intencionalmente marcados.
+`review:visual` genera 29 capturas y comprueba overflow horizontal, errores JavaScript, aislamiento del drawer y los cuatro viewports. `test:e2e` ejecuta por separado los recorridos críticos contra API/PostgreSQL reales, sin generar capturas. Solo se permite overflow en contenedores intencionalmente marcados.
 
 ## Accesibilidad
 
@@ -266,7 +266,7 @@ El E2E genera 29 capturas y comprueba overflow horizontal global, errores JavaSc
 | Disabled | atributo nativo y explicación de permiso/capacidad |
 | Not found / fuera de alcance | mensaje indistinguible en detalles privados |
 
-## Límites conocidos de los adapters mock
+## Límites deliberados del modo mock
 
 - Sesión, carrito y todas las mutaciones viven en memoria y se reinician al recargar.
 - Los servicios cliente y personal de pedidos/paquetes son instancias separadas; una transición staff no se replica todavía en la vista cliente.
@@ -274,18 +274,22 @@ El E2E genera 29 capturas y comprueba overflow horizontal global, errores JavaSc
 - Los registros de reportes son estáticos y no agregan en tiempo real las mutaciones mock.
 - El checkout no reserva ni descuenta inventario; solo cierra el recorrido visual.
 - Cambiar `minimumStock` de un producto no migra lotes existentes; crear un producto no crea automáticamente un lote.
-- Los movimientos usan lotes existentes y heredan lote/vencimiento; el alta de lotes queda para la persistencia autoritativa.
+- Los movimientos usan lotes existentes y heredan lote/vencimiento; el modo HTTP persiste lotes y balances autoritativos.
 - La autorización del frontend mejora UX, pero no constituye una frontera de seguridad.
 
-## Migración a backend
+Estos límites no aplican a pedidos, paquetes, sesiones, reportes ni permisos en modo HTTP: customer y staff comparten PostgreSQL y el servidor vuelve a comprobar las reglas.
 
-Para sustituir un mock:
+## Integración backend
+
+La integración implementada sigue estas reglas:
 
 1. conservar o evolucionar explícitamente la interfaz;
 2. crear un adapter HTTP que valide la respuesta externa;
-3. cambiar la composición en `services.ts`, no la página;
+3. seleccionar adapters en `service-composition.ts`, no en la página;
 4. conservar query keys y revisar invalidaciones;
 5. mapear errores reales a los estados ya diseñados;
 6. revalidar identidad, propiedad, permisos y transiciones en servidor.
 
-Pagos, reservas transaccionales, autenticación real, couriers, BI complejo y multi-tenant remoto quedan fuera del frontend completado.
+El HttpClient común usa `credentials: include`, CSRF en memoria, request ID, errores normalizados, idempotencia y validación Zod de respuestas. Pagos, reservas iniciadas por checkout, couriers, BI complejo y una segunda organización desplegada quedan fuera de Fase 3.
+
+Las observaciones visuales posteriores a la integración están en [ui-review-phase-3.md](ui-review-phase-3.md).

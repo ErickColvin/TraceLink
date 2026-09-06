@@ -1,138 +1,103 @@
-# ARCHITECTURE.md
+# Arquitectura de TraceLink V2
 
-## 1. Product
-TraceLink V2 is a digital operations platform developed by Colvin Solutions.
+## 1. Producto y estado
 
-The first implementation is for CH Market.
+TraceLink V2 es la plataforma de comercio, inventario, pedidos y trazabilidad desarrollada por Colvin Solutions. CH Market es la primera organización.
 
-The web application will contain three experiences:
+La entrega incluye tres experiencias React:
 
-### Public storefront
-- Home
-- Product catalog
-- Product detail
-- About / information
-- Contact
-- Login
-- Local demonstration cart; future checkout
-- Entry point for customer order/package visibility
+1. tienda pública;
+2. portal autenticado de cliente;
+3. portal autenticado de personal/administración.
 
-### Customer portal
-- Login
-- Profile
-- My orders
-- Order detail
-- My packages
-- Package detail
-- Traceability timeline
-- Future online purchasing/history
+Fase 2 cerró la experiencia frontend. Fase 3 incorpora API autoritativa, PostgreSQL, autenticación real, RBAC e integración HTTP sin reconstruir la UI. El modo mock sigue disponible para desarrollo y tests aislados.
 
-### Staff/admin portal
-- Dashboard
-- Products
-- Inventory
-- Orders
-- Packages
-- Customers
-- Users
-- Roles/permissions
-- Reports
-- Settings
+## 2. Principios
 
-Current milestone: frontend-first.
+- Integridad y seguridad se validan en servidor; los permisos frontend son UX.
+- Customer solo consulta recursos ligados a su identidad autenticada.
+- Toda entidad de negocio pertenece a Organization.
+- Los importes CLP son enteros.
+- Las pantallas consumen interfaces de servicio, nunca fixtures ni `fetch` directo.
+- Los DTO HTTP y modelos de base son fronteras distintas.
+- Las mutaciones críticas son transaccionales, auditables e idempotentes.
+- Se prefieren cambios modulares y dependencias justificadas.
 
-The frontend must be production-quality in structure while initially using mock data.
-
-## 2. Product principles
-
-### Public experience
-The CH Market public site must look like a modern commercial storefront.
-
-Primary goals:
-- present CH Market professionally;
-- make products easy to discover;
-- make login visible;
-- prepare the UX for ecommerce;
-- make tracking/order access clear.
-
-### Customer experience
-Customers may only see their own records.
-Do not design any flow where entering a person's name exposes orders or packages.
-
-### Staff experience
-The admin interface prioritizes operational speed, clarity and visibility.
-
-## 3. Architectural style
-Use a modular feature-based React application.
-
-Conceptually:
+## 3. Flujo de aplicación
 
 ```text
-UI
- |
- v
-Feature hooks / use-cases
- |
- v
-Service interfaces
- |
- +----------------------+
- |                      |
-Mock adapters       HTTP adapters
-(current)           (future)
+Page
+  -> feature hook / use case
+  -> service interface
+     -> Mock adapter
+     -> HTTP adapter
+        -> shared HttpClient
+        -> Express route / middleware
+        -> controller
+        -> domain service
+        -> tenant-scoped repository
+        -> PostgreSQL 18
 ```
 
-The UI must not import mock fixtures directly.
+La raíz de composición selecciona `mock` o `http` una sola vez mediante `VITE_DATA_MODE`. Las pantallas no conocen el adapter activo.
 
-## 4. Technology baseline
-- React
-- TypeScript strict
-- Vite
-- pnpm
-- React Router
-- Tailwind CSS
-- shadcn/ui
-- TanStack Query
-- React Hook Form
-- Zod
-- Vitest
-- React Testing Library
-- Playwright later
+## 4. Stack
 
-## 5. Repository target structure
+### Frontend
+
+- React 19 y TypeScript estricto;
+- Vite, React Router y Tailwind CSS;
+- TanStack Query;
+- React Hook Form + Zod;
+- Vitest + React Testing Library;
+- Playwright Core para recorridos de navegador.
+
+### Backend
+
+- Node.js 24 LTS y TypeScript estricto;
+- Express 5 + Zod;
+- PostgreSQL 18;
+- Prisma 8 fijado por versión para contrato/migraciones;
+- Argon2id;
+- Pino, Helmet y CORS exacto;
+- Vitest + Supertest + PostgreSQL embebido en integración/E2E.
+
+## 5. Monorepo
 
 ```text
-tracelink/
+TraceLink/
 ├── apps/
-│   └── web/
+│   ├── web/
+│   │   └── src/
+│   │       ├── app/
+│   │       ├── components/
+│   │       ├── features/
+│   │       ├── layouts/
+│   │       ├── lib/
+│   │       └── styles/
+│   └── api/
+│       ├── migrations/
+│       ├── prisma/
 │       ├── src/
-│       │   ├── app/
-│       │   ├── components/
-│       │   ├── features/
-│       │   │   ├── auth/
-│       │   │   ├── catalog/
-│       │   │   ├── cart/
-│       │   │   ├── customers/
-│       │   │   ├── inventory/
-│       │   │   ├── orders/
-│       │   │   ├── packages/
-│       │   │   ├── products/
-│       │   │   └── users/
-│       │   ├── layouts/
-│       │   ├── lib/
-│       │   ├── routes/
-│       │   └── styles/
-│       └── package.json
+│       │   ├── config/
+│       │   ├── database/
+│       │   ├── middleware/
+│       │   ├── modules/
+│       │   └── shared/
+│       └── tests/
+├── packages/
+│   └── contracts/
 ├── docs/
-├── AGENTS.md
-├── ARCHITECTURE.md
-├── package.json
-└── pnpm-workspace.yaml
+├── tests/e2e/
+└── docker-compose.yml
 ```
 
-## 6. Route map
+`packages/contracts` contiene schemas Zod de API para auth, errores, paginación, productos, inventario, pedidos, paquetes, clientes, usuarios, roles, dashboard, reportes y settings. El frontend nunca importa tipos Prisma.
 
-### Public
+## 6. Superficies web
+
+### Públicas
+
 ```text
 /
 /productos
@@ -146,6 +111,7 @@ tracelink/
 ```
 
 ### Customer
+
 ```text
 /mi-cuenta
 /mi-cuenta/pedidos
@@ -156,287 +122,121 @@ tracelink/
 ```
 
 ### Staff/admin
+
 ```text
-/app
 /app/dashboard
 /app/products
+/app/products/new
 /app/products/:id
+/app/products/:id/edit
 /app/inventory
 /app/inventory/movements
 /app/orders
 /app/orders/:id
 /app/packages
+/app/packages/new
 /app/packages/:id
 /app/customers
 /app/customers/:id
 /app/users
+/app/users/:id
 /app/roles
 /app/reports
 /app/settings
 ```
 
-## 7. Domain models needed by the frontend
+El checkout sigue siendo una simulación explícita; no reserva stock ni procesa pagos.
 
-### Product
-```ts
-type Product = {
-  id: string
-  sku: string
-  barcode?: string
-  slug: string
-  name: string
-  description?: string
-  brand?: string
-  categoryId: string
-  salePrice: number
-  imageUrl?: string
-  availableStock: number
-  minimumStock?: number
-  published: boolean
-  active: boolean
-}
-```
+## 7. Estado y datos frontend
 
-### Customer
-```ts
-type Customer = {
-  id: string
-  firstName: string
-  lastName: string
-  email: string
-  phone?: string
-}
-```
+TanStack Query administra estado con semántica de servidor e invalidación. React conserva estado local de UI y carrito. No existe un store global para toda la aplicación.
 
-### Order
-Use explicit statuses such as:
-- PENDING_PAYMENT
-- PAID
-- PREPARING
-- READY
-- COMPLETED
-- CANCELLED
-- REFUNDED
+Cada feature expone un contrato, queries y adapters. Los 14 adapters HTTP implementan las mismas interfaces que sus equivalentes mock. El HttpClient centraliza URL base, cookies, CSRF en memoria, JSON, request IDs, Zod, errores e idempotencia.
 
-### Package
-Use explicit statuses such as:
-- EXPECTED
-- RECEIVED
-- STORED
-- READY_FOR_PICKUP
-- PICKED_UP
-- RETURNED
-- LOST
-- INCIDENT
+## 8. Identidad y autorización
 
-### TrackingEvent
-Every package status change must be representable as an event in the UI timeline.
+Se distinguen:
 
-## 8. Data layer
+- `User`: identidad global y password Argon2id;
+- `Customer`: perfil comercial en una Organization;
+- `Membership`: acceso staff a una Organization;
+- `Role`/`Permission`: autorización de la Membership.
 
-Each feature exposes a service contract.
+La sesión es server-side. El navegador recibe un token opaco aleatorio en cookie HttpOnly; PostgreSQL conserva solo su HMAC. En producción la cookie usa prefijo `__Host-`, `Secure`, `SameSite=Lax`, `Path=/` y sin Domain.
 
-Example:
+Las mutaciones autenticadas necesitan token CSRF ligado a sesión y Origin exacto. La API reconstruye permisos en cada request y revoca sesiones al deshabilitar acceso.
 
-```ts
-export interface ProductService {
-  list(params?: ProductListParams): Promise<ProductPage>
-  getById(id: string): Promise<Product>
-  getBySlug(slug: string): Promise<Product>
-}
-```
+## 9. Multi-tenancy y ownership
 
-During frontend-first development:
+La organización nunca se acepta desde body/query como autoridad. Rutas públicas resuelven el slug configurado; rutas privadas obtienen tenant y actor desde Session.
 
-```text
-ProductService
-      |
-      v
-MockProductService
-```
+Repositories exigen `organizationId`, filtran todas las entidades privadas y usan joins/foreign keys compuestos. Las rutas `/me` añaden el `customerId` de sesión a la misma consulta. Fuera de alcance e inexistente son indistinguibles mediante `404`.
 
-Later:
+## 10. Persistencia operativa
 
-```text
-ProductService
-      |
-      v
-HttpProductService
-      |
-      v
-/api/v1/products
-```
+### Catálogo y clientes
 
-Screens must not know which adapter is active.
+Category, Product y Customer son tenant-scoped. SKU, slug y barcode son únicos dentro de la organización. El contacto de Customer no altera las credenciales de User.
 
-## 9. State management
+### Inventario
 
-Use:
-- TanStack Query for server-like state;
-- React state for local view state;
-- a small store only when cross-page client state is truly necessary, e.g. cart.
+InventoryBalance materializa físico/reservado; disponible se deriva. Todo ajuste físico produce InventoryMovement inmutable dentro de una transacción con bloqueo, invariantes de cantidades y AuditLog. InventoryReservation está persistido y probado, pero su uso por checkout corresponde a Fase 4.
 
-Do not use a global store for all application data.
+### Pedidos
 
-## 10. Authentication model
+Order conserva montos CLP e items snapshot. La máquina de estados del servidor produce OrderStatusEvent y AuditLog atómicamente. Customer y staff leen la misma fila.
 
-Frontend models:
-- anonymous visitor;
-- authenticated customer;
-- authenticated staff member.
+### Paquetes
 
-Route guards:
-- `PublicRoute`
-- `CustomerRoute`
-- `StaffRoute`
-- permission-aware admin navigation
+Package y TrackingEvent implementan recepción, almacenamiento, disponibilidad, entrega y excepciones. La entrega valida un código almacenado solo como HMAC, lo consume y crea PackagePickupReceipt. Customer y staff leen la misma fila.
 
-Future backend authentication is authoritative.
+### Administración y lectura
 
-Do not use localStorage as the long-term security model for authentication tokens.
+OrganizationSettings es la fuente de configuración. Dashboard y ReportService agregan información persistida; no almacenan KPIs como verdad primaria.
 
-## 11. Permissions
+## 11. Seguridad transversal
 
-Example permission keys:
+- Zod valida entrada y salida en fronteras.
+- Helmet y tamaño JSON acotado reducen superficie HTTP.
+- CORS y Origin permiten solo el frontend configurado.
+- Rate limits persistentes protegen auth y entrega.
+- IdempotencyRecord evita duplicar efectos críticos.
+- AuditLog registra actor, tenant, entidad y request ID sin secretos.
+- Errores normalizados no exponen stack en producción.
+- Logging estructurado redacta cookies, autorización, passwords, sesión, CSRF y pickup code.
 
-```text
-products.view
-products.create
-products.update
-products.delete
+Los detalles y el checklist de despliegue están en [docs/security.md](docs/security.md).
 
-inventory.view
-inventory.adjust
+## 12. Transacciones y base de datos
 
-orders.view
-orders.update
-orders.cancel
+Los límites transaccionales, constraints, índices, modelos y migraciones se documentan en:
 
-packages.view
-packages.receive
-packages.update
-packages.deliver
+- [docs/backend-architecture.md](docs/backend-architecture.md)
+- [docs/database-model.md](docs/database-model.md)
 
-customers.view
-customers.update
+El endpoint estable se documenta en [docs/api.md](docs/api.md) y el vínculo con contratos frontend en [docs/api-contract-map.md](docs/api-contract-map.md).
 
-users.view
-users.manage
+## 13. Calidad
 
-reports.view
-settings.manage
-```
+Las suites cubren:
 
-The frontend may hide/disable unauthorized operations.
-The backend must later re-check all permissions.
+- reglas puras y contratos;
+- API con Supertest;
+- repositories y flujos contra PostgreSQL real;
+- auth, CSRF, RBAC, tenant y customer ownership;
+- transacciones, state machines, auditoría e idempotencia;
+- adapters HTTP y modo mock;
+- E2E browser con frontend HTTP, API y PostgreSQL.
 
-## 12. Branding
+Los gates de cierre son `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` y `pnpm test:e2e`.
 
-CH Market branding must live in centralized configuration/tokens.
+## 14. Fuera de Fase 3
 
-Example:
+- pago real, conciliación y webhooks;
+- reserva desde checkout y confirmación autoritativa de compra;
+- correo, SMS, WhatsApp y courier APIs;
+- uploads/almacenamiento de imágenes;
+- recuperación de contraseña;
+- Redis, colas, microservicios, Kubernetes, GraphQL, BI avanzado, IA o apps nativas.
 
-```ts
-export const tenantBrand = {
-  name: "CH Market",
-  shortName: "CH",
-  locale: "es-CL",
-  currency: "CLP",
-  timezone: "America/Santiago",
-}
-```
-
-Do not hard-code brand strings in dozens of components.
-
-## 13. Frontend phases
-
-### F1 — Foundation
-- Vite + React + TS
-- Tailwind
-- router
-- query provider
-- theme
-- layouts
-- mock service layer
-- base responsive components
-
-### F2 — Public CH Market
-- navbar
-- hero
-- categories
-- featured products
-- product catalog
-- product detail
-- footer
-- contact
-- login screen
-
-### F3 — Customer portal
-- account shell
-- orders list/detail
-- packages list/detail
-- traceability timeline
-- profile
-
-### F4 — Admin shell
-- sidebar/topbar
-- dashboard
-- permission-aware navigation
-
-### F5 — Operations UI
-- products
-- inventory
-- packages
-- orders
-- customers
-- users/roles
-
-### F6 — Ecommerce
-- cart persistence and authoritative stock reconciliation
-- checkout UI
-- stock reservation UX
-- payment status UX
-
-### F7 — Backend integration
-Replace mock adapters with HTTP adapters without changing page structure.
-
-## 14. Non-goals for the current milestone
-Do not implement yet unless explicitly requested:
-- microservices,
-- Kubernetes,
-- GraphQL,
-- native mobile apps,
-- AI features,
-- courier integrations,
-- complex BI,
-- backend authorization,
-- payment processing.
-
-## 15. Quality bar
-Every public/customer page must be responsive.
-
-Every async screen must define:
-- loading,
-- error,
-- empty,
-- normal state.
-
-Critical interactions need success/error feedback.
-
-UI must remain usable with keyboard navigation.
-
-## 16. First implementation target
-The first visible release should include:
-
-1. Public Home.
-2. Product catalog.
-3. Product detail.
-4. Login.
-5. Customer portal shell.
-6. My orders.
-7. My packages.
-8. Package timeline.
-9. Admin shell.
-10. Basic dashboard.
-
-All data can initially come from typed mock adapters.
+Estas capacidades requieren contratos de producto y seguridad propios; no se simulan silenciosamente.

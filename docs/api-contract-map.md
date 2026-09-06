@@ -1,8 +1,8 @@
 # TraceLink V2 — mapa de contratos frontend/API
 
-Estado: contrato base de Fase 3, creado antes de implementar controladores.
+Estado: contrato estable de Fase 3, implementado por la API y los adapters HTTP.
 
-Este documento traduce los 47 métodos de los 14 servicios existentes del frontend a la API HTTP v1. La API conserva los DTO visibles para las pantallas cuando es seguro hacerlo y deja las diferencias de nombres de persistencia dentro de los adaptadores. Los modelos de Prisma no forman parte del contrato público.
+Este documento traduce los 48 métodos de los 14 servicios existentes del frontend a la API HTTP v1. La API conserva los DTO visibles para las pantallas cuando es seguro hacerlo y deja las diferencias de nombres de persistencia dentro de los adaptadores. Los modelos de Prisma no forman parte del contrato público.
 
 ## Convenciones comunes
 
@@ -27,14 +27,25 @@ type ApiErrorResponse = {
   error: {
     code:
       | "VALIDATION_ERROR"
+      | "INVALID_JSON"
+      | "PAYLOAD_TOO_LARGE"
       | "UNAUTHENTICATED"
+      | "INVALID_CREDENTIALS"
+      | "ACCOUNT_DISABLED"
+      | "SESSION_EXPIRED"
       | "FORBIDDEN"
+      | "ORIGIN_NOT_ALLOWED"
+      | "CSRF_INVALID"
       | "NOT_FOUND"
       | "CONFLICT"
       | "RATE_LIMITED"
+      | "DATABASE_UNAVAILABLE"
       | "INVALID_STATE_TRANSITION"
       | "INSUFFICIENT_STOCK"
+      | "IDEMPOTENCY_KEY_REQUIRED"
       | "IDEMPOTENCY_CONFLICT"
+      | "PICKUP_CODE_INVALID"
+      | "INTERNAL_ERROR"
     message: string
     fieldErrors?: Record<string, string[]>
   }
@@ -46,8 +57,8 @@ type ApiErrorResponse = {
 
 | Service method | HTTP y endpoint | Request DTO | Response DTO | Auth | Permiso | Ownership |
 | --- | --- | --- | --- | --- | --- | --- |
-| `getSession()` | `GET /api/v1/auth/me` | Sin body | `AuthMeResponse` | Cookie opcional | Ninguno | Únicamente la sesión presentada; `401` se proyecta como sesión anónima en el adapter. |
-| `signIn(credentials)` | `POST /api/v1/auth/login` | `SignInRequest` | `AuthMeResponse` | Anónimo, Origin exacto y rate limit | Ninguno | Tenant resuelto por despliegue; `audience` expresa el portal esperado, no concede rol. |
+| `getSession()` | `GET /api/v1/auth/me` | Sin body | `AuthSessionEnvelope` | Cookie opcional | Ninguno | Únicamente la sesión presentada; `401` se proyecta como sesión anónima en el adapter. |
+| `signIn(credentials)` | `POST /api/v1/auth/login` | `SignInRequest` | `AuthSessionEnvelope` | Anónimo, Origin exacto y rate limit | Ninguno | Tenant resuelto por despliegue; `audience` expresa el portal esperado, no concede rol. |
 | `startDemoSession(audience)` | Sin endpoint HTTP | Solo implementación mock | `AuthenticatedSession` mock | No aplica | No aplica | Se deshabilita en modo `http`; no existe bypass demo en producción. |
 | `signOut()` | `POST /api/v1/auth/logout` | Sin body | `204` | Sesión actual + CSRF | Ninguno | Revoca la sesión actual de forma idempotente. |
 
@@ -68,9 +79,14 @@ type AuthMeResponse = {
   permissions: string[]
   authenticatedAt: string
 }
+
+type AuthSessionEnvelope = {
+  session: AuthMeResponse
+  csrfToken: string
+}
 ```
 
-`POST /api/v1/auth/register` completa el registro customer requerido aunque aún no tenga método en `AuthService`. Usa `RegisterRequest`, devuelve `AuthMeResponse`, exige Origin exacto y rate limit, y nunca permite elegir rol ni tenant. Login, registro y `/auth/me` entregan el token CSRF asociado a la sesión dentro del envelope HTTP; el adapter lo retiene solo en memoria y proyecta `AuthMeResponse` al contrato de UI.
+`POST /api/v1/auth/register` completa el registro customer requerido aunque aún no tenga método en `AuthService`. Usa `RegisterRequest`, devuelve `AuthSessionEnvelope`, exige Origin exacto y rate limit, y nunca permite elegir rol ni tenant. Login, registro y `/auth/me` entregan el token CSRF asociado a la sesión dentro del envelope HTTP; el adapter lo retiene solo en memoria y proyecta `AuthMeResponse` al contrato de UI.
 
 ## ProductService — 10 métodos
 
@@ -119,7 +135,7 @@ El servidor valida combinaciones `type`/dirección/localización, bloquea el bal
 ## OrderService — 2 métodos
 
 | Service method | HTTP y endpoint | Request DTO | Response DTO | Auth | Permiso | Ownership |
-| --- | --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- | --- |
 | `listCurrentCustomer(params?)` | `GET /api/v1/me/orders` | Query `OrderListParams` | `OrderPage` | Customer | Ninguno adicional | `customerId` y tenant derivados de sesión. |
 | `getCurrentCustomerById(id)` | `GET /api/v1/me/orders/:id` | Path `{ id }` | `Order` | Customer | Ninguno adicional | Query única por `id + organizationId + customerId`; fuera de scope devuelve `404`. |
 
@@ -147,15 +163,16 @@ El wire DTO nunca incluye `actor`. `CANCELLED` solo se alcanza por el endpoint d
 
 `PackageListParams` contiene `search?`, `statuses?`, `sort?`, `page?`, `pageSize?`.
 
-## StaffPackageService — 5 métodos
+## StaffPackageService — 6 métodos
 
 | Service method | HTTP y endpoint | Request DTO | Response DTO | Auth | Permiso | Ownership |
 | --- | --- | --- | --- | --- | --- | --- |
 | `list(params?)` | `GET /api/v1/staff/packages` | Query `StaffPackageListParams` | `StaffPackagePage` | Staff | `packages.view` | Paquetes del tenant. |
 | `getById(id)` | `GET /api/v1/staff/packages/:id` | Path `{ id }` | `StaffPackage` | Staff | `packages.view` | Paquete tenant-scoped. |
+| `listCustomerOptions(params?)` | `GET /api/v1/staff/package-customer-options` | Query `PackageCustomerOptionListParams` | `PackageCustomerOptionPage` | Staff | `packages.receive` | Opciones mínimas del tenant; no expone el directorio completo. |
 | `receive(input)` | `POST /api/v1/staff/packages` | Body `ReceivePackageRequest`; `Idempotency-Key` | `StaffPackage` | Staff + CSRF | `packages.receive` | Customer, order y ubicación del tenant; order pertenece al customer; actor de sesión. |
 | `transitionStatus(input)` | `POST /api/v1/staff/packages/:id/transitions` | Body `{ toStatus, description?, location? }`; `Idempotency-Key` | `StaffPackage` | Staff + CSRF | `packages.update` | Paquete del tenant; actor de sesión. |
-| `deliver(input)` | `POST /api/v1/staff/packages/:id/delivery` | Body `{ pickupCode, receivedBy }`; `Idempotency-Key` | `StaffPackage` | Staff + CSRF | Paquete del tenant; código comparado con hash; actor de sesión. |
+| `deliver(input)` | `POST /api/v1/staff/packages/:id/delivery` | Body `{ pickupCode, receivedBy }`; `Idempotency-Key` | `StaffPackage` | Staff + CSRF | `packages.deliver` | Paquete del tenant; código comparado con hash; actor de sesión. |
 
 `StaffPackageListParams` contiene `search?`, `tracking?`, `customer?`, `carrier?`, `location?`, `statuses?`, `coldStorage?`, `sort?`, `page?`, `pageSize?`.
 
@@ -223,7 +240,7 @@ No se inventa `dashboard.view`: no existe en las 19 permissions actuales. El bac
 ## SettingsService — 2 métodos
 
 | Service method | HTTP y endpoint | Request DTO | Response DTO | Auth | Permiso | Ownership |
-| --- | --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- | --- |
 | `get()` | `GET /api/v1/staff/settings` | Sin entrada | `OrganizationSettings` | Staff | `settings.manage` | Organization y settings de la sesión. |
 | `update(input)` | `PUT /api/v1/staff/settings` | Body `OrganizationSettingsInput` | `OrganizationSettings` | Staff + CSRF | `settings.manage` | Tenant de sesión; Organization + settings en una transacción con auditoría. |
 
@@ -260,7 +277,8 @@ Los siguientes cambios son necesarios para que el backend sea la autoridad y se 
 | Customer intenta ruta `/staff` | `403 FORBIDDEN` |
 | Staff sin permission | `403 FORBIDDEN` |
 | ID de otro tenant o customer | `404 NOT_FOUND` |
-| CSRF ausente/incorrecto u Origin no permitido | `403 FORBIDDEN` |
+| CSRF ausente/incorrecto | `403 CSRF_INVALID` |
+| Origin no permitido | `403 ORIGIN_NOT_ALLOWED` |
 | `actor`/`organizationId` adicional en schema estricto | `400 VALIDATION_ERROR` |
 | Transición fuera de state machine | `409 INVALID_STATE_TRANSITION` |
 | Stock resultante negativo | `409 INSUFFICIENT_STOCK` |
