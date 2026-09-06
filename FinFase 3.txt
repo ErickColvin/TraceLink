@@ -1,0 +1,642 @@
+TRACELINK V2 / CH MARKET
+INFORME DE FINALIZACIÓN DE LA FASE 3
+Fecha de cierre: 6 de septiembre de 2026
+Rama: feature/phase-3-backend
+
+===============================================================================
+1. ESTADO FINAL
+===============================================================================
+
+La Fase 3 queda terminada. PostgreSQL es la fuente autoritativa para los
+módulos administrativos y del portal cliente cubiertos por esta fase. El
+frontend de Fase 2 conserva sus contratos de servicio y ahora puede alternar
+entre adapters mock y 14 adapters HTTP reales sin filtrar detalles de
+persistencia hacia las pantallas.
+
+El alcance entregado incluye:
+
+- API REST versionada bajo /api/v1 con 51 handlers registrados: 3 de salud y
+  48 operaciones funcionales.
+- PostgreSQL 18 con contrato Prisma ORM 8, 25 modelos y 7 migraciones
+  reproducibles.
+- Autenticación real con contraseñas Argon2id, sesiones opacas server-side y
+  cookies HttpOnly.
+- Protección CSRF, CORS/Origin, Helmet, límites de body, rate limiting
+  persistente, request IDs y logs estructurados con redacción recursiva.
+- RBAC por organización, seis roles base y catálogo central de 19 permisos.
+- Aislamiento multi-tenant y ownership de cliente aplicados en repositorios.
+- Persistencia autoritativa de productos, inventario, pedidos, paquetes,
+  clientes, usuarios, roles, configuración, dashboard y reportes.
+- Seed coherente, idempotente y seguro para desarrollo/test.
+- Integración frontend/backend mediante un cliente HTTP central y validación
+  Zod en la frontera.
+- Pruebas unitarias, contractuales, API, integración PostgreSQL y E2E real con
+  navegador.
+- Documentación de arquitectura, API, base de datos, seguridad y revisión UI.
+
+No se implementó ningún elemento de Fase 4: no hay pago real, webhook,
+integración courier, notificaciones externas, uploads, colas ni microservicios.
+
+===============================================================================
+2. ARQUITECTURA Y ORGANIZACIÓN
+===============================================================================
+
+Monorepo pnpm:
+
+- apps/web: React, TypeScript estricto, Vite, React Router y TanStack Query.
+- apps/api: Express 5, TypeScript estricto, PostgreSQL y Prisma ORM 8.
+- packages/contracts: DTO, enums, esquemas Zod, permisos y contratos comunes.
+
+El backend mantiene capas separadas:
+
+- rutas/controladores: protocolo HTTP, autenticación, permisos y validación;
+- servicios: reglas y orquestación de casos de uso;
+- repositorios: SQL y alcance tenant/ownership;
+- contratos compartidos: forma estable que consumen los adapters frontend.
+
+Las pantallas no llaman fetch directamente. El composition root selecciona
+modo mock o HTTP mediante VITE_DATA_MODE. En ejecución Vitest se fuerza mock
+solo cuando MODE=test; un NODE_ENV aislado ya no puede ocultar por accidente
+una integración HTTP real.
+
+===============================================================================
+3. DATABASE
+===============================================================================
+
+Se modelaron 25 entidades de aplicación:
+
+- Organization y OrganizationSettings.
+- User, Membership, Role, Permission y RolePermission.
+- Session.
+- Customer.
+- Category y Product.
+- InventoryLocation, InventoryLot, InventoryBalance, InventoryMovement e
+  InventoryReservation.
+- Order, OrderItem y OrderStatusEvent.
+- Package, TrackingEvent y PackagePickupReceipt.
+- AuditLog, IdempotencyRecord y RateLimitBucket.
+
+Decisiones principales:
+
+- Los montos CLP se almacenan como enteros.
+- Las entidades privadas llevan organization_id.
+- Las relaciones tenant usan claves y foreign keys compuestas donde aplica.
+- Se agregaron restricciones, índices, unicidad por tenant y checks de estados.
+- Las operaciones de inventario y transiciones críticas usan transacciones.
+- Los IDs y valores de actor/tenant se derivan del servidor, no del body.
+- Los registros de idempotencia guardan hash de clave, fingerprint, respuesta y
+  request ID original.
+
+Historial de migraciones:
+
+1. 20260901T1828_initial
+2. 20260901T2354_identity_names
+3. 20260902T0010_request_id_text
+4. 20260902T2221_inventory_reservation_snapshots
+5. 20260902T2237_order_status_reason_length
+6. 20260904T0252_tracking_event_description_length
+7. 20260904T0255_settings_contract_lengths
+
+La comprobación final de migraciones devolvió "All checks passed". La prueba de
+integración creó una base limpia, aplicó las siete migraciones y verificó el
+dataset completo.
+
+===============================================================================
+4. SEED DE DESARROLLO Y PRUEBAS
+===============================================================================
+
+El seed es idempotente y crea un escenario CH Market consistente:
+
+- 1 organización con configuración.
+- 6 roles y 19 permisos.
+- 3 identidades: administrador, operador y cliente.
+- 3 categorías y 6 productos.
+- 3 ubicaciones, 7 lotes y 7 balances.
+- 6 movimientos y 1 reserva activa.
+- 4 pedidos, 6 ítems y 10 eventos de estado.
+- 3 paquetes y 5 eventos de tracking.
+- un pedido y paquete E2E con identificadores estables.
+
+El seed se ejecutó dos veces consecutivas dentro de la integración y mantuvo
+los mismos conteos, relaciones, inventario y hashes.
+
+Controles añadidos al seed:
+
+- solo permite NODE_ENV=development o NODE_ENV=test de forma explícita;
+- rechaza todos los placeholders documentados, incluido DATABASE_URL;
+- exige correos válidos y distintos;
+- exige contraseñas y secreto de retiro con longitud segura;
+- nunca muestra valores sensibles en errores de validación;
+- valida todo antes de hashear contraseñas o abrir PostgreSQL;
+- admite contraseñas separadas de staff/cliente y fallback explícito;
+- usa claves naturales para no duplicar balances sin lote.
+
+Se verificó manualmente que el DATABASE_URL de ejemplo falla antes de intentar
+la conexión y solo imprime:
+
+Configuración de seed inválida: DATABASE_URL.
+
+===============================================================================
+5. API
+===============================================================================
+
+La API se expone bajo /api/v1. Se documentaron método, endpoint, autorización,
+permiso, request, respuesta y errores en docs/api.md. La correspondencia con
+los 48 métodos de servicios frontend está en docs/api-contract-map.md.
+
+Grupos funcionales entregados:
+
+- health/readiness;
+- auth: registro cliente, login, me, logout y logout-all;
+- catálogo público de productos/categorías;
+- productos staff;
+- inventario, movimientos y reservas;
+- pedidos propios del cliente y operación staff;
+- paquetes propios, tracking, transiciones y entrega segura;
+- perfil propio y administración de clientes;
+- usuarios, membresías, roles y permisos;
+- dashboard, reportes y configuración de organización.
+
+El formato común de error contiene code, message, details opcional y requestId.
+Los parámetros y bodies externos se validan con Zod. Los filtros booleanos se
+parsean explícitamente para que "false" no sea tratado como verdadero.
+
+===============================================================================
+6. AUTH, RBAC Y SEGURIDAD DE SESIÓN
+===============================================================================
+
+Autenticación implementada:
+
+- hash de contraseña Argon2id;
+- token de sesión aleatorio, guardado solo como HMAC-SHA-256 en PostgreSQL;
+- cookie HttpOnly, SameSite y Secure en producción;
+- expiración absoluta e inactividad deslizante;
+- revocación individual y revocación de todas las sesiones;
+- rotación/bootstrap de CSRF mediante login y /auth/me;
+- separación de audiencias customer y staff;
+- verificación de usuario, membresía, rol y customer activos en cada sesión.
+
+RBAC:
+
+- el catálogo común contiene 19 permisos;
+- se sembraron SUPER_ADMIN, ADMIN, OPERATIONS, INVENTORY, SUPPORT y VIEWER;
+- las rutas staff exigen el permiso específico;
+- los permisos viajan desde la sesión resuelta por el servidor;
+- cambiar rol/estado/membresía invalida las sesiones afectadas;
+- se impiden cambios que dejarían la organización sin un SUPER_ADMIN activo.
+
+La autorización del frontend sigue siendo UX. La API es la frontera real.
+
+===============================================================================
+7. AISLAMIENTO TENANT Y OWNERSHIP DEL CLIENTE
+===============================================================================
+
+- El organizationId nunca se acepta desde body o query como autoridad.
+- Las rutas públicas resuelven ORGANIZATION_SLUG configurado.
+- Las rutas privadas derivan organizationId, actor y audiencia de Session.
+- Los repositorios privados requieren organizationId y filtran joins por
+  organización.
+- Las rutas /me derivan customerId de la sesión; no existe búsqueda libre por
+  nombre o correo para obtener pedidos/paquetes propios.
+- Un recurso ajeno y uno inexistente producen el mismo 404, evitando enumeración.
+- Las pruebas negativas cubren acceso cruzado entre organizaciones y clientes.
+
+===============================================================================
+8. PRODUCTOS
+===============================================================================
+
+- Catálogo público con productos activos/publicados y categorías activas.
+- Listado, detalle, creación, edición y activación/desactivación para staff.
+- SKU, slug y barcode únicos por organización.
+- Precio CLP entero y stock mínimo validado.
+- Auditoría de cambios administrativos.
+
+===============================================================================
+9. INVENTARIO
+===============================================================================
+
+- Ubicaciones, lotes, balances, movimientos y reservas persistentes.
+- Movimientos de entrada, salida, ajuste y transferencia con reglas explícitas.
+- Bloqueo transaccional del balance para prevenir carreras y stock negativo.
+- Snapshots de cantidad física/reservada antes y después del movimiento.
+- Idempotencia para escrituras sensibles.
+- Auditoría con actor, motivo y requestId.
+- Reserva persistente con estados ACTIVE, CONSUMED, RELEASED y EXPIRED.
+- El selector HTTP del movimiento acepta campos opcionales y solicita hasta 100
+  resultados; se documentó la paginación remota como mejora futura.
+
+La reserva existe y está probada como dominio, pero no se conectó al checkout,
+porque esa integración pertenece a una fase posterior.
+
+===============================================================================
+10. PEDIDOS
+===============================================================================
+
+- Listado y detalle propios para customer.
+- Cola, filtros y detalle operativo para staff.
+- Máquina de estados autoritativa con transiciones permitidas.
+- Cancelación mediante acción dedicada.
+- Timeline persistido con actor, motivo y fecha.
+- Totales e ítems históricos almacenados en el pedido.
+- Idempotencia y auditoría de mutaciones.
+- Lecturas que comparten un cliente PostgreSQL transaccional se serializaron
+  para no enviar consultas concurrentes sobre la misma conexión.
+
+El checkout visual de Fase 2 no crea pedidos ni pagos reales en Fase 3.
+
+===============================================================================
+11. PAQUETES Y TRAZABILIDAD
+===============================================================================
+
+- Creación, listado, detalle y filtros para staff.
+- Listado y tracking propios para customer.
+- Máquina de estados con eventos de tracking persistentes.
+- Entrega/retiro mediante endpoint dedicado.
+- Código de retiro almacenado únicamente como HMAC; nunca en texto plano.
+- Comparación segura, límite de intentos y rate limiting compartido.
+- Recibo de entrega inmutable con actor, receptor, timestamp y requestId.
+- Respuesta contractual PICKUP_CODE_INVALID para código incorrecto.
+
+===============================================================================
+12. CLIENTES, USUARIOS, ROLES Y CONFIGURACIÓN
+===============================================================================
+
+Clientes:
+
+- perfil propio derivado de sesión;
+- listado/detalle/edición para personal autorizado;
+- estado activo/inactivo;
+- resumen de pedidos y paquetes sin romper ownership.
+
+Usuarios y roles:
+
+- listado y detalle de usuarios del tenant;
+- activación/desactivación y asignación de membresía/rol;
+- catálogo de roles/permisos;
+- guardas de último SUPER_ADMIN;
+- revocación de sesiones cuando cambia el acceso.
+
+Configuración:
+
+- organización, localización, contacto, retiro y thresholds se guardan como un
+  agregado HTTP coherente;
+- la UI conserva configuración y branding centralizados.
+
+===============================================================================
+13. DASHBOARD Y REPORTES
+===============================================================================
+
+- Dashboard derivado de PostgreSQL, sin KPIs hard-coded en modo HTTP.
+- Conteos y alertas operativas de productos, inventario, pedidos y paquetes.
+- Reportes agregados por rango, categoría y estado.
+- Rango máximo y ventana interna acotados para evitar consultas sin límite.
+- Modo mock conservado para pruebas rápidas y trabajo frontend aislado.
+
+===============================================================================
+14. HTTP ADAPTERS Y MOCK ADAPTERS
+===============================================================================
+
+Se entregaron 14 adapters HTTP:
+
+1. HttpAuthService
+2. HttpProductService
+3. HttpInventoryService
+4. HttpOrderService
+5. HttpStaffOrderService
+6. HttpPackageService
+7. HttpStaffPackageService
+8. HttpCustomerSelfService
+9. HttpStaffCustomerService
+10. HttpUserService
+11. HttpRoleService
+12. HttpDashboardService
+13. HttpReportService
+14. HttpSettingsService
+
+El HttpClient compartido implementa:
+
+- base URL centralizada;
+- cookies con credentials=include;
+- token CSRF solo en memoria;
+- JSON y validación Zod;
+- propagación de requestId;
+- errores HTTP tipados;
+- Idempotency-Key para escrituras relevantes;
+- tratamiento consistente de respuestas vacías y envelopes.
+
+Los adapters mock siguen disponibles y cumplen las mismas interfaces. Los
+detalles mock no se filtran hacia páginas ni componentes.
+
+===============================================================================
+15. ENDURECIMIENTO DE SEGURIDAD Y REVISIÓN INDEPENDIENTE
+===============================================================================
+
+Se aplicó una investigación previa y una revisión independiente posterior del
+parche. Resultado final de los hallazgos confirmados: FIXED.
+
+A. Guard de seed
+
+- Fuente: variables de entorno y placeholders documentados.
+- Sink original: hash de credenciales y apertura de PostgreSQL desde seed.ts.
+- Invariante: un seed solo puede ejecutarse en development/test, con valores
+  reales y validación completa antes de cualquier trabajo sensible.
+- Solución: seed-environment.ts, validación Zod sanitizada y pruebas negativas.
+- Reproducción original: NODE_ENV inseguro, placeholders y DATABASE_URL de
+  ejemplo ya son rechazados antes de la conexión.
+- Comportamiento legítimo: seed válido e idempotente sigue funcionando dos veces.
+
+B. Lifecycle de runners
+
+- Fuente: fallos durante migración, seed, Vite, navegador o PostgreSQL embebido.
+- Sink original: bloques finally que podían ocultar el error principal.
+- Invariante: siempre ejecutar todos los finalizadores y conservar el fallo
+  original como causa primaria.
+- Solución: runWithCleanup, parada TERM->KILL confirmada, cierre agregado de
+  puertos, base y navegador.
+- Reproducción original: la limpieza ya no reemplaza ni convierte en verde un
+  fallo del flujo principal.
+- Comportamiento legítimo: integración y E2E terminan limpiamente en verde.
+
+C. Canonicalización de IP
+
+- Fuente: socket y cabeceras forwarded aceptadas por Express según TRUST_PROXY.
+- Sink original: clave de rate limiting de auth y entrega de paquetes.
+- Invariante: direcciones equivalentes deben compartir bucket y un forwarded
+  inválido no puede crear claves arbitrarias.
+- Solución: client-ip.ts con SocketAddress, colapso IPv4-mapped IPv6 y fallback
+  seguro a socket/unknown. TRUST_PROXY admite false, saltos enteros o IP/CIDR,
+  pero no true global.
+- Reproducción original: distintas formas equivalentes de IPv6 ya consumen el
+  mismo límite.
+- Comportamiento legítimo: proxies expresamente configurados siguen operando.
+
+D. Redacción de logs
+
+- Fuente: objetos, mensajes, errores, headers y URLs, incluso claves codificadas.
+- Sink original: serialización de Pino/pino-http.
+- Invariante: password, secret, token, session, cookie, authorization, API key,
+  pickup code y CSRF nunca deben salir en logs.
+- Solución: redacción recursiva, aliases normalizados/decodificados, credenciales
+  de URL, query/path y JSON; request serializer explícito y ciclos controlados.
+- Reproducción original: /c%73rf/path-secret?c%73rf=query-secret ya redacta
+  ambos secretos y conserva únicamente parámetros seguros.
+- Comportamiento legítimo: requestId, método, status, ruta segura y campos no
+  sensibles continúan disponibles para diagnóstico.
+
+Incertidumbre operativa restante: TRUST_PROXY solo debe habilitarse cuando la
+red de despliegue obligue a pasar por ese proxy; los logs de infraestructura
+externa también deben tener sus propias políticas de redacción y retención.
+
+===============================================================================
+16. PRUEBAS Y COMPROBACIONES EJECUTADAS
+===============================================================================
+
+Todas las comprobaciones obligatorias terminaron correctamente.
+
+Comando: corepack pnpm lint
+Resultado: PASS en apps/web y apps/api.
+
+Comando: corepack pnpm typecheck
+Resultado: PASS en contracts, API y web con TypeScript estricto.
+
+Comando: corepack pnpm test
+Resultado: PASS, 68 archivos y 254 pruebas:
+
+- contracts: 1 archivo / 10 pruebas;
+- frontend: 43 archivos / 129 pruebas;
+- backend unit: 15 archivos / 70 pruebas;
+- backend API: 1 archivo / 12 pruebas;
+- backend integration: 8 archivos / 33 pruebas.
+
+Comando: corepack pnpm build
+Resultado: PASS para contracts, API y frontend de producción.
+
+Comando: corepack pnpm test:e2e
+Resultado: PASS. Ocho recorridos reales:
+
+1. ruta protegida, login, /me y restauración de sesión;
+2. pedidos/paquetes/tracking propios del cliente;
+3. logout e invalidación de sesión;
+4. alta de producto por staff;
+5. movimiento de inventario auditable;
+6. transición autoritativa de pedido;
+7. transición de paquete con evento de tracking;
+8. cliente observa las mutaciones reales anteriores.
+
+El E2E levanta PostgreSQL 18 embebido, aplica las siete migraciones, carga seed
+y fixtures, inicia API y Vite en puertos aislados y usa Chromium/Chrome/Edge.
+
+Comando: corepack pnpm db:migration:check
+Resultado: PASS, "All checks passed".
+
+Comando: corepack pnpm --filter @tracelink/api test:integration
+Resultado: PASS, 8 archivos / 33 pruebas sobre PostgreSQL real embebido; incluye
+migraciones, seed dos veces y verificación de conteos/relaciones/hashes.
+
+Pruebas de seguridad incluidas:
+
+- autenticación, revocación y audiencias;
+- CSRF y Origin/CORS;
+- RBAC y permisos;
+- aislamiento tenant y customer ownership;
+- idempotencia y conflictos;
+- invariantes/transacciones de inventario;
+- máquinas de estado de pedido y paquete;
+- código de retiro, replay y rate limiting;
+- canonicalización de IPv4/IPv6/proxy;
+- redacción de secretos en logs;
+- validación segura del seed;
+- preservación de errores durante cleanup.
+
+===============================================================================
+17. REVISIÓN UI DE CIERRE
+===============================================================================
+
+Se ejecutó corepack pnpm review:visual y pasó. Se revisaron 29 capturas temporales
+en anchos 375, 768, 1024 y 1440 px. No se observaron errores de página ni
+overflow horizontal. También pasaron el drawer móvil (focus, inert, scroll y
+retorno de foco) y el ciclo visual de paquetes.
+
+No se hizo un rediseño fuera de alcance. Las mejoras recomendadas quedaron en
+docs/ui-review-phase-3.md:
+
+Prioridad alta:
+
+1. mostrar requestId en errores operativos con acción para copiar;
+2. centralizar la UX de sesión vencida y retorno seguro al login;
+3. conservar la misma Idempotency-Key al reintentar una respuesta incierta;
+4. reemplazar el selector de inventario limitado a 100 por combobox remoto
+   paginado/buscable.
+
+Prioridad media:
+
+5. hacer más evidente la navegación del portal cliente;
+6. reducir densidad del dashboard staff en móvil;
+7. convertir filtros móviles en panel colapsable con chips activos;
+8. acortar el hero móvil de storefront;
+9. colapsar timelines extensos con acceso a historial completo.
+
+Prioridad baja:
+
+10. revisar textos que aún mencionan datos demo/mock;
+11. diseñar la UI de registro sobre el endpoint ya existente;
+12. definir el canal seguro de entrega del código de retiro;
+13. probar tablas/reportes con volúmenes de datos mucho mayores.
+
+===============================================================================
+18. COMANDOS PARA INSTALAR E INICIAR
+===============================================================================
+
+Requisitos:
+
+- Node.js 24 o superior;
+- Corepack/pnpm 11.24.0;
+- Docker Desktop para PostgreSQL local;
+- Chrome, Edge o Chromium para E2E/revisión visual.
+
+Primera instalación desde la raíz TraceLink:
+
+corepack enable
+corepack pnpm install
+Copy-Item .env.example .env
+
+Editar .env y reemplazar todos los placeholders. El seed se negará a trabajar
+si queda un valor de ejemplo.
+
+Levantar base, migrar, cargar datos e iniciar web + API:
+
+corepack pnpm db:up
+corepack pnpm db:migrate
+corepack pnpm db:seed
+corepack pnpm dev
+
+Direcciones locales predeterminadas:
+
+- Frontend: http://127.0.0.1:5173
+- API: http://127.0.0.1:3000
+- Health: http://127.0.0.1:3000/api/v1/health
+
+Iniciar por separado:
+
+corepack pnpm dev:web
+corepack pnpm dev:api
+
+Otros comandos nuevos o actualizados:
+
+corepack pnpm db:contract
+corepack pnpm db:plan
+corepack pnpm db:migrate
+corepack pnpm db:verify
+corepack pnpm db:migration:check
+corepack pnpm db:seed
+corepack pnpm test:unit
+corepack pnpm test:api
+corepack pnpm test:integration
+corepack pnpm test:e2e
+corepack pnpm review:visual
+corepack pnpm lint
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm build
+
+Apagar PostgreSQL local:
+
+corepack pnpm db:down
+
+Si el navegador no está en una ruta estándar:
+
+$env:CHROME_PATH='C:\ruta\al\chrome.exe'
+corepack pnpm test:e2e
+
+===============================================================================
+19. DOCUMENTACIÓN CREADA O ACTUALIZADA
+===============================================================================
+
+- ARCHITECTURE.md: arquitectura efectiva del sistema al cerrar Fase 3.
+- README.md: instalación, configuración, ejecución, pruebas y operación local.
+- docs/backend-architecture.md: capas, composition root y límites de alcance.
+- docs/api.md: endpoints, auth, permisos, DTO y errores.
+- docs/api-contract-map.md: 48 métodos/14 servicios frontend hacia HTTP.
+- docs/database-model.md: 25 modelos, relaciones, restricciones y migraciones.
+- docs/security.md: threat boundaries, sesión, CSRF, proxy, logs y despliegue.
+- docs/frontend-design.md: estado mock/HTTP y decisiones de UI.
+- docs/frontend-roadmap.md: Fases 1, 2 y 3 terminadas; Fase 4 siguiente.
+- docs/ui-review-phase-3.md: auditoría visual y backlog priorizado.
+- apps/api/tests/SECURITY-COVERAGE.md: matriz de propiedades y pruebas.
+- FinFase 3.txt: este informe integral.
+
+===============================================================================
+20. COMMITS DE FASE 3
+===============================================================================
+
+e4fdaf1 docs(api): map frontend service contracts
+cf7155c docs(api): correct permission catalog count
+aa715fe Fase 3.1
+5019449 feat(api): complete foundation and Prisma runtime
+4aeb090 feat(auth): add tenant RBAC and server-side sessions
+70e3061 feat(commerce): persist products and customers
+17c277b feat(inventory): add transactional inventory ledger
+a79011d feat(orders): persist tenant order workflows
+3b29618 feat(packages): secure package traceability workflow
+436d59d feat(admin): manage tenant access roles and settings
+440c00d feat(reporting): derive dashboard and reports from PostgreSQL
+be25c37 fix(contracts): parse boolean query filters explicitly
+43c0360 feat(web): add shared HTTP client
+bf16f55 feat(web): implement HTTP service adapters
+b87c2f3 fix(web): stabilize real HTTP integration
+b449217 test(e2e): seed and verify real HTTP workflows
+28281a5 fix(security): harden trusted boundaries and logging
+4f72e73 docs: close phase 3 backend delivery
+
+El archivo de cierre se agrega en un commit documental final separado.
+
+===============================================================================
+21. DEUDA TÉCNICA Y RIESGOS NO BLOQUEANTES
+===============================================================================
+
+- El chunk principal del frontend mide 526,41 kB minificado (141,67 kB gzip) y
+  supera por poco el umbral informativo de Vite de 500 kB. El build sí pasa; se
+  recomienda continuar el code splitting por rutas/proveedores.
+- El selector de movimientos trae una ventana de hasta 100 ítems. Debe pasar a
+  búsqueda remota paginada antes de catálogos grandes.
+- Las ediciones administrativas no críticas siguen estrategia last-write-wins;
+  considerar optimistic concurrency si aparecen ediciones simultáneas reales.
+- Prisma ORM 8 y embedded-postgres están fijados en versiones RC/beta; cualquier
+  actualización debe probar migraciones, generated client y runners.
+- test:e2e requiere un navegador compatible instalado o CHROME_PATH.
+- La selección de puertos de test tiene una ventana TOCTOU pequeña entre liberar
+  la reserva y levantar el servicio; el runner usa puertos dinámicos y cleanup,
+  pero un host muy concurrido podría requerir reintentos futuros.
+- Producción aún necesita decisiones de infraestructura: TLS extremo a extremo,
+  secret manager, restricción real de red del proxy, backups/restore probados,
+  métricas/alertas y política externa de retención de logs.
+- El canal de provisión del código de retiro, recuperación de cuenta y
+  verificación de email pertenecen a trabajo posterior.
+
+Ninguno de estos puntos invalida la finalización funcional de Fase 3.
+
+===============================================================================
+22. PREPARACIÓN PARA FASE 4
+===============================================================================
+
+La base queda preparada para abordar Fase 4 mediante cambios explícitos:
+
+- contratos HTTP versionados y validados;
+- pedidos, inventario y reservas transaccionales;
+- idempotencia persistente;
+- sesiones/RBAC/tenant/ownership autoritativos;
+- auditoría y request IDs;
+- adapters HTTP intercambiables;
+- migraciones reproducibles y seed E2E;
+- pruebas reales desde navegador hasta PostgreSQL.
+
+Antes de implementar pagos o webhooks se debe diseñar y aprobar:
+
+- proveedor y modelo de pago;
+- firma, replay protection y almacenamiento de eventos webhook;
+- máquina de estados conjunta pedido/pago/reserva;
+- reconciliación e idempotencia externa;
+- política de expiración/liberación de reservas;
+- observabilidad y runbooks de incidentes.
+
+ESTADO DE CIERRE: FASE 3 COMPLETA Y VERIFICADA.
