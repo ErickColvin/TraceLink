@@ -37,6 +37,34 @@ describe("parseEnvironment", () => {
     ).toThrow(EnvironmentValidationError);
   });
 
+  it("accepts only explicit proxy hop, IP, or CIDR configurations", () => {
+    expect(parseEnvironment({ ...validEnvironment, TRUST_PROXY: "1" }).trustProxy)
+      .toBe(1);
+    expect(
+      parseEnvironment({
+        ...validEnvironment,
+        TRUST_PROXY: "127.0.0.1, 10.0.0.0/8, 2001:db8::/32",
+      }).trustProxy,
+    ).toEqual(["127.0.0.1", "10.0.0.0/8", "2001:db8::/32"]);
+  });
+
+  it.each([
+    "true",
+    "0",
+    "proxy.internal",
+    "0.0.0.0/0",
+    "::/0",
+    "10.0.0.0/99",
+    "1.2.3.999",
+  ])(
+    "rejects unsafe or invalid TRUST_PROXY=%s",
+    (trustProxy) => {
+      expect(() =>
+        parseEnvironment({ ...validEnvironment, TRUST_PROXY: trustProxy }),
+      ).toThrow(EnvironmentValidationError);
+    },
+  );
+
   it("reports invalid fields without echoing secret values", () => {
     const secret = "too-short";
 

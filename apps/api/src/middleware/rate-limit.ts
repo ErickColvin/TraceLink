@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { PostgresDatabase } from "../database/index.js";
 import { AppError } from "../shared/errors/app-error.js";
+import { getCanonicalClientIp } from "../shared/security/client-ip.js";
 import { hmacSha256 } from "../shared/security/fingerprint.js";
 
 const rateLimitRowSchema = z.object({
@@ -10,9 +11,16 @@ const rateLimitRowSchema = z.object({
   blockedUntil: z.date().nullable(),
 });
 
+const RATE_LIMIT_PRUNE_EVERY_CONSUMPTIONS = 64;
+export const RATE_LIMIT_PRUNE_BATCH_SIZE = 100;
+export const AUTH_IP_MAX_ATTEMPTS = 30;
+
+type AuthRateLimitScope = "auth.login" | "auth.register";
+
 export class PersistentRateLimiter {
   readonly #database: PostgresDatabase;
   readonly #secret: string;
+  #consumptionsUntilPrune = 0;
 
   constructor(database: PostgresDatabase, secret: string) {
     this.#database = database;
@@ -26,6 +34,12 @@ export class PersistentRateLimiter {
     windowSeconds: number;
     blockSeconds: number;
   }>): Promise<Readonly<{ allowed: boolean; retryAfterSeconds?: number }>> {
+    this.#consumptionsUntilPrune =
+      (this.#consumptionsUntilPrune + 1) % RATE_LIMIT_PRUNE_EVERY_CONSUMPTIONS;
+    if (this.#consumptionsUntilPrune === 1) {
+      await this.#pruneExpired().catch(() => undefined);
+    }
+
     const keyHash = hmacSha256(this.#secret, "rate-limit", options.key);
     const result = await this.#database.query(
       `INSERT INTO rate_limit_buckets
@@ -87,9 +101,27 @@ export class PersistentRateLimiter {
       [options.scope, keyHash],
     );
   }
+
+  async #pruneExpired(): Promise<number> {
+    const result = await this.#database.query(
+      `WITH expired AS (
+         SELECT id
+           FROM rate_limit_buckets
+          WHERE expires_at <= now()
+          ORDER BY expires_at
+          LIMIT $1
+          FOR UPDATE SKIP LOCKED
+       )
+       DELETE FROM rate_limit_buckets AS bucket
+       USING expired
+       WHERE bucket.id = expired.id`,
+      [RATE_LIMIT_PRUNE_BATCH_SIZE],
+    );
+    return result.rowCount ?? 0;
+  }
 }
 
-export function authRateLimitKey(
+function normalizedAuthEmail(
   request: Parameters<RequestHandler>[0],
 ): string {
   const body = request.body;
@@ -97,36 +129,73 @@ export function authRateLimitKey(
     typeof body === "object" && body !== null
       ? Reflect.get(body, "email")
       : undefined;
-  const email =
-    typeof emailValue === "string"
-      ? emailValue.trim().toLowerCase()
-      : "invalid";
-  return `${request.ip}|${email}`;
+  return typeof emailValue === "string"
+    ? emailValue.trim().toLowerCase()
+    : "invalid";
+}
+
+export function authRateLimitKeys(
+  request: Parameters<RequestHandler>[0],
+): Readonly<{ ip: string; account: string }> {
+  return {
+    ip: getCanonicalClientIp(request),
+    account: normalizedAuthEmail(request),
+  };
+}
+
+export function authAccountRateLimitScope(scope: AuthRateLimitScope): string {
+  return `${scope}.account`;
+}
+
+function authIpRateLimitScope(): string {
+  return "auth.ip";
+}
+
+function throwRateLimited(
+  response: Parameters<RequestHandler>[1],
+  retryAfterSeconds: number | undefined,
+): never {
+  response.setHeader("Retry-After", retryAfterSeconds ?? 1);
+  throw new AppError({
+    statusCode: 429,
+    code: "RATE_LIMITED",
+    message: "Demasiados intentos. Intenta nuevamente más tarde.",
+  });
 }
 
 export function createAuthRateLimit(options: Readonly<{
   limiter: PersistentRateLimiter;
-  scope: "auth.login" | "auth.register";
+  scope: AuthRateLimitScope;
   maxAttempts?: number;
+  ipMaxAttempts?: number;
   windowSeconds?: number;
   blockSeconds?: number;
 }>): RequestHandler {
   return async (request, response, next) => {
     try {
-      const outcome = await options.limiter.consume({
-        scope: options.scope,
-        key: authRateLimitKey(request),
-        maxAttempts: options.maxAttempts ?? 5,
+      const keys = authRateLimitKeys(request);
+      const sharedOptions = {
         windowSeconds: options.windowSeconds ?? 15 * 60,
         blockSeconds: options.blockSeconds ?? 15 * 60,
+      } as const;
+      const ipOutcome = await options.limiter.consume({
+        ...sharedOptions,
+        scope: authIpRateLimitScope(),
+        key: keys.ip,
+        maxAttempts: options.ipMaxAttempts ?? AUTH_IP_MAX_ATTEMPTS,
+      });
+      if (!ipOutcome.allowed) {
+        throwRateLimited(response, ipOutcome.retryAfterSeconds);
+      }
+
+      const outcome = await options.limiter.consume({
+        ...sharedOptions,
+        scope: authAccountRateLimitScope(options.scope),
+        key: keys.account,
+        maxAttempts: options.maxAttempts ?? 5,
       });
       if (!outcome.allowed) {
-        response.setHeader("Retry-After", outcome.retryAfterSeconds ?? 1);
-        throw new AppError({
-          statusCode: 429,
-          code: "RATE_LIMITED",
-          message: "Demasiados intentos. Intenta nuevamente más tarde.",
-        });
+        throwRateLimited(response, outcome.retryAfterSeconds);
       }
       next();
     } catch (error) {

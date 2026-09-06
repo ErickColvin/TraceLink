@@ -727,7 +727,7 @@ export class PostgresPackageRepository {
     if (!credentialValid) {
       throw new AppError({
         statusCode: 409,
-        code: "CONFLICT",
+        code: "PICKUP_CODE_INVALID",
         message: "No fue posible validar la entrega del paquete.",
       });
     }

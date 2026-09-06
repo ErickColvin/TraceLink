@@ -339,6 +339,7 @@ describe("package API against PostgreSQL", () => {
       .set("Idempotency-Key", `invalid-delivery-${unique}`)
       .send({ pickupCode: "incorrecto", receivedBy: "Cliente Paquetes" });
     expect(invalid.status).toBe(409);
+    expect(invalid.body.error.code).toBe("PICKUP_CODE_INVALID");
 
     const knownHash = hashPickupCode(
       config.pickupCodeSecret,

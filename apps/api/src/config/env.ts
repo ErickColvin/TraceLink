@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 import { z } from "zod";
 
 const NODE_ENVIRONMENTS = ["development", "test", "production"] as const;
@@ -40,15 +42,55 @@ const databaseUrlSchema = z.string().trim().refine((value) => {
   }
 }, "DATABASE_URL debe ser una URL PostgreSQL válida.");
 
-const booleanEnvironmentSchema = z
-  .enum(["true", "false"])
-  .transform((value) => value === "true");
+export type TrustProxyConfig = false | number | readonly string[];
+
+function isIpOrCidr(value: string): boolean {
+  const separator = value.lastIndexOf("/");
+  const address = separator === -1 ? value : value.slice(0, separator);
+  const version = isIP(address);
+  if (version === 0) return false;
+  if (separator === -1) return true;
+
+  const prefix = value.slice(separator + 1);
+  if (!/^\d+$/.test(prefix)) return false;
+  const bits = Number(prefix);
+  return bits >= 1 && bits <= (version === 4 ? 32 : 128);
+}
+
+const trustProxyEnvironmentSchema = z
+  .string()
+  .trim()
+  .default("false")
+  .transform((value, context): TrustProxyConfig => {
+    if (value === "false") return false;
+
+    if (/^\d+$/.test(value)) {
+      const hops = Number(value);
+      if (hops >= 1 && hops <= 255) return hops;
+    } else {
+      const addresses = value.split(",").map((entry) => entry.trim());
+      if (
+        addresses.length > 0 &&
+        addresses.length <= 32 &&
+        addresses.every((entry) => isIpOrCidr(entry))
+      ) {
+        return Object.freeze(addresses);
+      }
+    }
+
+    context.addIssue({
+      code: "custom",
+      message:
+        "TRUST_PROXY debe ser false, un número de saltos o una lista de IP/CIDR explícita.",
+    });
+    return z.NEVER;
+  });
 
 const rawEnvironmentSchema = z.object({
   NODE_ENV: z.enum(NODE_ENVIRONMENTS).default("development"),
   HOST: z.string().trim().min(1).default("127.0.0.1"),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3001),
-  TRUST_PROXY: booleanEnvironmentSchema.default(false),
+  TRUST_PROXY: trustProxyEnvironmentSchema,
   DATABASE_URL: databaseUrlSchema,
   WEB_ORIGIN: webOriginSchema,
   ORGANIZATION_SLUG: z
@@ -103,7 +145,7 @@ export type AppConfig = Readonly<{
   nodeEnv: (typeof NODE_ENVIRONMENTS)[number];
   host: string;
   port: number;
-  trustProxy: boolean;
+  trustProxy: TrustProxyConfig;
   databaseUrl: string;
   webOrigin: string;
   organizationSlug: string;

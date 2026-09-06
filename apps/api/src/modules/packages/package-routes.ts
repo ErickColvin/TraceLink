@@ -10,6 +10,7 @@ import {
 } from "../../middleware/authenticate.js";
 import { PersistentRateLimiter } from "../../middleware/rate-limit.js";
 import { AppError } from "../../shared/errors/app-error.js";
+import { getCanonicalClientIp } from "../../shared/security/client-ip.js";
 import { createPackageController } from "./package-controller.js";
 import { PackageService } from "./package-service.js";
 
@@ -20,7 +21,7 @@ function createDeliveryRateLimit(limiter: PersistentRateLimiter): RequestHandler
       const packageId = request.params["id"] ?? "invalid";
       const outcome = await limiter.consume({
         scope: "package.delivery",
-        key: `${auth.organization.id}\0${auth.user.id}\0${packageId}\0${request.ip}`,
+        key: `${auth.organization.id}\0${auth.user.id}\0${packageId}\0${getCanonicalClientIp(request)}`,
         maxAttempts: 5,
         windowSeconds: 15 * 60,
         blockSeconds: 15 * 60,
