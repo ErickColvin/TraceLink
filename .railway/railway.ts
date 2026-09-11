@@ -101,12 +101,48 @@ export default defineRailway((context) => {
     },
   });
 
+  const paymentReconciliation = service("payment-reconciliation", {
+    source,
+    build: BUILD_COMMAND,
+    start: "node apps/api/dist/jobs/reconcile-payments.js",
+    deploy: {
+      cronSchedule: "*/5 * * * *",
+      restartPolicyType: "NEVER",
+    },
+    env: {
+      NODE_ENV: api.env.NODE_ENV,
+      APP_ENV: api.env.APP_ENV,
+      HOST: api.env.HOST,
+      DATABASE_URL: database.env.DATABASE_URL,
+      DATABASE_POOL_MAX: "2",
+      DATABASE_CONNECTION_TIMEOUT_MS: api.env.DATABASE_CONNECTION_TIMEOUT_MS,
+      DATABASE_IDLE_TIMEOUT_MS: api.env.DATABASE_IDLE_TIMEOUT_MS,
+      TRUST_PROXY: api.env.TRUST_PROXY,
+      LOG_LEVEL: api.env.LOG_LEVEL,
+      ORGANIZATION_SLUG: api.env.ORGANIZATION_SLUG,
+      WEB_ORIGIN: api.env.WEB_ORIGIN,
+      API_PUBLIC_URL: api.env.API_PUBLIC_URL,
+      SESSION_SECRET: api.env.SESSION_SECRET,
+      CSRF_SECRET: api.env.CSRF_SECRET,
+      IDEMPOTENCY_SECRET: api.env.IDEMPOTENCY_SECRET,
+      RATE_LIMIT_SECRET: api.env.RATE_LIMIT_SECRET,
+      PICKUP_CODE_SECRET: api.env.PICKUP_CODE_SECRET,
+      PAYMENT_PROVIDER: api.env.PAYMENT_PROVIDER,
+      MERCADOPAGO_ACCESS_TOKEN: api.env.MERCADOPAGO_ACCESS_TOKEN,
+      MERCADOPAGO_WEBHOOK_SECRET: api.env.MERCADOPAGO_WEBHOOK_SECRET,
+      PAYMENT_SUCCESS_URL: api.env.PAYMENT_SUCCESS_URL,
+      PAYMENT_FAILURE_URL: api.env.PAYMENT_FAILURE_URL,
+      PAYMENT_PENDING_URL: api.env.PAYMENT_PENDING_URL,
+      PAYMENT_WEBHOOK_URL: api.env.PAYMENT_WEBHOOK_URL,
+    },
+  });
+
   return project("TraceLink", {
     environments: ["staging", "production"],
     resources: [
       ...group("Data", [database], { color: "#7c3aed" }),
       ...group("Application", [api], { color: "#2563eb" }),
-      ...group("Scheduled jobs", [reservationExpiry], {
+      ...group("Scheduled jobs", [reservationExpiry, paymentReconciliation], {
         color: "#059669",
       }),
     ],

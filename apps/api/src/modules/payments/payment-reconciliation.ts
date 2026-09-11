@@ -75,6 +75,7 @@ export class PaymentReconciliationRepository {
 
   reconcile(options: Readonly<{
     provider: "FAKE" | "MERCADOPAGO";
+    source: "webhook" | "poll";
     providerOrder: ProviderOrderSnapshot;
     eventId: string;
     eventType: string;
@@ -119,7 +120,16 @@ export class PaymentReconciliationRepository {
           payloadHash,
         ],
       );
-      if (event.rowCount === 0) return { duplicate: true, outcome: "ignored" };
+      if (event.rowCount === 0) {
+        if (options.source === "poll") {
+          await executor.query(
+            `UPDATE payments SET last_reconciled_at = now(), updated_at = now()
+              WHERE organization_id = $1 AND id = $2`,
+            [context.organizationId, context.paymentId],
+          );
+        }
+        return { duplicate: true, outcome: "ignored" };
+      }
 
       const status = options.providerOrder.status;
       await executor.query(
@@ -175,8 +185,14 @@ export class PaymentReconciliationRepository {
                (organization_id, order_id, from_status, to_status, actor_user_id,
                 reason, occurred_at)
              VALUES ($1, $2, 'PENDING_PAYMENT', 'PAID', NULL,
-                     'Pago confirmado por webhook autoritativo.', now())`,
-            [context.organizationId, context.orderId],
+                     $3, now())`,
+            [
+              context.organizationId,
+              context.orderId,
+              options.source === "webhook"
+                ? "Pago confirmado por webhook autoritativo."
+                : "Pago confirmado por conciliación autoritativa.",
+            ],
           );
         }
       } else if (
@@ -215,7 +231,9 @@ export class PaymentReconciliationRepository {
       );
       await writeAudit(executor, {
         organizationId: context.organizationId,
-        action: "payment.webhook.process",
+        action: options.source === "webhook"
+          ? "payment.webhook.process"
+          : "payment.reconciliation.process",
         entityType: "Payment",
         entityId: context.paymentId,
         after: {

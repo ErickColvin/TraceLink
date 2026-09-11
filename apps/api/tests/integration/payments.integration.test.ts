@@ -14,6 +14,7 @@ import {
   type PostgresDatabase,
 } from "../../src/database/index.js";
 import { FakePaymentProvider } from "../../src/modules/payments/fake-payment-provider.js";
+import { PaymentReconciliationJob } from "../../src/modules/payments/payment-reconciliation-job.js";
 import { createTestConfig } from "../support/test-config.js";
 
 const databaseUrl = process.env["TEST_DATABASE_URL"];
@@ -194,5 +195,54 @@ describe("checkout payments against PostgreSQL", () => {
       .set("Idempotency-Key", `delivery-${unique}`)
       .send({ fulfillmentMethod: "DELIVERY", items: [{ productId, quantity: 1 }] });
     expect(delivery.status).toBe(400);
+  });
+
+  it("reconciles a bounded pending payment when its webhook is lost", async () => {
+    const created = await customerAgent
+      .post("/api/v1/checkout")
+      .set("Origin", config.webOrigin)
+      .set("X-CSRF-Token", customerCsrf)
+      .set("Idempotency-Key", `reconciliation-${unique}`)
+      .send({
+        fulfillmentMethod: "PICKUP",
+        items: [{ productId, quantity: 1 }],
+      });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    const checkout = checkoutResponseSchema.parse(created.body);
+    const providerOrderId = checkout.attempt.providerOrderId ?? "";
+    paymentProvider.setOrderStatus(providerOrderId, "APPROVED");
+
+    const job = new PaymentReconciliationJob(database, paymentProvider);
+    const first = await job.run({
+      limit: 10,
+      minAgeMinutes: 0,
+      maxAgeHours: 24,
+    });
+    expect(first).toMatchObject({ processed: 1, failed: 0 });
+
+    const detail = await customerAgent.get(
+      `/api/v1/me/orders/${checkout.order.id}`,
+    );
+    expect(detail.status).toBe(200);
+    const order = orderSchema.parse(detail.body);
+    expect(order.status).toBe("PAID");
+    expect(order.paymentDetails?.payment.status).toBe("APPROVED");
+
+    const audit = await database.query<Readonly<{ count: number }>>(
+      `SELECT COUNT(*)::integer AS count
+         FROM audit_logs
+        WHERE organization_id = $1
+          AND entity_id = $2
+          AND action = 'payment.reconciliation.process'`,
+      [organizationId, checkout.payment.id],
+    );
+    expect(audit.rows[0]?.count).toBe(1);
+
+    const repeat = await job.run({
+      limit: 10,
+      minAgeMinutes: 0,
+      maxAgeHours: 24,
+    });
+    expect(repeat.selected).toBe(0);
   });
 });

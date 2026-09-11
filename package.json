@@ -29,6 +29,7 @@
     "db:migration:check": "pnpm --filter @tracelink/api db:migration:check",
     "db:seed": "pnpm --filter @tracelink/api db:seed",
     "reservations:expire": "pnpm --filter @tracelink/api reservations:expire",
+    "payments:reconcile": "pnpm --filter @tracelink/api payments:reconcile",
     "preview": "pnpm --filter @tracelink/web preview",
     "review:visual": "node tools/visual-review.mjs"
   },

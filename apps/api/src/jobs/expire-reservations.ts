@@ -3,12 +3,19 @@ import { randomUUID } from "node:crypto";
 import { loadEnvironment } from "../config/env.js";
 import { createPostgresDatabase } from "../database/index.js";
 import { InventoryReservationService } from "../modules/inventory/inventory-reservation-service.js";
+import { createLogger } from "../shared/logging/logger.js";
 
 type OrganizationRow = Readonly<{ id: string }>;
 
 async function main(): Promise<void> {
   const config = loadEnvironment();
-  const database = createPostgresDatabase({ databaseUrl: config.databaseUrl });
+  const logger = createLogger(config);
+  const database = createPostgresDatabase({
+    databaseUrl: config.databaseUrl,
+    max: Math.min(config.databasePoolMax, 2),
+    connectionTimeoutMillis: config.databaseConnectionTimeoutMs,
+    idleTimeoutMillis: config.databaseIdleTimeoutMs,
+  });
   let total = 0;
   try {
     const organizations = await database.query<OrganizationRow>(
@@ -27,7 +34,10 @@ async function main(): Promise<void> {
         total += count;
       } while (count === 100);
     }
-    process.stdout.write(`Expired ${total} inventory reservation(s).\n`);
+    logger.info({
+      event: "reservation.expiry.completed",
+      expiredReservations: total,
+    });
   } finally {
     await database.close();
   }
@@ -39,4 +49,3 @@ void main().catch((error: unknown) => {
   );
   process.exitCode = 1;
 });
-

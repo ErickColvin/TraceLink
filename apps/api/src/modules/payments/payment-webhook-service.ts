@@ -42,6 +42,7 @@ export class PaymentWebhookService {
     const providerOrder = await this.#provider.getOrder(input.dataId);
     return this.#repository.reconcile({
       provider: this.#provider.code,
+      source: "webhook",
       providerOrder,
       eventId: input.eventId,
       eventType: input.eventType,
@@ -53,4 +54,3 @@ export class PaymentWebhookService {
     });
   }
 }
-
