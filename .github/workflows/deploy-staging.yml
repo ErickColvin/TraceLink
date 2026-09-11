@@ -1,0 +1,63 @@
+name: Deploy staging
+
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  web:
+    name: Cloudflare Pages staging
+    if: github.event.workflow_run.conclusion == 'success'
+    environment: staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build HTTP frontend
+        run: pnpm --filter @tracelink/web build
+        env:
+          VITE_DATA_MODE: http
+          VITE_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
+      - name: Deploy Pages preview
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          packageManager: pnpm
+          command: pages deploy apps/web/dist --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }} --branch=staging
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+  smoke:
+    name: Staging smoke
+    needs: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - run: node tools/smoke-deployment.mjs
+        env:
+          SMOKE_WEB_URL: ${{ vars.STAGING_WEB_URL }}
+          SMOKE_API_URL: ${{ vars.STAGING_API_URL }}

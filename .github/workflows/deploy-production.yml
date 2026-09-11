@@ -1,0 +1,61 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deliberate production deployment
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Re-run production gates
+        run: pnpm lint && pnpm typecheck && pnpm test && pnpm db:migration:check && pnpm build
+      - name: Deploy API
+        run: pnpm exec railway up --ci --project "${{ vars.RAILWAY_PROJECT_ID }}" --environment production --service tracelink-api --message "${{ github.sha }}"
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PRODUCTION_TOKEN }}
+      - name: Deploy reservation job
+        run: pnpm exec railway up --ci --project "${{ vars.RAILWAY_PROJECT_ID }}" --environment production --service reservation-expiry --message "${{ github.sha }}"
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PRODUCTION_TOKEN }}
+      - name: Build HTTP frontend
+        run: pnpm --filter @tracelink/web build
+        env:
+          VITE_DATA_MODE: http
+          VITE_API_BASE_URL: ${{ vars.PRODUCTION_API_BASE_URL }}
+      - name: Deploy Cloudflare Pages
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          packageManager: pnpm
+          command: pages deploy apps/web/dist --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }} --branch=main
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+      - name: Production smoke
+        run: node tools/smoke-deployment.mjs
+        env:
+          SMOKE_WEB_URL: ${{ vars.PRODUCTION_WEB_URL }}
+          SMOKE_API_URL: ${{ vars.PRODUCTION_API_URL }}
