@@ -21,6 +21,7 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     idempotencySecret: "idempotency-secret-for-tests-only-32",
     rateLimitSecret: "rate-limit-secret-for-tests-only-32--",
     pickupCodeSecret: "pickup-code-secret-for-tests-only-32-",
+    emailProvider: "fake",
     paymentProvider: "fake",
     mercadoPagoWebhookSecret: "fake-webhook-secret-for-tests-only-32",
     paymentSuccessUrl: "http://127.0.0.1:5173/checkout/resultado?status=approved",

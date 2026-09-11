@@ -11,6 +11,7 @@ import {
   type SqlExecutor,
 } from "../../database/index.js";
 import { AppError } from "../../shared/errors/app-error.js";
+import { enqueueNotification } from "../notifications/notification-outbox.js";
 import type {
   AuthContext,
   AuthRepositoryPort,
@@ -362,6 +363,13 @@ export class PostgresAuthRepository implements AuthRepositoryPort {
           tokenHash: input.tokenHash,
           expiresAt: input.expiresAt,
         });
+        await enqueueNotification(transaction, {
+          organizationId: organization.id,
+          eventKey: `user.welcome:${userId}`,
+          eventType: "user.welcome",
+          recipientEmail: input.registration.email,
+          payload: { firstName: input.registration.firstName },
+        });
 
         return {
           identity: {
@@ -391,4 +399,3 @@ export class PostgresAuthRepository implements AuthRepositoryPort {
     }
   }
 }
-

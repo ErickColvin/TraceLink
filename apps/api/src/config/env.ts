@@ -13,6 +13,7 @@ const LOG_LEVELS = [
   "trace",
   "silent",
 ] as const;
+const EMAIL_PROVIDERS = ["fake", "resend"] as const;
 
 const webOriginSchema = z
   .string()
@@ -160,6 +161,11 @@ const rawEnvironmentSchema = z.object({
   IDEMPOTENCY_SECRET: z.string().min(32),
   RATE_LIMIT_SECRET: z.string().min(32),
   PICKUP_CODE_SECRET: z.string().min(32),
+  EMAIL_PROVIDER: z.enum(EMAIL_PROVIDERS).default("fake"),
+  EMAIL_FROM: z.string().trim().email().optional(),
+  EMAIL_REPLY_TO: z.string().trim().email().optional(),
+  RESEND_API_KEY: z.string().trim().min(1).max(512).optional(),
+  STAFF_NOTIFICATION_EMAIL: z.string().trim().email().optional(),
   PAYMENT_PROVIDER: z.enum(["fake", "mercadopago"]).optional(),
   MERCADOPAGO_ACCESS_TOKEN: z.string().trim().min(1).max(2_048).optional(),
   MERCADOPAGO_WEBHOOK_SECRET: z.string().trim().min(1).max(512).optional(),
@@ -254,6 +260,17 @@ const rawEnvironmentSchema = z.object({
       }
     }
   }
+  if (value.EMAIL_PROVIDER === "resend") {
+    for (const field of ["EMAIL_FROM", "RESEND_API_KEY"] as const) {
+      if (value[field] === undefined) {
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: `${field} es obligatorio con Resend.`,
+        });
+      }
+    }
+  }
 });
 
 export type AppConfig = Readonly<{
@@ -276,6 +293,11 @@ export type AppConfig = Readonly<{
   idempotencySecret: string;
   rateLimitSecret: string;
   pickupCodeSecret: string;
+  emailProvider: (typeof EMAIL_PROVIDERS)[number];
+  emailFrom?: string;
+  emailReplyTo?: string;
+  resendApiKey?: string;
+  staffNotificationEmail?: string;
   paymentProvider: "fake" | "mercadopago";
   mercadoPagoAccessToken?: string;
   mercadoPagoWebhookSecret?: string;
@@ -346,6 +368,17 @@ export function parseEnvironment(
     idempotencySecret: value.IDEMPOTENCY_SECRET,
     rateLimitSecret: value.RATE_LIMIT_SECRET,
     pickupCodeSecret: value.PICKUP_CODE_SECRET,
+    emailProvider: value.EMAIL_PROVIDER,
+    ...(value.EMAIL_FROM === undefined ? {} : { emailFrom: value.EMAIL_FROM }),
+    ...(value.EMAIL_REPLY_TO === undefined
+      ? {}
+      : { emailReplyTo: value.EMAIL_REPLY_TO }),
+    ...(value.RESEND_API_KEY === undefined
+      ? {}
+      : { resendApiKey: value.RESEND_API_KEY }),
+    ...(value.STAFF_NOTIFICATION_EMAIL === undefined
+      ? {}
+      : { staffNotificationEmail: value.STAFF_NOTIFICATION_EMAIL }),
     paymentProvider: value.PAYMENT_PROVIDER ?? "fake",
     ...(value.MERCADOPAGO_ACCESS_TOKEN === undefined
       ? {}

@@ -12,6 +12,7 @@ import {
 import type { ProviderOrderSnapshot } from "../payments/payment-provider.js";
 import { writeAudit } from "../../shared/audit/audit.js";
 import { AppError } from "../../shared/errors/app-error.js";
+import { enqueueNotification } from "../notifications/notification-outbox.js";
 import {
   hmacSha256,
   secureBufferEquals,
@@ -304,14 +305,18 @@ export class CheckoutRepository {
           message: "El total del pedido supera el límite permitido.",
         });
       }
-      const customer = await executor.query<Readonly<{ email: string }>>(
-        `SELECT email FROM customers
+      const customer = await executor.query<Readonly<{
+        email: string;
+        firstName: string;
+      }>>(
+        `SELECT email, first_name AS "firstName" FROM customers
           WHERE organization_id = $1 AND id = $2 AND status = 'ACTIVE'
           FOR SHARE`,
         [options.organizationId, options.customerId],
       );
       const payerEmail = customer.rows[0]?.email;
-      if (payerEmail === undefined) {
+      const customerFirstName = customer.rows[0]?.firstName;
+      if (payerEmail === undefined || customerFirstName === undefined) {
         throw new AppError({
           statusCode: 403,
           code: "CUSTOMER_UNAVAILABLE",
@@ -390,6 +395,13 @@ export class CheckoutRepository {
         entityId: orderId,
         after: { orderNumber, total, currency: "CLP", paymentId, attemptId },
         requestId: options.requestId,
+      });
+      await enqueueNotification(executor, {
+        organizationId: options.organizationId,
+        eventKey: `order.created:${orderId}`,
+        eventType: "order.created",
+        recipientEmail: payerEmail,
+        payload: { firstName: customerFirstName, orderNumber, total },
       });
       await executor.query(
         `UPDATE idempotency_records

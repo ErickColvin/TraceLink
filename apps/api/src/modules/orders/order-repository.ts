@@ -30,6 +30,7 @@ import {
 import type { PostgresDatabase, SqlExecutor } from "../../database/index.js";
 import { writeAudit } from "../../shared/audit/audit.js";
 import { AppError } from "../../shared/errors/app-error.js";
+import { enqueueNotification } from "../notifications/notification-outbox.js";
 import {
   paginationMetadata,
   resolvePagination,
@@ -91,7 +92,14 @@ type OrderStatusEventRow = Readonly<{
 
 type OrderPackageRow = Readonly<{ orderId: string; packageId: string }>;
 type CountRow = Readonly<{ total: number }>;
-type LockedOrderRow = Readonly<{ id: string; status: OrderStatus }>;
+type LockedOrderRow = Readonly<{
+  id: string;
+  status: OrderStatus;
+  orderNumber: string;
+  customerEmail: string;
+  customerFirstName: string;
+  pickupAddress: string | null;
+}>;
 
 type OrderRelations = Readonly<{
   itemsByOrder: ReadonlyMap<string, readonly OrderItem[]>;
@@ -598,6 +606,21 @@ export class PostgresOrderRepository {
       after,
       requestId: options.requestId,
     });
+    if (options.input.toStatus === "READY") {
+      await enqueueNotification(executor, {
+        organizationId: options.organizationId,
+        eventKey: `order.ready:${options.orderId}`,
+        eventType: "order.ready",
+        recipientEmail: locked.customerEmail,
+        payload: {
+          firstName: locked.customerFirstName,
+          orderNumber: locked.orderNumber,
+          ...(locked.pickupAddress === null
+            ? {}
+            : { pickupAddress: locked.pickupAddress }),
+        },
+      });
+    }
     return after;
   }
 
@@ -688,6 +711,16 @@ export class PostgresOrderRepository {
       after,
       requestId: options.requestId,
     });
+    await enqueueNotification(executor, {
+      organizationId: options.organizationId,
+      eventKey: `order.cancelled:${options.orderId}`,
+      eventType: "order.cancelled",
+      recipientEmail: locked.customerEmail,
+      payload: {
+        firstName: locked.customerFirstName,
+        orderNumber: locked.orderNumber,
+      },
+    });
     return after;
   }
 
@@ -732,9 +765,19 @@ export class PostgresOrderRepository {
     orderId: string,
   ): Promise<LockedOrderRow> {
     const result = await executor.query<LockedOrderRow>(
-      `SELECT id, status FROM orders
-        WHERE organization_id = $1 AND id = $2
-        FOR UPDATE`,
+      `SELECT orders.id, orders.status,
+              orders.order_number AS "orderNumber",
+              customer.email AS "customerEmail",
+              customer.first_name AS "customerFirstName",
+              settings.pickup_address AS "pickupAddress"
+         FROM orders
+         JOIN customers customer
+           ON customer.organization_id = orders.organization_id
+          AND customer.id = orders.customer_id
+         LEFT JOIN organization_settings settings
+           ON settings.organization_id = orders.organization_id
+        WHERE orders.organization_id = $1 AND orders.id = $2
+        FOR UPDATE OF orders`,
       [organizationId, orderId],
     );
     const row = result.rows[0];

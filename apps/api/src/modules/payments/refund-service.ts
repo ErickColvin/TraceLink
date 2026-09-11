@@ -10,6 +10,7 @@ import { writeAudit } from "../../shared/audit/audit.js";
 import { AppError } from "../../shared/errors/app-error.js";
 import { hmacSha256, secureBufferEquals, stableJson } from "../../shared/security/fingerprint.js";
 import type { PaymentProvider } from "./payment-provider.js";
+import { enqueueNotification } from "../notifications/notification-outbox.js";
 
 type RefundContext = Readonly<{
   organizationId: string;
@@ -21,6 +22,9 @@ type RefundContext = Readonly<{
   providerOrderId: string;
   amount: number;
   refundId: string;
+  orderNumber: string;
+  customerEmail: string;
+  customerFirstName: string;
 }>;
 
 type IdempotencyRow = Readonly<{
@@ -216,6 +220,17 @@ export class RefundService {
               options.input.reason,
             ],
           );
+          await enqueueNotification(executor, {
+            organizationId: options.organizationId,
+            eventKey: `order.refunded:${prepared.context.paymentId}`,
+            eventType: "order.refunded",
+            recipientEmail: prepared.context.customerEmail,
+            payload: {
+              firstName: prepared.context.customerFirstName,
+              orderNumber: prepared.context.orderNumber,
+              total: prepared.context.amount,
+            },
+          });
         }
       }
       await writeAudit(executor, {
@@ -299,8 +314,12 @@ export class RefundService {
         `SELECT payment.organization_id AS "organizationId", orders.id AS "orderId",
                 orders.status AS "orderStatus", payment.id AS "paymentId",
                 payment.status AS "paymentStatus", payment.provider,
-                attempt.provider_order_id AS "providerOrderId", payment.amount
+                attempt.provider_order_id AS "providerOrderId", payment.amount,
+                orders.order_number AS "orderNumber", customer.email AS "customerEmail",
+                customer.first_name AS "customerFirstName"
            FROM orders
+           JOIN customers customer ON customer.organization_id = orders.organization_id
+            AND customer.id = orders.customer_id
            JOIN payments payment ON payment.organization_id = orders.organization_id
             AND payment.order_id = orders.id
            JOIN LATERAL (
@@ -353,12 +372,16 @@ export class RefundService {
               orders.status AS "orderStatus", payment.id AS "paymentId",
               payment.status AS "paymentStatus", payment.provider,
               attempt.provider_order_id AS "providerOrderId", payment.amount,
+              orders.order_number AS "orderNumber", customer.email AS "customerEmail",
+              customer.first_name AS "customerFirstName",
               refund.id AS "refundId"
          FROM refunds refund
          JOIN payments payment ON payment.organization_id = refund.organization_id
           AND payment.id = refund.payment_id
          JOIN orders ON orders.organization_id = payment.organization_id
           AND orders.id = payment.order_id
+         JOIN customers customer ON customer.organization_id = orders.organization_id
+          AND customer.id = orders.customer_id
          JOIN LATERAL (
            SELECT provider_order_id FROM payment_attempts
             WHERE organization_id = payment.organization_id AND payment_id = payment.id

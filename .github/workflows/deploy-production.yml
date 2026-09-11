@@ -45,6 +45,10 @@ jobs:
         run: pnpm exec railway up --ci --project "${{ vars.RAILWAY_PROJECT_ID }}" --environment production --service payment-reconciliation --message "${{ github.sha }}"
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_PRODUCTION_TOKEN }}
+      - name: Deploy notification outbox job
+        run: pnpm exec railway up --ci --project "${{ vars.RAILWAY_PROJECT_ID }}" --environment production --service notification-outbox --message "${{ github.sha }}"
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PRODUCTION_TOKEN }}
       - name: Build HTTP frontend
         run: pnpm --filter @tracelink/web build
         env:

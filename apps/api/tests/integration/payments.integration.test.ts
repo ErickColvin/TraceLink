@@ -15,6 +15,15 @@ import {
 } from "../../src/database/index.js";
 import { FakePaymentProvider } from "../../src/modules/payments/fake-payment-provider.js";
 import { PaymentReconciliationJob } from "../../src/modules/payments/payment-reconciliation-job.js";
+import { FakeNotificationProvider } from "../../src/modules/notifications/fake-notification-provider.js";
+import {
+  enqueueNotification,
+  NotificationOutboxProcessor,
+} from "../../src/modules/notifications/notification-outbox.js";
+import {
+  NotificationProviderError,
+  type NotificationProvider,
+} from "../../src/modules/notifications/notification-provider.js";
 import { createTestConfig } from "../support/test-config.js";
 
 const databaseUrl = process.env["TEST_DATABASE_URL"];
@@ -178,6 +187,27 @@ describe("checkout payments against PostgreSQL", () => {
       [`event-${unique}`],
     );
     expect(events.rows[0]?.count).toBe(1);
+
+    const outboxEvents = await database.query<Readonly<{ count: number }>>(
+      `SELECT COUNT(*)::integer AS count
+         FROM outbox_events
+        WHERE organization_id = $1
+          AND event_key = $2`,
+      [organizationId, `order.payment.approved:${checkout.payment.id}`],
+    );
+    expect(outboxEvents.rows[0]?.count).toBe(1);
+
+    const notificationProvider = new FakeNotificationProvider();
+    const outbox = new NotificationOutboxProcessor(database, notificationProvider);
+    const delivery = await outbox.process({ limit: 100, leaseMinutes: 10 });
+    expect(delivery).toMatchObject({ retrying: 0, dead: 0 });
+    const deliveredKeys = notificationProvider.messages.map(
+      (message) => message.idempotencyKey,
+    );
+    expect(deliveredKeys).toContain(`order.created:${checkout.order.id}`);
+    expect(deliveredKeys).toContain(
+      `order.payment.approved:${checkout.payment.id}`,
+    );
   });
 
   it("rejects unauthenticated checkout and non-pickup fulfillment", async () => {
@@ -244,5 +274,60 @@ describe("checkout payments against PostgreSQL", () => {
       maxAgeHours: 24,
     });
     expect(repeat.selected).toBe(0);
+  });
+
+  it("retries outbox delivery without rolling back the domain event", async () => {
+    const eventKey = `order.ready:retry-${unique}`;
+    await enqueueNotification(database, {
+      organizationId,
+      eventKey,
+      eventType: "order.ready",
+      recipientEmail: `retry-${unique}@example.com`,
+      payload: { firstName: "Retry", orderNumber: `CH-${unique}` },
+    });
+    const unavailableProvider: NotificationProvider = {
+      code: "FAKE",
+      sendEmail: () => Promise.reject(new NotificationProviderError({
+        code: "TEST_PROVIDER_UNAVAILABLE",
+        message: "Provider unavailable in test.",
+        retryable: true,
+      })),
+    };
+    const failingProcessor = new NotificationOutboxProcessor(
+      database,
+      unavailableProvider,
+    );
+    const failed = await failingProcessor.process({ limit: 100, leaseMinutes: 10 });
+    expect(failed.retrying).toBeGreaterThanOrEqual(1);
+
+    const queued = await database.query<Readonly<{
+      status: string;
+      attempts: number;
+      lastError: string | null;
+    }>>(
+      `SELECT status, attempts, last_error AS "lastError"
+         FROM outbox_events
+        WHERE organization_id = $1 AND event_key = $2`,
+      [organizationId, eventKey],
+    );
+    expect(queued.rows[0]).toEqual({
+      status: "PENDING",
+      attempts: 1,
+      lastError: "TEST_PROVIDER_UNAVAILABLE",
+    });
+
+    await database.query(
+      `UPDATE outbox_events SET next_attempt_at = now()
+        WHERE organization_id = $1 AND event_key = $2`,
+      [organizationId, eventKey],
+    );
+    const recoveredProvider = new FakeNotificationProvider();
+    const recovered = await new NotificationOutboxProcessor(
+      database,
+      recoveredProvider,
+    ).process({ limit: 100, leaseMinutes: 10 });
+    expect(recovered.delivered).toBeGreaterThanOrEqual(1);
+    expect(recoveredProvider.messages.map((entry) => entry.idempotencyKey))
+      .toContain(eventKey);
   });
 });

@@ -174,6 +174,28 @@ describe("parseEnvironment", () => {
     expect(configured.mercadoPagoAccessToken).toBe("sandbox-access-token");
   });
 
+  it("requires sender and API key only when Resend is selected", () => {
+    try {
+      parseEnvironment({ ...validEnvironment, EMAIL_PROVIDER: "resend" });
+      throw new Error("Expected Resend configuration to be rejected.");
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(EnvironmentValidationError);
+      if (!(error instanceof EnvironmentValidationError)) return;
+      expect(error.fields).toEqual(
+        expect.arrayContaining(["EMAIL_FROM", "RESEND_API_KEY"]),
+      );
+    }
+
+    const config = parseEnvironment({
+      ...validEnvironment,
+      EMAIL_PROVIDER: "resend",
+      EMAIL_FROM: "notificaciones@example.com",
+      RESEND_API_KEY: "resend-test-key",
+    });
+    expect(config.emailProvider).toBe("resend");
+    expect(config.emailFrom).toBe("notificaciones@example.com");
+  });
+
   it.each(["ftp://example.invalid/callback", "not-a-url"])(
     "rejects non-HTTP payment URL %s",
     (paymentSuccessUrl) => {

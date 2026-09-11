@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import type { PostgresDatabase, SqlExecutor } from "../../database/index.js";
 import { writeAudit } from "../../shared/audit/audit.js";
 import { AppError } from "../../shared/errors/app-error.js";
+import { enqueueNotification } from "../notifications/notification-outbox.js";
 import {
   commitOrderReservations,
   releaseOrderReservations,
@@ -18,6 +19,9 @@ type PaymentContext = Readonly<{
   paymentStatus: string;
   amount: number;
   currency: string;
+  orderNumber: string;
+  customerEmail: string;
+  customerFirstName: string;
 }>;
 
 export type ReconciliationResult = Readonly<{
@@ -33,13 +37,17 @@ async function loadPaymentContext(
     `SELECT payment.organization_id AS "organizationId",
             payment.id AS "paymentId", attempt.id AS "attemptId",
             orders.id AS "orderId", orders.status AS "orderStatus",
-            payment.status AS "paymentStatus", payment.amount, payment.currency
+            payment.status AS "paymentStatus", payment.amount, payment.currency,
+            orders.order_number AS "orderNumber", customer.email AS "customerEmail",
+            customer.first_name AS "customerFirstName"
        FROM payment_attempts attempt
        JOIN payments payment
          ON payment.organization_id = attempt.organization_id
         AND payment.id = attempt.payment_id
        JOIN orders ON orders.organization_id = payment.organization_id
         AND orders.id = payment.order_id
+       JOIN customers customer ON customer.organization_id = orders.organization_id
+        AND customer.id = orders.customer_id
       WHERE attempt.provider_order_id = $1
       ORDER BY attempt.created_at DESC LIMIT 1
       FOR UPDATE OF payment, attempt, orders`,
@@ -194,6 +202,17 @@ export class PaymentReconciliationRepository {
                 : "Pago confirmado por conciliación autoritativa.",
             ],
           );
+          await enqueueNotification(executor, {
+            organizationId: context.organizationId,
+            eventKey: `order.payment.approved:${context.paymentId}`,
+            eventType: "order.payment.approved",
+            recipientEmail: context.customerEmail,
+            payload: {
+              firstName: context.customerFirstName,
+              orderNumber: context.orderNumber,
+              total: context.amount,
+            },
+          });
         }
       } else if (
         options.providerOrder.isFinal &&
@@ -221,6 +240,17 @@ export class PaymentReconciliationRepository {
                      'Reembolso confirmado por proveedor.', now())`,
             [context.organizationId, context.orderId, context.orderStatus],
           );
+          await enqueueNotification(executor, {
+            organizationId: context.organizationId,
+            eventKey: `order.refunded:${context.paymentId}`,
+            eventType: "order.refunded",
+            recipientEmail: context.customerEmail,
+            payload: {
+              firstName: context.customerFirstName,
+              orderNumber: context.orderNumber,
+              total: context.amount,
+            },
+          });
         }
       }
       await executor.query(

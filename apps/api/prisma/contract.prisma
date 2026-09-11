@@ -107,6 +107,14 @@ enum IdempotencyStatus {
   COMPLETED
 }
 
+enum OutboxStatus {
+  @@type("pg/text@1")
+  PENDING
+  PROCESSING
+  DELIVERED
+  DEAD
+}
+
 model Organization {
   id        Uuid     @id @default(dbgenerated("gen_random_uuid()"))
   name      VarChar(160)
@@ -117,6 +125,8 @@ model Organization {
   active    Boolean  @default(true)
   createdAt Timestamptz(3) @default(now()) @map("created_at")
   updatedAt temporal.updatedAt() @map("updated_at")
+
+  outboxEvents OutboxEvent[]
 
   roles                Role[]
   memberships          Membership[]
@@ -811,6 +821,34 @@ model AuditLog {
   @@index([organizationId, entityType, entityId, createdAt], map: "audit_log_entity_created_idx")
   @@index([requestId], map: "audit_log_request_idx")
   @@map("audit_logs")
+}
+
+model OutboxEvent {
+  id                Uuid         @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId    Uuid         @map("organization_id")
+  eventKey          VarChar(200) @map("event_key")
+  eventType         VarChar(120) @map("event_type")
+  recipientEmail    VarChar(320) @map("recipient_email")
+  payload           Json
+  status            OutboxStatus @default(PENDING)
+  attempts          Int          @default(0)
+  maxAttempts       Int          @default(5) @map("max_attempts")
+  nextAttemptAt     Timestamptz(3) @default(now()) @map("next_attempt_at")
+  lockedAt          Timestamptz(3)? @map("locked_at")
+  lastError         VarChar(1000)? @map("last_error")
+  providerMessageId VarChar(200)? @map("provider_message_id")
+  deliveredAt       Timestamptz(3)? @map("delivered_at")
+  createdAt         Timestamptz(3) @default(now()) @map("created_at")
+  updatedAt         temporal.updatedAt() @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "outbox_event_organization_fkey")
+
+  @@unique([organizationId, id], map: "outbox_event_tenant_id_key")
+  @@unique([organizationId, eventKey], map: "outbox_event_dedup_key")
+  @@check(expression: "char_length(btrim(\"event_key\")) > 0 AND char_length(btrim(\"event_type\")) > 0 AND char_length(btrim(\"recipient_email\")) > 0 AND \"attempts\" >= 0 AND \"max_attempts\" BETWEEN 1 AND 20 AND \"attempts\" <= \"max_attempts\" AND ((\"status\" = 'PENDING' AND \"locked_at\" IS NULL AND \"delivered_at\" IS NULL) OR (\"status\" = 'PROCESSING' AND \"locked_at\" IS NOT NULL AND \"delivered_at\" IS NULL) OR (\"status\" = 'DELIVERED' AND \"locked_at\" IS NULL AND \"delivered_at\" IS NOT NULL) OR (\"status\" = 'DEAD' AND \"locked_at\" IS NULL AND \"delivered_at\" IS NULL))", name: "outbox_event_state_valid")
+  @@index([status, nextAttemptAt], map: "outbox_event_delivery_idx")
+  @@index([organizationId, eventType, createdAt], map: "outbox_event_tenant_type_idx")
+  @@map("outbox_events")
 }
 
 model IdempotencyRecord {

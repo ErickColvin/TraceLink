@@ -8,6 +8,7 @@ import { writeAudit } from "../../shared/audit/audit.js";
 import { AppError } from "../../shared/errors/app-error.js";
 import { IdempotencyService, type IdempotencyExecution } from "../../shared/idempotency/idempotency.js";
 import { releaseOrderReservations } from "../inventory/order-reservations.js";
+import { enqueueNotification } from "../notifications/notification-outbox.js";
 
 export class CustomerOrderActionsService {
   readonly #idempotency: IdempotencyService;
@@ -37,9 +38,16 @@ export class CustomerOrderActionsService {
         const result = await executor.query<Readonly<{
           status: string;
           paymentStatus: string | null;
+          orderNumber: string;
+          customerEmail: string;
+          customerFirstName: string;
         }>>(
-          `SELECT orders.status, payment.status AS "paymentStatus"
+          `SELECT orders.status, orders.order_number AS "orderNumber",
+                  payment.status AS "paymentStatus", customer.email AS "customerEmail",
+                  customer.first_name AS "customerFirstName"
              FROM orders
+             JOIN customers customer ON customer.organization_id = orders.organization_id
+              AND customer.id = orders.customer_id
              LEFT JOIN payments payment ON payment.organization_id = orders.organization_id
               AND payment.order_id = orders.id
             WHERE orders.organization_id = $1 AND orders.id = $2
@@ -101,6 +109,16 @@ export class CustomerOrderActionsService {
           before: { status: "PENDING_PAYMENT" },
           after: { status: "CANCELLED", reason: options.reason },
           requestId: options.requestId,
+        });
+        await enqueueNotification(executor, {
+          organizationId: options.organizationId,
+          eventKey: `order.cancelled:${options.orderId}`,
+          eventType: "order.cancelled",
+          recipientEmail: order.customerEmail,
+          payload: {
+            firstName: order.customerFirstName,
+            orderNumber: order.orderNumber,
+          },
         });
         return {
           statusCode: 200,

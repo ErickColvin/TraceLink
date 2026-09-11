@@ -64,6 +64,10 @@
       "model": "Organization",
       "namespace": "public"
     },
+    "outbox_events": {
+      "model": "OutboxEvent",
+      "namespace": "public"
+    },
     "package_pickup_receipts": {
       "model": "PackagePickupReceipt",
       "namespace": "public"
@@ -282,6 +286,27 @@
               {
                 "name": "REFUNDED",
                 "value": "REFUNDED"
+              }
+            ]
+          },
+          "OutboxStatus": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "PENDING",
+                "value": "PENDING"
+              },
+              {
+                "name": "PROCESSING",
+                "value": "PROCESSING"
+              },
+              {
+                "name": "DELIVERED",
+                "value": "DELIVERED"
+              },
+              {
+                "name": "DEAD",
+                "value": "DEAD"
               }
             ]
           },
@@ -3367,6 +3392,21 @@
                   "namespace": "public"
                 }
               },
+              "outboxEvents": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "organizationId"
+                  ]
+                },
+                "to": {
+                  "model": "OutboxEvent",
+                  "namespace": "public"
+                }
+              },
               "packagePickupReceipts": {
                 "cardinality": "1:N",
                 "on": {
@@ -3704,6 +3744,226 @@
               },
               "namespaceId": "public",
               "table": "organization_settings"
+            }
+          },
+          "OutboxEvent": {
+            "fields": {
+              "attempts": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "deliveredAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "eventKey": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 200
+                  }
+                }
+              },
+              "eventType": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 120
+                  }
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "lastError": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 1000
+                  }
+                }
+              },
+              "lockedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "maxAttempts": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "nextAttemptAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "organizationId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "payload": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/json@1",
+                  "kind": "scalar"
+                }
+              },
+              "providerMessageId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 200
+                  }
+                }
+              },
+              "recipientEmail": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 320
+                  }
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "OutboxStatus",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "organization": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "organizationId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Organization",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "attempts": {
+                  "column": "attempts"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "deliveredAt": {
+                  "column": "delivered_at"
+                },
+                "eventKey": {
+                  "column": "event_key"
+                },
+                "eventType": {
+                  "column": "event_type"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "lastError": {
+                  "column": "last_error"
+                },
+                "lockedAt": {
+                  "column": "locked_at"
+                },
+                "maxAttempts": {
+                  "column": "max_attempts"
+                },
+                "nextAttemptAt": {
+                  "column": "next_attempt_at"
+                },
+                "organizationId": {
+                  "column": "organization_id"
+                },
+                "payload": {
+                  "column": "payload"
+                },
+                "providerMessageId": {
+                  "column": "provider_message_id"
+                },
+                "recipientEmail": {
+                  "column": "recipient_email"
+                },
+                "status": {
+                  "column": "status"
+                },
+                "updatedAt": {
+                  "column": "updated_at"
+                }
+              },
+              "namespaceId": "public",
+              "table": "outbox_events"
             }
           },
           "Package": {
@@ -9588,6 +9848,227 @@
                 }
               ]
             },
+            "outbox_events": {
+              "checks": [
+                {
+                  "expression": "char_length(btrim(\"event_key\")) > 0 AND char_length(btrim(\"event_type\")) > 0 AND char_length(btrim(\"recipient_email\")) > 0 AND \"attempts\" >= 0 AND \"max_attempts\" BETWEEN 1 AND 20 AND \"attempts\" <= \"max_attempts\" AND ((\"status\" = 'PENDING' AND \"locked_at\" IS NULL AND \"delivered_at\" IS NULL) OR (\"status\" = 'PROCESSING' AND \"locked_at\" IS NOT NULL AND \"delivered_at\" IS NULL) OR (\"status\" = 'DELIVERED' AND \"locked_at\" IS NULL AND \"delivered_at\" IS NOT NULL) OR (\"status\" = 'DEAD' AND \"locked_at\" IS NULL AND \"delivered_at\" IS NULL))",
+                  "name": "outbox_event_state_valid_566c2672",
+                  "prefix": "outbox_event_state_valid"
+                },
+                {
+                  "expression": "\"status\" IN ('PENDING', 'PROCESSING', 'DELIVERED', 'DEAD')",
+                  "name": "outbox_events_status_check_8211561f",
+                  "prefix": "outbox_events_status_check"
+                }
+              ],
+              "columns": {
+                "attempts": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "created_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "delivered_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "event_key": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 200
+                  }
+                },
+                "event_type": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 120
+                  }
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "default": {
+                    "expression": "gen_random_uuid()",
+                    "kind": "function"
+                  },
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "last_error": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 1000
+                  }
+                },
+                "locked_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "max_attempts": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 5
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "next_attempt_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "organization_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "payload": {
+                  "codecId": "pg/json@1",
+                  "nativeType": "json",
+                  "nullable": false
+                },
+                "provider_message_id": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 200
+                  }
+                },
+                "recipient_email": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 320
+                  }
+                },
+                "status": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "PENDING"
+                  },
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "OutboxStatus",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "updated_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "name": "outbox_event_organization_fkey",
+                  "onDelete": "restrict",
+                  "source": {
+                    "columns": [
+                      "organization_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "outbox_events"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "organizations"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "status",
+                    "next_attempt_at"
+                  ],
+                  "name": "outbox_event_delivery_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "event_type",
+                    "created_at"
+                  ],
+                  "name": "outbox_event_tenant_type_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "organization_id"
+                  ],
+                  "name": "outbox_events_organization_id_idx_1a5cd3f5",
+                  "prefix": "outbox_events_organization_id_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "organization_id",
+                    "event_key"
+                  ],
+                  "name": "outbox_event_dedup_key"
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "id"
+                  ],
+                  "name": "outbox_event_tenant_id_key"
+                }
+              ]
+            },
             "package_pickup_receipts": {
               "checks": [
                 {
@@ -12392,6 +12873,15 @@
                 "REFUNDED"
               ]
             },
+            "OutboxStatus": {
+              "kind": "valueSet",
+              "values": [
+                "PENDING",
+                "PROCESSING",
+                "DELIVERED",
+                "DEAD"
+              ]
+            },
             "PackageStatus": {
               "kind": "valueSet",
               "values": [
@@ -12445,10 +12935,10 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "8f5007ad88822c9ece5890c5228418a473a1a4c95526960a54bcabec014bb966"
+    "storageHash": "4c27837b13335fd2a0e15acd8d3bdf7b950a7cc7fa5bb8c7c3c6eabbbdbfaecd"
   },
   "execution": {
-    "executionHash": "7abeaeb4d855f2142a38a37bc91fbb8bf2d7a8647c7b2d84f479f3dbd7791ae5",
+    "executionHash": "db8d31e082bdaa7d148ba8be5349e0dcfb1c83d3db73e79d8608eadf00624a04",
     "mutations": {
       "defaults": [
         {
@@ -12584,6 +13074,21 @@
             "column": "updated_at",
             "namespace": "public",
             "table": "organizations"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "instantNow",
+            "kind": "generator"
+          },
+          "onUpdate": {
+            "id": "instantNow",
+            "kind": "generator"
+          },
+          "ref": {
+            "column": "updated_at",
+            "namespace": "public",
+            "table": "outbox_events"
           }
         },
         {
