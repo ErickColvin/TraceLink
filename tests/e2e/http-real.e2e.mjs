@@ -26,6 +26,7 @@ const fixtures = Object.freeze({
   orderNumber: "CHM-E2E-1001",
   packageTrackingCode: "CHM-E2E-PKG-1001",
 });
+const registeredCustomerEmail = `cliente-e2e-${Date.now()}@chmarket.test`;
 
 function findBrowserExecutable() {
   const localAppData = process.env.LOCALAPPDATA;
@@ -168,6 +169,44 @@ const browser = await chromium.launch({
 const browserErrors = [];
 
 await runWithCleanup(async () => {
+  const publicContext = await browser.newContext({
+    baseURL: baseUrl,
+    viewport: { width: 1280, height: 900 },
+  });
+  const publicPage = await publicContext.newPage();
+  publicPage.on("pageerror", (error) => browserErrors.push(error.message));
+
+  await step("checkout resultado: retorno visual no autoritativo", async () => {
+    await publicPage.goto(`${baseUrl}/checkout/resultado?status=approved`, {
+      waitUntil: "domcontentloaded",
+    });
+    await publicPage.getByRole("heading", { name: "Pago recibido" }).waitFor();
+    await publicPage.getByText(/solo muestra el retorno del proveedor/i).waitFor();
+    await publicPage.getByRole("link", { name: "Ver mis pedidos" }).waitFor();
+  });
+
+  await step("registro customer: alta real y sesiÃ³n inicial", async () => {
+    await publicPage.goto(`${baseUrl}/registro`, { waitUntil: "domcontentloaded" });
+    await publicPage.getByRole("heading", { name: "Crea tu cuenta" }).waitFor();
+    await publicPage.locator("#register-first-name").fill("Cliente");
+    await publicPage.locator("#register-last-name").fill("E2E");
+    await publicPage.locator("#register-email").fill(registeredCustomerEmail);
+    await publicPage.locator("#register-password").fill("Test-Phase4-Customer!42");
+    await publicPage.locator("#register-password-confirmation").fill(
+      "Test-Phase4-Customer!42",
+    );
+    const responsePromise = publicPage.waitForResponse((response) =>
+      isApiResponse(response, "POST", "/auth/register"),
+    );
+    await publicPage.getByRole("button", { name: "Crear cuenta" }).click();
+    const response = await responsePromise;
+    await assertStatus(response, 201);
+    await publicPage.waitForURL((url) => url.pathname === "/mi-cuenta");
+    await verifyRestoredSession(publicPage, "customer");
+    await signOut(publicPage);
+  });
+  await publicContext.close();
+
   const customerContext = await browser.newContext({
     baseURL: baseUrl,
     viewport: { width: 1280, height: 900 },
