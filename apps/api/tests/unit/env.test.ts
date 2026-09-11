@@ -26,6 +26,11 @@ describe("parseEnvironment", () => {
     expect(config.trustProxy).toBe(false);
     expect(config.jsonBodyLimitBytes).toBe(102_400);
     expect(config.shutdownTimeoutMs).toBe(10_000);
+    expect(config.paymentProvider).toBe("fake");
+    expect(config.checkoutReservationMinutes).toBe(15);
+    expect(config.paymentSuccessUrl).toBe(
+      "http://127.0.0.1:5173/checkout/resultado",
+    );
   });
 
   it("rejects web origins with paths", () => {
@@ -77,4 +82,71 @@ describe("parseEnvironment", () => {
       expect(String(error)).not.toContain(secret);
     }
   });
+
+  it("requires an explicit payment provider in production", () => {
+    expect(() =>
+      parseEnvironment({ ...validEnvironment, NODE_ENV: "production" }),
+    ).toThrow(EnvironmentValidationError);
+  });
+
+  it("requires Mercado Pago secrets and callback URLs only for Mercado Pago", () => {
+    try {
+      parseEnvironment({
+        ...validEnvironment,
+        PAYMENT_PROVIDER: "mercadopago",
+      });
+      throw new Error("Expected Mercado Pago configuration to be rejected.");
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(EnvironmentValidationError);
+      if (!(error instanceof EnvironmentValidationError)) return;
+      expect(error.fields).toEqual(
+        expect.arrayContaining([
+          "MERCADOPAGO_ACCESS_TOKEN",
+          "MERCADOPAGO_WEBHOOK_SECRET",
+          "PAYMENT_SUCCESS_URL",
+          "PAYMENT_FAILURE_URL",
+          "PAYMENT_PENDING_URL",
+          "PAYMENT_WEBHOOK_URL",
+        ]),
+      );
+    }
+
+    const configured = parseEnvironment({
+      ...validEnvironment,
+      PAYMENT_PROVIDER: "mercadopago",
+      MERCADOPAGO_ACCESS_TOKEN: "sandbox-access-token",
+      MERCADOPAGO_WEBHOOK_SECRET: "sandbox-webhook-secret",
+      PAYMENT_SUCCESS_URL: "https://shop.example.invalid/checkout/resultado",
+      PAYMENT_FAILURE_URL: "https://shop.example.invalid/checkout/resultado",
+      PAYMENT_PENDING_URL: "https://shop.example.invalid/checkout/resultado",
+      PAYMENT_WEBHOOK_URL:
+        "https://api.example.invalid/api/v1/webhooks/mercadopago",
+    });
+    expect(configured.paymentProvider).toBe("mercadopago");
+    expect(configured.mercadoPagoAccessToken).toBe("sandbox-access-token");
+  });
+
+  it.each(["ftp://example.invalid/callback", "not-a-url"])(
+    "rejects non-HTTP payment URL %s",
+    (paymentSuccessUrl) => {
+      expect(() =>
+        parseEnvironment({
+          ...validEnvironment,
+          PAYMENT_SUCCESS_URL: paymentSuccessUrl,
+        }),
+      ).toThrow(EnvironmentValidationError);
+    },
+  );
+
+  it.each(["0", "61", "1.5"])(
+    "rejects CHECKOUT_RESERVATION_MINUTES=%s outside its integer bounds",
+    (checkoutReservationMinutes) => {
+      expect(() =>
+        parseEnvironment({
+          ...validEnvironment,
+          CHECKOUT_RESERVATION_MINUTES: checkoutReservationMinutes,
+        }),
+      ).toThrow(EnvironmentValidationError);
+    },
+  );
 });

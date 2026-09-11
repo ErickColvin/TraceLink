@@ -195,6 +195,7 @@ beforeAll(async () => {
       productId,
       actorUserId: staffUserId,
       suffix: "primary",
+      status: "PAID",
     });
     cancellableOrderId = await insertOrder(executor, {
       organizationId,
@@ -202,7 +203,6 @@ beforeAll(async () => {
       productId,
       actorUserId: staffUserId,
       suffix: "cancel",
-      status: "PREPARING",
     });
     completedOrderId = await insertOrder(executor, {
       organizationId,
@@ -306,7 +306,7 @@ afterAll(async () => {
 describe("orders against PostgreSQL", () => {
   it("derives customer ownership from the session and hides every foreign scope", async () => {
     const list = await customerAgent.get(
-      "/api/v1/me/orders?statuses=PENDING_PAYMENT&statuses=PREPARING&pageSize=10",
+      "/api/v1/me/orders?statuses=PENDING_PAYMENT&statuses=PAID&pageSize=10",
     );
     expect(list.status, JSON.stringify(list.body)).toBe(200);
     const page = orderPageSchema.parse(list.body);
@@ -334,7 +334,7 @@ describe("orders against PostgreSQL", () => {
 
   it("lists the operational queue with persisted filters and tenant isolation", async () => {
     const list = await staffAgent.get(
-      `/api/v1/staff/orders?query=ORD-${unique}&paymentStatuses=PENDING` +
+      `/api/v1/staff/orders?query=ORD-${unique}&paymentStatuses=PAID` +
         "&fulfillmentMethods=PICKUP&sort=QUEUE&pageSize=10",
     );
     expect(list.status, JSON.stringify(list.body)).toBe(200);
@@ -353,7 +353,7 @@ describe("orders against PostgreSQL", () => {
       .set("Origin", config.webOrigin)
       .set("X-CSRF-Token", staffCsrf)
       .set("Idempotency-Key", `order-skip-${unique}`)
-      .send({ toStatus: "PREPARING" });
+      .send({ toStatus: "READY" });
     expect(skipped.status).toBe(409);
     expect(skipped.body.error.code).toBe("INVALID_STATE_TRANSITION");
 
@@ -364,14 +364,14 @@ describe("orders against PostgreSQL", () => {
         .set("Origin", config.webOrigin)
         .set("X-CSRF-Token", staffCsrf)
         .set("X-Request-ID", requestId)
-        .set("Idempotency-Key", `order-paid-${unique}`)
-        .send({ toStatus: "PAID" });
+        .set("Idempotency-Key", `order-preparing-${unique}`)
+        .send({ toStatus: "PREPARING" });
     const first = await transition();
     expect(first.status, JSON.stringify(first.body)).toBe(200);
     const transitioned = staffOrderSchema.parse(first.body);
-    expect(transitioned.status).toBe("PAID");
+    expect(transitioned.status).toBe("PREPARING");
     expect(transitioned.paymentStatus).toBe("PAID");
-    expect(transitioned.statusEvents.at(-1)?.fromStatus).toBe("PENDING_PAYMENT");
+    expect(transitioned.statusEvents.at(-1)?.fromStatus).toBe("PAID");
 
     const replay = await transition();
     expect(replay.status).toBe(200);
@@ -382,8 +382,8 @@ describe("orders against PostgreSQL", () => {
       .post(`/api/v1/staff/orders/${primaryOrderId}/transitions`)
       .set("Origin", config.webOrigin)
       .set("X-CSRF-Token", staffCsrf)
-      .set("Idempotency-Key", `order-paid-${unique}`)
-      .send({ toStatus: "PREPARING" });
+      .set("Idempotency-Key", `order-preparing-${unique}`)
+      .send({ toStatus: "READY" });
     expect(conflict.status).toBe(409);
     expect(conflict.body.error.code).toBe("IDEMPOTENCY_CONFLICT");
 
@@ -458,7 +458,8 @@ describe("orders against PostgreSQL", () => {
       .set("X-CSRF-Token", salesCsrf)
       .set("Idempotency-Key", `sales-transition-${unique}`)
       .send({ toStatus: "PAID" });
-    expect(salesCanTransition.status, JSON.stringify(salesCanTransition.body)).toBe(200);
+    expect(salesCanTransition.status, JSON.stringify(salesCanTransition.body)).toBe(409);
+    expect(salesCanTransition.body.error.code).toBe("INVALID_STATE_TRANSITION");
 
     const salesCannotCancel = await salesAgent
       .post(`/api/v1/staff/orders/${otherCustomerOrderId}/cancellation`)

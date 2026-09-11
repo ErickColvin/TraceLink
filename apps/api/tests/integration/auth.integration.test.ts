@@ -150,6 +150,10 @@ describe("authentication against PostgreSQL", () => {
     );
     expect(statuses.slice(0, 5)).toEqual([401, 401, 401, 401, 401]);
     expect(statuses[5]).toBe(429);
+    await database.query(
+      `DELETE FROM rate_limit_buckets
+        WHERE scope IN ('auth.ip', 'auth.login.account')`,
+    );
   });
 
   it("keeps one global budget across login, rotated emails, and equivalent IP spellings", async () => {
@@ -198,6 +202,10 @@ describe("authentication against PostgreSQL", () => {
       Array.from({ length: AUTH_IP_MAX_ATTEMPTS - 1 }, () => 401),
     );
     expect(statuses.at(-1)).toBe(429);
+    await database.query(
+      `DELETE FROM rate_limit_buckets
+        WHERE scope IN ('auth.ip', 'auth.login.account')`,
+    );
   });
 
   it("opportunistically prunes expired rate-limit buckets in bounded batches", async () => {

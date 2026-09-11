@@ -13,8 +13,18 @@ describe("RBAC catalog", () => {
     expect(ROLE_CATALOG.map((role) => role.code)).toEqual(ROLE_CODES);
   });
 
-  it("keeps SUPER_ADMIN authoritative over all 19 permissions", () => {
+  it("keeps SUPER_ADMIN authoritative over all permissions", () => {
     expect(getRoleCatalogEntry("SUPER_ADMIN").permissions).toEqual(PERMISSIONS);
+  });
+
+  it("limits full refunds to administrative roles by default", () => {
+    expect(getRoleCatalogEntry("SUPER_ADMIN").permissions).toContain(
+      "orders.refund",
+    );
+    expect(getRoleCatalogEntry("ADMIN").permissions).toContain("orders.refund");
+    for (const code of ["INVENTORY", "OPERATIONS", "SALES", "WAREHOUSE"] as const) {
+      expect(getRoleCatalogEntry(code).permissions).not.toContain("orders.refund");
+    }
   });
 
   it("does not grant access management to operational roles", () => {
@@ -24,4 +34,3 @@ describe("RBAC catalog", () => {
     }
   });
 });
-
