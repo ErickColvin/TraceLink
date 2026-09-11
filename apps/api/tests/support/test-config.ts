@@ -3,11 +3,16 @@ import type { AppConfig } from "../../src/config/env.js";
 export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   return Object.freeze({
     nodeEnv: "test",
+    appEnv: "local",
     host: "127.0.0.1",
     port: 3001,
     trustProxy: false,
     databaseUrl: "postgresql://tracelink:test@127.0.0.1:5433/tracelink_test",
+    databasePoolMax: 10,
+    databaseConnectionTimeoutMs: 10_000,
+    databaseIdleTimeoutMs: 30_000,
     webOrigin: "http://127.0.0.1:5173",
+    apiPublicUrl: "http://127.0.0.1:3001",
     organizationSlug: "ch-market",
     sessionSecret: "session-secret-for-tests-only-32-chars",
     sessionTtlSeconds: 28_800,

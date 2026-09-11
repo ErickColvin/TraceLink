@@ -50,7 +50,13 @@ export function createApp(options: CreateAppOptions): Express {
   app.set("trust proxy", config.trustProxy);
   app.use(requestIdMiddleware);
   app.use(createRequestLogger(logger));
-  app.use(helmet());
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    hsts: config.appEnv === "local"
+      ? false
+      : { maxAge: 31_536_000, includeSubDomains: true },
+    referrerPolicy: { policy: "no-referrer" },
+  }));
   app.use(
     cors({
       origin(origin, callback) {

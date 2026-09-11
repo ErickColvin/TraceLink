@@ -69,7 +69,12 @@ export async function startServer(
   const logger = options.logger ?? createLogger(config);
   const database =
     options.database ??
-    createPostgresDatabase({ databaseUrl: config.databaseUrl });
+    createPostgresDatabase({
+      databaseUrl: config.databaseUrl,
+      max: config.databasePoolMax,
+      connectionTimeoutMillis: config.databaseConnectionTimeoutMs,
+      idleTimeoutMillis: config.databaseIdleTimeoutMs,
+    });
   const appOptions = {
     config,
     logger,

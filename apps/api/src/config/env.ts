@@ -3,6 +3,7 @@ import { isIP } from "node:net";
 import { z } from "zod";
 
 const NODE_ENVIRONMENTS = ["development", "test", "production"] as const;
+const APP_ENVIRONMENTS = ["local", "staging", "production"] as const;
 const LOG_LEVELS = [
   "fatal",
   "error",
@@ -50,6 +51,26 @@ const paymentUrlSchema = z
     message: "La URL de pagos debe usar HTTP(S).",
   });
 
+const publicUrlSchema = z
+  .string()
+  .trim()
+  .refine((value) => {
+    try {
+      const url = new URL(value);
+      return (
+        (url.protocol === "http:" || url.protocol === "https:") &&
+        url.username === "" &&
+        url.password === "" &&
+        url.pathname === "/" &&
+        url.search === "" &&
+        url.hash === ""
+      );
+    } catch {
+      return false;
+    }
+  }, "La URL pública debe ser un origen HTTP(S) sin ruta, credenciales, query ni hash.")
+  .transform((value) => new URL(value).origin);
+
 export type TrustProxyConfig = false | number | readonly string[];
 
 function isIpOrCidr(value: string): boolean {
@@ -96,11 +117,26 @@ const trustProxyEnvironmentSchema = z
 
 const rawEnvironmentSchema = z.object({
   NODE_ENV: z.enum(NODE_ENVIRONMENTS).default("development"),
-  HOST: z.string().trim().min(1).default("127.0.0.1"),
+  APP_ENV: z.enum(APP_ENVIRONMENTS).optional(),
+  HOST: z.string().trim().min(1).optional(),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3001),
   TRUST_PROXY: trustProxyEnvironmentSchema,
   DATABASE_URL: databaseUrlSchema,
+  DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(50).default(10),
+  DATABASE_CONNECTION_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(60_000)
+    .default(10_000),
+  DATABASE_IDLE_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(300_000)
+    .default(30_000),
   WEB_ORIGIN: webOriginSchema,
+  API_PUBLIC_URL: publicUrlSchema.optional(),
   ORGANIZATION_SLUG: z
     .string()
     .trim()
@@ -153,6 +189,38 @@ const rawEnvironmentSchema = z.object({
   SEED_ADMIN_EMAIL: z.string().trim().email().optional(),
   SEED_ADMIN_PASSWORD: z.string().min(12).optional(),
 }).superRefine((value, context) => {
+  const appEnv = value.APP_ENV ??
+    (value.NODE_ENV === "production" ? "production" : "local");
+
+  if (appEnv !== "local" && value.NODE_ENV !== "production") {
+    context.addIssue({
+      code: "custom",
+      path: ["NODE_ENV"],
+      message: "Staging y producción deben ejecutar NODE_ENV=production.",
+    });
+  }
+  if (appEnv !== "local" && value.API_PUBLIC_URL === undefined) {
+    context.addIssue({
+      code: "custom",
+      path: ["API_PUBLIC_URL"],
+      message: "API_PUBLIC_URL es obligatorio fuera del entorno local.",
+    });
+  }
+  if (appEnv !== "local") {
+    const secureUrls = [
+      ["WEB_ORIGIN", value.WEB_ORIGIN],
+      ["API_PUBLIC_URL", value.API_PUBLIC_URL],
+    ] as const;
+    for (const [field, url] of secureUrls) {
+      if (url !== undefined && !url.startsWith("https://")) {
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: `${field} debe usar HTTPS fuera del entorno local.`,
+        });
+      }
+    }
+  }
   if (value.SESSION_IDLE_TTL_SECONDS > value.SESSION_TTL_SECONDS) {
     context.addIssue({
       code: "custom",
@@ -190,11 +258,16 @@ const rawEnvironmentSchema = z.object({
 
 export type AppConfig = Readonly<{
   nodeEnv: (typeof NODE_ENVIRONMENTS)[number];
+  appEnv: (typeof APP_ENVIRONMENTS)[number];
   host: string;
   port: number;
   trustProxy: TrustProxyConfig;
   databaseUrl: string;
+  databasePoolMax: number;
+  databaseConnectionTimeoutMs: number;
+  databaseIdleTimeoutMs: number;
   webOrigin: string;
+  apiPublicUrl: string;
   organizationSlug: string;
   sessionSecret: string;
   sessionTtlSeconds: number;
@@ -243,15 +316,28 @@ export function parseEnvironment(
   }
 
   const value = result.data;
+  const appEnv = value.APP_ENV ??
+    (value.NODE_ENV === "production" ? "production" : "local");
+  const host = value.HOST ??
+    (appEnv === "local" ? "127.0.0.1" : "0.0.0.0");
+  const apiPublicUrl = value.API_PUBLIC_URL ??
+    `http://127.0.0.1:${value.PORT}`;
   const fallbackPaymentUrl = (path: string): string =>
     new URL(path, value.WEB_ORIGIN).toString();
+  const fallbackApiUrl = (path: string): string =>
+    new URL(path, `${apiPublicUrl}/`).toString();
   return Object.freeze({
     nodeEnv: value.NODE_ENV,
-    host: value.HOST,
+    appEnv,
+    host,
     port: value.PORT,
     trustProxy: value.TRUST_PROXY,
     databaseUrl: value.DATABASE_URL,
+    databasePoolMax: value.DATABASE_POOL_MAX,
+    databaseConnectionTimeoutMs: value.DATABASE_CONNECTION_TIMEOUT_MS,
+    databaseIdleTimeoutMs: value.DATABASE_IDLE_TIMEOUT_MS,
     webOrigin: value.WEB_ORIGIN,
+    apiPublicUrl,
     organizationSlug: value.ORGANIZATION_SLUG,
     sessionSecret: value.SESSION_SECRET,
     sessionTtlSeconds: value.SESSION_TTL_SECONDS,
@@ -275,7 +361,7 @@ export function parseEnvironment(
       value.PAYMENT_PENDING_URL ?? fallbackPaymentUrl("/checkout/resultado"),
     paymentWebhookUrl:
       value.PAYMENT_WEBHOOK_URL ??
-      fallbackPaymentUrl("/api/v1/webhooks/mercadopago"),
+      fallbackApiUrl("/api/v1/webhooks/mercadopago"),
     checkoutReservationMinutes: value.CHECKOUT_RESERVATION_MINUTES,
     logLevel: value.LOG_LEVEL,
     jsonBodyLimitBytes: value.JSON_BODY_LIMIT_BYTES,

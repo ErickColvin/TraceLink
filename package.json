@@ -33,7 +33,9 @@
     "review:visual": "node tools/visual-review.mjs"
   },
   "devDependencies": {
+    "@railway/cli": "5.52.0",
     "playwright-core": "^1.62.1",
-    "pnpm": "11.24.0"
+    "pnpm": "11.24.0",
+    "railway": "3.11.0"
   }
 }

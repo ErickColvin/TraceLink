@@ -191,6 +191,7 @@ export class PostgresDatabase extends DatabaseRuntime<
 
 export type CreatePostgresDatabaseOptions = Readonly<{
   databaseUrl: string;
+  max?: number;
   connectionTimeoutMillis?: number;
   idleTimeoutMillis?: number;
 }>;
@@ -211,6 +212,7 @@ export function createPostgresDatabase(
 ): PostgresDatabase {
   const pool = new Pool({
     connectionString: options.databaseUrl,
+    ...(options.max === undefined ? {} : { max: options.max }),
     ...(options.connectionTimeoutMillis === undefined
       ? {}
       : { connectionTimeoutMillis: options.connectionTimeoutMillis }),

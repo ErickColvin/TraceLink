@@ -10,7 +10,10 @@ allowBuilds:
   '@embedded-postgres/linux-ppc64': true
   '@embedded-postgres/linux-x64': true
   '@embedded-postgres/windows-x64': true
+  '@railway/cli': true
   argon2: true
   esbuild: true
   msgpackr-extract: true
   workerd: true
+minimumReleaseAgeExclude:
+  - '@railway/cli@5.52.0'

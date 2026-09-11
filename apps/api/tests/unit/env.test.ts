@@ -21,7 +21,13 @@ describe("parseEnvironment", () => {
     const config = parseEnvironment(validEnvironment);
 
     expect(config.webOrigin).toBe("http://127.0.0.1:5173");
+    expect(config.appEnv).toBe("local");
+    expect(config.host).toBe("127.0.0.1");
     expect(config.port).toBe(3001);
+    expect(config.apiPublicUrl).toBe("http://127.0.0.1:3001");
+    expect(config.databasePoolMax).toBe(10);
+    expect(config.databaseConnectionTimeoutMs).toBe(10_000);
+    expect(config.databaseIdleTimeoutMs).toBe(30_000);
     expect(config.organizationSlug).toBe("ch-market");
     expect(config.trustProxy).toBe(false);
     expect(config.jsonBodyLimitBytes).toBe(102_400);
@@ -31,6 +37,48 @@ describe("parseEnvironment", () => {
     expect(config.paymentSuccessUrl).toBe(
       "http://127.0.0.1:5173/checkout/resultado",
     );
+    expect(config.paymentWebhookUrl).toBe(
+      "http://127.0.0.1:3001/api/v1/webhooks/mercadopago",
+    );
+  });
+
+  it("requires an explicit HTTPS API URL for staging", () => {
+    expect(() =>
+      parseEnvironment({
+        ...validEnvironment,
+        NODE_ENV: "production",
+        APP_ENV: "staging",
+        PAYMENT_PROVIDER: "fake",
+      }),
+    ).toThrow(EnvironmentValidationError);
+
+    const config = parseEnvironment({
+      ...validEnvironment,
+      NODE_ENV: "production",
+      APP_ENV: "staging",
+      PAYMENT_PROVIDER: "fake",
+      WEB_ORIGIN: "https://staging.shop.example.invalid",
+      API_PUBLIC_URL: "https://staging.api.example.invalid/",
+    });
+
+    expect(config.appEnv).toBe("staging");
+    expect(config.host).toBe("0.0.0.0");
+    expect(config.apiPublicUrl).toBe(
+      "https://staging.api.example.invalid",
+    );
+  });
+
+  it("rejects insecure public URLs outside local development", () => {
+    expect(() =>
+      parseEnvironment({
+        ...validEnvironment,
+        NODE_ENV: "production",
+        APP_ENV: "staging",
+        PAYMENT_PROVIDER: "fake",
+        WEB_ORIGIN: "http://staging.shop.example.invalid",
+        API_PUBLIC_URL: "http://staging.api.example.invalid",
+      }),
+    ).toThrow(EnvironmentValidationError);
   });
 
   it("rejects web origins with paths", () => {
