@@ -1,0 +1,362 @@
+TRACELINK V2 / CH MARKET
+CIERRE DE FASE 4 — ECOMMERCE, RESERVAS, PAGOS Y WEBHOOKS
+Fecha de cierre: 2026-09-10
+Rama de trabajo: feature/phase-4-ecommerce-payments
+
+======================================================================
+1. ESTADO DE LA FASE
+======================================================================
+
+La Fase 4 quedó implementada y verificada para ejecución local y pruebas
+automatizadas. El flujo completo cubre checkout, reserva de inventario,
+orden pendiente de pago, intento de pago, webhook idempotente, aprobación,
+preparación, entrega, cancelación, reintento y devolución total.
+
+Estado real estimado: 95 %.
+
+El 5 % pendiente no corresponde a código faltante: es la validación final
+contra el sandbox real de Mercado Pago, que requiere credenciales y URLs
+públicas provistas por el responsable del proyecto. Mientras no existan esas
+credenciales, el proveedor fake permite probar todo el ciclo de forma local.
+No se almacenaron ni expusieron secretos en el repositorio.
+
+======================================================================
+2. ARQUITECTURA IMPLEMENTADA
+======================================================================
+
+- Backend autoritativo para precios, totales, identidad y estados.
+- Frontend sin acceso directo a fetch desde componentes; usa servicios HTTP
+  o mock seleccionados en la raíz de composición.
+- Contratos compartidos con Zod y TypeScript para checkout y pagos.
+- Adaptador PaymentProvider para desacoplar el negocio de Mercado Pago.
+- Dos proveedores disponibles:
+  1. fake, para desarrollo y pruebas deterministas;
+  2. mercadopago, mediante la API Orders y consultas autoritativas.
+- Persistencia PostgreSQL para pagos, intentos, eventos y devoluciones.
+- Importes CLP manejados como enteros.
+- Operaciones críticas protegidas con autenticación, permisos, CSRF e
+  idempotencia según corresponda.
+
+======================================================================
+3. BASE DE DATOS Y MIGRACIONES
+======================================================================
+
+Se agregó la migración:
+
+apps/api/migrations/app/20260907T0011_phase_4_payments/
+
+También se actualizó el contrato Prisma y su snapshot verificable.
+
+Entidades y cambios principales:
+
+- payments: pago principal asociado a la orden.
+- payment_attempts: historial de intentos de cobro.
+- payment_provider_events: registro y deduplicación de webhooks.
+- refunds: devoluciones totales y su estado.
+- inventory_reservations: incorpora el estado COMMITTED.
+- inventory_movements: incorpora reservation_id para trazabilidad.
+- Índices y restricciones para referencias externas, eventos del proveedor,
+  devoluciones e integridad de relaciones.
+
+Ciclo de reserva implementado:
+
+ACTIVE -> COMMITTED -> CONSUMED
+ACTIVE -> RELEASED
+ACTIVE -> EXPIRED
+
+La asignación usa FEFO y puede dividir una cantidad entre varios lotes. La
+venta descuenta inventario exactamente una vez al completar la orden.
+
+======================================================================
+4. CHECKOUT Y ÓRDENES
+======================================================================
+
+Endpoint principal:
+
+POST /api/v1/checkout
+
+Comportamiento:
+
+- Requiere cliente autenticado, CSRF e Idempotency-Key.
+- El navegador envía productId y quantity, pero no decide precios ni totales.
+- Valida que los productos estén activos y publicados.
+- Bloquea y comprueba inventario disponible.
+- Crea reservas de inventario.
+- Crea una orden PENDING_PAYMENT y snapshots de sus ítems.
+- Crea Payment y PaymentAttempt.
+- Registra auditoría.
+- Solicita al proveedor una URL de pago.
+- Devuelve la orden, el intento y checkoutUrl sin confiar en datos del cliente.
+
+Flujo operativo de la orden:
+
+PENDING_PAYMENT --webhook aprobado--> PAID -> PREPARING -> READY -> COMPLETED
+
+PENDING_PAYMENT --cliente--> CANCELLED
+PAID --staff con permiso--> REFUNDED
+
+Se eliminó la transición manual PENDING_PAYMENT -> PAID. La aprobación solo
+se produce después de consultar y reconciliar el estado con el proveedor.
+
+======================================================================
+5. PAGOS, WEBHOOKS, REINTENTOS Y DEVOLUCIONES
+======================================================================
+
+Webhook:
+
+POST /api/v1/webhooks/mercadopago
+
+- Verifica la firma cuando se usa Mercado Pago.
+- Registra eventos del proveedor y deduplica repeticiones.
+- Consulta el estado autoritativo del pago antes de cambiar la orden.
+- Tolera eventos duplicados y fuera de orden.
+- No degrada un pago desde un estado final a un estado anterior.
+- Confirma la reserva cuando el pago queda aprobado.
+- Libera la reserva ante estados finales fallidos cuando corresponde.
+
+Acciones adicionales:
+
+- POST /api/v1/me/orders/:id/payment-attempts
+  Crea un nuevo intento para la misma orden y vuelve a reservar si hace falta.
+
+- POST /api/v1/me/orders/:id/cancellation
+  Permite al propietario cancelar una orden PENDING_PAYMENT, liberando stock.
+
+- POST /api/v1/staff/orders/:id/refunds
+  Ejecuta devolución total con motivo, permiso orders.refund, CSRF e
+  idempotencia. No repone stock automáticamente porque la devolución de dinero
+  no implica por sí sola una devolución física del producto.
+
+El cliente HTTP del proveedor usa timeouts, reintentos acotados, backoff,
+Retry-After e idempotencia para operaciones repetibles.
+
+======================================================================
+6. FRONTEND IMPLEMENTADO
+======================================================================
+
+- Checkout protegido para clientes autenticados.
+- Entrega limitada explícitamente a PICKUP durante esta fase.
+- Resumen de compra y nota opcional de hasta 500 caracteres.
+- Mensaje visible indicando que precios y stock se validan en el servidor.
+- Idempotencia al confirmar la compra.
+- Redirección a checkoutUrl y limpieza del carrito después de una creación
+  exitosa.
+- Página /checkout/resultado con estados aprobado, pendiente y rechazado.
+- La URL de retorno solo informa UX; no cambia el pago ni la orden.
+- Registro de cliente habilitado en /registro, sin elección de roles.
+- Sesión iniciada después del registro exitoso.
+- Detalle de orden del cliente con información del pago, enlace de pago,
+  reintento y cancelación con confirmación.
+- Detalle de orden de staff con información del proveedor y devolución total
+  protegida por el permiso orders.refund.
+- Estados de carga, error, vacío, éxito y acciones deshabilitadas considerados.
+- Confirmación para acciones destructivas.
+- Rutas y servicios mock/HTTP actualizados sin filtrar detalles del adaptador
+  a las pantallas.
+
+======================================================================
+7. SEGURIDAD Y CONSISTENCIA
+======================================================================
+
+- El backend obtiene customerId desde la sesión autenticada.
+- Los precios y totales siempre se recalculan en el servidor.
+- El frontend no contiene credenciales ni secretos del proveedor.
+- La URL de retorno del navegador no se acepta como prueba de pago.
+- El webhook no se acepta como verdad sin reconciliación con el proveedor.
+- CSRF se aplica a las mutaciones autenticadas del navegador.
+- Idempotencia evita órdenes, intentos y devoluciones duplicadas.
+- Los eventos del proveedor se deduplican en base de datos.
+- El permiso orders.refund limita las devoluciones del portal staff.
+- Locks y transacciones reducen sobreventa y carreras de inventario.
+- Se corrigió una referencia SQL del checkout que mezclaba UUID y texto.
+- Se corrigió el cálculo de fechas del dashboard para evitar desplazamientos
+  por conversión de date a timestamptz.
+- Se aisló la limpieza de rate limits en pruebas de autenticación para que una
+  prueba de 429 no contamine casos posteriores.
+
+======================================================================
+8. VARIABLES DE ENTORNO NUEVAS
+======================================================================
+
+PAYMENT_PROVIDER=fake|mercadopago
+MERCADOPAGO_ACCESS_TOKEN=
+MERCADOPAGO_WEBHOOK_SECRET=
+PAYMENT_SUCCESS_URL=http://127.0.0.1:5173/checkout/resultado
+PAYMENT_FAILURE_URL=http://127.0.0.1:5173/checkout/resultado
+PAYMENT_PENDING_URL=http://127.0.0.1:5173/checkout/resultado
+PAYMENT_WEBHOOK_URL=http://127.0.0.1:3001/api/v1/webhooks/mercadopago
+CHECKOUT_RESERVATION_MINUTES=15
+
+En producción, PAYMENT_PROVIDER debe declararse explícitamente. Si se usa
+mercadopago, también deben existir las credenciales y URLs necesarias.
+
+======================================================================
+9. COMANDOS NUEVOS O RELEVANTES
+======================================================================
+
+Desde la raíz de TraceLink:
+
+corepack pnpm install
+corepack pnpm db:up
+corepack pnpm db:migrate
+corepack pnpm db:seed
+corepack pnpm dev
+
+Para expirar reservas vencidas:
+
+corepack pnpm reservations:expire
+
+Validación de migraciones:
+
+corepack pnpm db:migration:check
+
+Comprobaciones de calidad:
+
+corepack pnpm lint
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm build
+corepack pnpm test:e2e
+
+Para validar la base local mediante el verificador, primero debe estar activo
+PostgreSQL en 127.0.0.1:5432:
+
+corepack pnpm db:up
+corepack pnpm db:verify
+
+======================================================================
+10. PRUEBAS Y RESULTADOS
+======================================================================
+
+Resultados finales obtenidos:
+
+- pnpm lint: PASS.
+- pnpm typecheck: PASS en contracts, API y web.
+- pnpm test: PASS.
+  - Contracts: 1 archivo, 14 pruebas.
+  - API unitarias: 18 archivos, 115 pruebas.
+  - API: 1 archivo, 12 pruebas.
+  - API integración: 9 archivos, 35 pruebas.
+  - Web: 45 archivos, 138 pruebas.
+- pnpm build: PASS en contracts, API y web.
+- pnpm test:e2e: PASS con 10 puntos críticos de Playwright.
+- pnpm db:migration:check: PASS.
+
+Cobertura funcional relevante:
+
+- Checkout autenticado.
+- Rechazo de checkout sin sesión.
+- Precio autoritativo del servidor frente a manipulación del cliente.
+- Idempotencia del checkout.
+- Reserva de stock.
+- Aprobación por webhook fake.
+- Orden en estado PAID después de reconciliación.
+- Deduplicación de eventos.
+- Rechazo del método de entrega no admitido.
+- Registro real de cliente y sesión.
+- Login, persistencia de sesión y logout.
+- Protección de rutas.
+- Creación de producto e ingreso de inventario por staff.
+- Transiciones de orden y paquete.
+- Cliente observando los cambios realizados por staff.
+- Pantalla de resultado de pago sin asumir autoridad desde la URL.
+
+Observación de entorno:
+
+corepack pnpm db:verify no pudo conectarse a 127.0.0.1:5432 porque la base de
+datos local no estaba encendida. Esto no fue un fallo de código: las pruebas
+de integración y E2E sí levantaron PostgreSQL aislado, aplicaron las ocho
+migraciones y finalizaron correctamente.
+
+El build de Vite emitió una advertencia no bloqueante porque el bundle
+principal supera 500 kB minificado.
+
+======================================================================
+11. DOCUMENTACIÓN ACTUALIZADA
+======================================================================
+
+- README.md
+- ARCHITECTURE.md
+- docs/api.md
+- docs/api-contract-map.md
+- docs/backend-architecture.md
+- docs/database-model.md
+- docs/ecommerce.md
+- docs/frontend-design.md
+- docs/frontend-roadmap.md
+- docs/inventory-reservations.md
+- docs/payment-webhooks.md
+- docs/payments.md
+- docs/security.md
+
+La documentación describe el checkout autoritativo, el ciclo de reservas, el
+modelo de pagos, webhooks, devoluciones, rutas, variables y límites de la fase.
+
+======================================================================
+12. REVISIÓN DE POSIBLES MEJORAS DE UI
+======================================================================
+
+Mejoras recomendadas para la siguiente iteración:
+
+Prioridad alta:
+
+- Dividir por ruta el bundle del frontend mediante lazy loading para resolver
+  la advertencia de más de 500 kB y acelerar la primera carga.
+- Añadir una vista de espera que consulte periódicamente la orden mientras el
+  pago esté pendiente, manteniendo al backend como única autoridad.
+- Mostrar el tiempo restante de la reserva en checkout y detalle de orden.
+- Mejorar la recuperación ante red interrumpida, conservando la clave de
+  idempotencia hasta conocer el resultado real del checkout.
+
+Prioridad media:
+
+- Incorporar skeletons específicos para checkout y detalle de pago.
+- Añadir una línea de tiempo visual de pago: creado, pendiente, aprobado,
+  rechazado o devuelto.
+- Mostrar motivos de rechazo normalizados y próximos pasos más específicos.
+- Mejorar la vista móvil del resumen de compra con una barra fija de total y
+  confirmación.
+- Añadir filtros staff por estado de pago, proveedor y fecha.
+
+Prioridad futura:
+
+- Dirección y despacho cuando el negocio habilite DELIVERY.
+- Devoluciones parciales y flujo separado de devolución física a inventario.
+- Comprobantes descargables y notificaciones por correo.
+- Métricas operativas de conversión, abandono, expiración y rechazo.
+
+======================================================================
+13. RIESGOS Y PENDIENTES EXTERNOS
+======================================================================
+
+1. Ejecutar una compra real en el sandbox de Mercado Pago con credenciales de
+   prueba y una URL HTTPS pública para el webhook.
+2. Confirmar en sandbox firma, reintentos, eventos duplicados, aprobación,
+   rechazo y devolución.
+3. Ejecutar db:verify con la base PostgreSQL local encendida.
+4. Aplicar code splitting para reducir el bundle inicial del frontend.
+5. Definir monitoreo, alertas y procedimiento operativo antes de producción.
+
+No se recomienda activar pagos productivos hasta completar el punto 1 y 2.
+
+======================================================================
+14. COMMITS
+======================================================================
+
+No se creó ningún commit durante este cierre. Todos los cambios permanecen en
+el working tree de la rama feature/phase-4-ecommerce-payments para que el
+responsable pueda revisarlos y decidir la estrategia de commits.
+
+======================================================================
+15. CONCLUSIÓN
+======================================================================
+
+TraceLink V2 dispone ahora de un flujo ecommerce coherente de extremo a
+extremo: identidad del cliente, carrito, checkout autoritativo, reservas FEFO,
+orden pendiente, integración de pago desacoplada, webhooks idempotentes,
+reintentos, cancelaciones, devoluciones, operación staff y trazabilidad.
+
+El sistema está listo para revisión funcional y para la validación final del
+sandbox externo de Mercado Pago. Después de esa validación y de preparar
+monitoreo/operación, se podrá planificar el paso controlado a producción o la
+Fase 5.

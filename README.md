@@ -1,25 +1,29 @@
 # TraceLink V2 · CH Market
 
-TraceLink V2 es la plataforma de comercio, inventario, pedidos y trazabilidad de Colvin Solutions. Esta entrega integra la UI completa de CH Market con una API autoritativa, sesiones server-side y PostgreSQL, manteniendo un modo mock local.
+TraceLink V2 es la plataforma de comercio, inventario, pedidos y trazabilidad de Colvin Solutions. Esta entrega integra la UI completa de CH Market con una API autoritativa, sesiones server-side, PostgreSQL, checkout real con reservas y una abstracción de pagos, manteniendo un modo mock local.
 
 ## Estado
 
-Fase 3 incluye:
+Fase 4 incluye:
 
-- storefront responsive, carrito y checkout visual;
+- storefront responsive, carrito y checkout autenticado;
 - portales customer y staff con la UX de Fase 2 intacta;
 - API Express 5 modular bajo `/api/v1`;
-- PostgreSQL 18 y 25 modelos tenant-scoped;
+- PostgreSQL 18 y modelos tenant-scoped para comercio, inventario, pedidos, paquetes y pagos;
 - contrato Prisma 8 y migraciones versionadas;
 - auth con Argon2id, cookie HttpOnly, sesión revocable y CSRF;
-- seis roles, 19 permisos y enforcement en servidor;
-- productos, clientes, inventario transaccional, pedidos y paquetes persistidos;
+- seis roles, permisos tipados y enforcement en servidor, incluyendo `orders.refund`;
+- productos, clientes, inventario transaccional, reservas de checkout, pedidos, pagos y paquetes persistidos;
+- checkout autoritativo: precios/stock calculados en backend, order `PENDING_PAYMENT`, reserva de 15 minutos configurable y redirección a `checkoutUrl`;
+- `PaymentProvider` con provider fake para CI y adapter Mercado Pago Orders API para sandbox;
+- webhook firmado `/api/v1/webhooks/mercadopago`, reconciliación contra provider e idempotencia ante duplicados;
+- reintento de pago sobre la misma order, cancelación customer de pedidos pendientes y full refund staff;
+- cumplimiento de pedidos pagados que consume inventario reservado una sola vez;
+- registro público customer en `/registro`;
 - AuditLog, request IDs, idempotencia y rate limits persistentes;
 - dashboard/reportes derivados de PostgreSQL;
-- 14 adapters HTTP con validación Zod y modo mock intercambiable;
+- adapters HTTP con validación Zod y modo mock intercambiable;
 - tests unitarios, API, integración PostgreSQL, seguridad y E2E browser real.
-
-El checkout continúa siendo visual: no cobra, no crea un pedido real ni reserva stock. Pagos y ecommerce autoritativo pertenecen a Fase 4.
 
 ## Requisitos
 
@@ -64,6 +68,9 @@ Levanta PostgreSQL, aplica la cadena y carga datos coherentes:
 corepack pnpm db:up
 corepack pnpm db:migrate
 corepack pnpm db:seed
+
+# Expirar reservas de checkout vencidas de forma idempotente
+corepack pnpm reservations:expire
 ```
 
 El seed es idempotente. Usa las variables `SEED_ADMIN_*`, `SEED_STAFF_*`, `SEED_CUSTOMER_*` y `SEED_PACKAGE_PICKUP_CODE`; no contiene una contraseña productiva en el código. Requiere `NODE_ENV=development|test`, rechaza producción y los placeholders de `.env.example` antes de abrir una conexión.
@@ -192,10 +199,12 @@ La selección ocurre en `apps/web/src/features/service-composition.ts`; no hay c
 /contacto
 /carrito
 /checkout
+/checkout/resultado
 /login
+/registro
 ```
 
-`/registro` sigue redirigiendo a login hasta diseñar el flujo público completo sobre el endpoint ya disponible.
+`/checkout` requiere sesión customer. La URL de retorno `/checkout/resultado` es solo UX: no aprueba pedidos desde query params; el estado real queda en API/PostgreSQL y se actualiza por webhook/reconciliación.
 
 ### Portal customer
 
@@ -247,6 +256,8 @@ React page
 - `apps/web/src/features`: dominio, queries, contratos y adapters.
 - `apps/web/src/lib/http`: cliente HTTP reutilizable.
 - `apps/api/src/modules`: módulos de negocio por capas.
+- `apps/api/src/modules/checkout`: creación autoritativa de order, reserva y payment attempt.
+- `apps/api/src/modules/payments`: providers, webhooks, retry, refund y reconciliación.
 - `apps/api/src/middleware` y `shared`: seguridad y comportamiento transversal.
 - `packages/contracts`: DTOs Zod compartidos.
 
@@ -259,6 +270,8 @@ React page
 - Passwords usan Argon2id; tokens/códigos se guardan únicamente como hashes.
 - Rate limits protegen auth y entrega; AuditLog omite secretos.
 - IDs fuera de tenant/customer responden `404` sin revelar existencia.
+- El navegador no envía precios, customerId ni estado de pago como autoridad.
+- Webhooks de pago inválidos no aplican efectos de negocio.
 - `TRUST_PROXY` debe coincidir con la topología real y el origen de API no debe quedar accesible saltándose el proxy autorizado.
 
 Consulta [docs/security.md](docs/security.md) antes de desplegar.
@@ -271,9 +284,14 @@ Consulta [docs/security.md](docs/security.md) antes de desplegar.
 - [docs/api-contract-map.md](docs/api-contract-map.md): equivalencia de los 14 servicios frontend.
 - [docs/database-model.md](docs/database-model.md): modelos, relaciones, índices y migraciones.
 - [docs/security.md](docs/security.md): controles y checklist de despliegue.
+- [docs/ecommerce.md](docs/ecommerce.md): reglas de checkout, orders, fulfillment, cancelación y refund.
+- [docs/inventory-reservations.md](docs/inventory-reservations.md): ciclo de vida de reservas y consumo.
+- [docs/payments.md](docs/payments.md): arquitectura de pagos y Mercado Pago Orders API.
+- [docs/payment-webhooks.md](docs/payment-webhooks.md): firma, deduplicación y reconciliación.
 - [docs/frontend-design.md](docs/frontend-design.md): sistema visual y patrones UX.
 - [docs/frontend-roadmap.md](docs/frontend-roadmap.md): fases terminadas y siguientes.
 - [docs/ui-review-phase-3.md](docs/ui-review-phase-3.md): revisión visual y mejoras posibles.
 - [FinFase 2.txt](FinFase%202.txt): informe de cierre anterior.
 - `FinFase 3.txt`: informe integral generado al cerrar esta fase.
+- [FinFase 4.txt](FinFase%204.txt): informe integral generado al cerrar Fase 4.
 - [QUE HACER.txt](QUE%20HACER.txt): pasos locales y datos necesarios para preparar la siguiente fase.

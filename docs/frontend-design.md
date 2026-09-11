@@ -2,13 +2,13 @@
 
 ## Estado y alcance
 
-Documento de implementación actualizado al 4 de septiembre de 2026. La Fase 2 dejó navegables las tres superficies y la Fase 3 añadió integración HTTP sin reconstruirlas:
+Documento de implementación actualizado al 8 de septiembre de 2026. La Fase 2 dejó navegables las tres superficies, Fase 3 añadió integración HTTP sin reconstruirlas y Fase 4 conectó checkout, reservas, pagos y registro:
 
 1. storefront público de CH Market;
 2. portal privado del cliente;
 3. portal operativo de personal.
 
-El frontend puede ejecutarse con adapters mock o contra la API autoritativa. La autenticación, autorización, ownership, transacciones e integridad se validan en servidor cuando `VITE_DATA_MODE=http`; pagos y checkout real siguen fuera de alcance.
+El frontend puede ejecutarse con adapters mock o contra la API autoritativa. La autenticación, autorización, ownership, transacciones, integridad, checkout, reservas y pagos se validan en servidor cuando `VITE_DATA_MODE=http`.
 
 ## Principios
 
@@ -116,7 +116,7 @@ Rutas:
 /login
 ```
 
-`/registro` redirige a login hasta diseñar la UI pública de alta, verificación y términos; el endpoint real `POST /auth/register` ya existe. El checkout es visual y declara que no procesa pagos ni reserva stock.
+`/registro` permite alta pública de customer sobre el contrato real. `/checkout` requiere sesión customer, muestra retiro en tienda, notas opcionales y totales informativos del carrito; el servidor recalcula todo antes de responder con `checkoutUrl`. `/checkout/resultado` muestra el resultado visual de retorno sin asumir autoridad sobre el pago.
 
 ### Cliente
 
@@ -215,7 +215,7 @@ Las capacidades de la interfaz dependen de claves `Permission`, nunca de compara
 
 ### Checkout, reportes y configuración
 
-- Checkout usa RHF/Zod, retiro o despacho futuro, resumen CLP, estado pending y comprobante simulado sin pago ni reserva.
+- Checkout usa RHF/Zod, retiro en tienda, resumen CLP informativo, estado pending, idempotencia y redirección al `checkoutUrl` autoritativo. `/checkout/resultado` muestra feedback visual sin aprobar pagos desde query params.
 - Reportes filtran ventas, pedidos, inventario y paquetes por fecha/categoría/estado y exportan CSV local protegido contra fórmulas.
 - Settings administra organización, locale, moneda, zona horaria, contacto, retiro y umbrales operacionales sobre el contrato centralizado.
 
@@ -272,7 +272,7 @@ Las capacidades de la interfaz dependen de claves `Permission`, nunca de compara
 - Los servicios cliente y personal de pedidos/paquetes son instancias separadas; una transición staff no se replica todavía en la vista cliente.
 - Cambiar rol o estado de un usuario no modifica los permisos de la sesión demo ya iniciada.
 - Los registros de reportes son estáticos y no agregan en tiempo real las mutaciones mock.
-- El checkout no reserva ni descuenta inventario; solo cierra el recorrido visual.
+- El checkout HTTP crea order/reserva/pago reales; el modo mock conserva un recorrido local sin proveedor externo.
 - Cambiar `minimumStock` de un producto no migra lotes existentes; crear un producto no crea automáticamente un lote.
 - Los movimientos usan lotes existentes y heredan lote/vencimiento; el modo HTTP persiste lotes y balances autoritativos.
 - La autorización del frontend mejora UX, pero no constituye una frontera de seguridad.
@@ -290,6 +290,6 @@ La integración implementada sigue estas reglas:
 5. mapear errores reales a los estados ya diseñados;
 6. revalidar identidad, propiedad, permisos y transiciones en servidor.
 
-El HttpClient común usa `credentials: include`, CSRF en memoria, request ID, errores normalizados, idempotencia y validación Zod de respuestas. Pagos, reservas iniciadas por checkout, couriers, BI complejo y una segunda organización desplegada quedan fuera de Fase 3.
+El HttpClient común usa `credentials: include`, CSRF en memoria, request ID, errores normalizados, idempotencia y validación Zod de respuestas. Couriers, BI complejo, notificaciones reales y una segunda organización desplegada quedan fuera del alcance actual.
 
-Las observaciones visuales posteriores a la integración están en [ui-review-phase-3.md](ui-review-phase-3.md).
+Las observaciones visuales posteriores a la integración de Fase 4 están resumidas en [FinFase 4.txt](../FinFase%204.txt).

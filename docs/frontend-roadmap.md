@@ -54,17 +54,18 @@ build:                  PASS
 migration check:        PASS
 ```
 
-## PHASE 4 — NEXT
+## PHASE 4 — DONE
 
 ### Ecommerce + reservations + payments
 
-1. Convertir checkout visual en creación autoritativa de orden.
-2. Integrar el dominio existente de InventoryReservation con carrito/checkout, expiración y liberación.
-3. Seleccionar e integrar Mercado Pago o Transbank sin guardar datos de tarjeta.
-4. Validar webhooks firmados, replay e idempotencia; reconciliar estados de pago.
-5. Confirmar pedidos solo después del resultado autoritativo del pago.
-6. Diseñar recuperación ante timeouts, pago aprobado sin respuesta de browser y compensaciones de reserva.
-7. Añadir E2E sandbox para éxito, rechazo, expiración, webhook duplicado y concurrencia de stock.
+1. Checkout visual convertido en creación autoritativa de order.
+2. InventoryReservation conectado al checkout con expiración, liberación, commit y consumo.
+3. PaymentProvider con adapter fake para tests y Mercado Pago Orders API para sandbox.
+4. Webhook firmado, deduplicado y reconciliado por consulta autoritativa al provider.
+5. Pedido confirmado solo por Payment `APPROVED`; la return URL no cambia estados.
+6. Reintento de pago sobre la misma order y cancelación customer de `PENDING_PAYMENT`.
+7. Full refund staff con permiso, motivo, confirmación e idempotencia.
+8. Registro público customer activado en `/registro`.
 
 ## PHASE 5 — LATER
 
@@ -78,6 +79,6 @@ migration check:        PASS
 
 ## Límites deliberados al cierre
 
-Fase 3 no procesa pagos, no crea pedidos desde checkout y no inicia reservas desde el navegador. Tampoco incluye notificaciones reales, couriers, uploads, Redis, colas, microservicios, Kubernetes, BI externo ni aplicaciones nativas.
+Fase 4 no activa cobros productivos, dominio/SSL/deploy, notificaciones reales, couriers, uploads, Redis, colas, microservicios, Kubernetes, BI externo ni aplicaciones nativas.
 
 Las mejoras visuales priorizadas —errores con request ID, expiración centralizada de sesión, reintentos idempotentes visibles, selector remoto de inventario y ajustes móviles— están documentadas en `docs/ui-review-phase-3.md` para no mezclar un rediseño con la integración backend.

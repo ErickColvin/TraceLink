@@ -8,7 +8,7 @@
 - Cookie de sesión HttpOnly; toda request frontend usa `credentials: include`.
 - Cada respuesta expone `X-Request-ID`.
 - Toda mutación autenticada exige `X-CSRF-Token` y Origin exacto.
-- Inventario, transiciones/cancelación de pedidos y recepción/transición/entrega de paquetes exigen `Idempotency-Key`.
+- Inventario, checkout, reintentos/cancelación/reembolsos de pago, transiciones/cancelación de pedidos y recepción/transición/entrega de paquetes exigen `Idempotency-Key`.
 - Arrays de filtros se envían como parámetros repetidos.
 - Listas responden `{ items, page, pageSize, totalItems, totalPages }`, con `pageSize <= 100`.
 
@@ -69,18 +69,32 @@ Las rutas `/me` obtienen `customerId` exclusivamente de la sesión.
 
 El request nunca fija stock absoluto; el servidor bloquea el balance, calcula el delta y escribe balance, ledger y auditoría atómicamente.
 
+## Checkout y pagos
+
+| Método y endpoint | Auth / permiso | Request | Respuesta | Errores |
+| --- | --- | --- | --- | --- |
+| `POST /checkout` | Customer + CSRF + idempotencia | `CreateCheckoutRequest` con `items`, `fulfillmentMethod: "PICKUP"` y `notes?` | `CheckoutResponse`, `201` | `400`, `401`, `403`, `404`, `409 INSUFFICIENT_STOCK/IDEMPOTENCY_CONFLICT`, `502 PAYMENT_PROVIDER_UNAVAILABLE` |
+| `POST /webhooks/mercadopago` | Público + firma proveedor | Body Mercado Pago Orders + headers `x-signature`, `x-request-id` | `{ received: true }` | `400`, `403 INVALID_WEBHOOK_SIGNATURE` |
+
+`POST /checkout` nunca acepta `customerId`, precios, descuentos, impuestos ni despacho desde el navegador. El servidor recalcula CLP enteros, crea `Order PENDING_PAYMENT`, reserva inventario por el TTL configurado, crea `Payment` y `PaymentAttempt`, llama al `PaymentProvider` fuera de la transacción local y devuelve el `checkoutUrl` recibido del proveedor.
+
+La URL de retorno `/checkout/resultado` pertenece al frontend y no es un endpoint autoritativo de API. El cambio de estado real ocurre por webhook/reconciliación consultando el provider.
+
 ## Pedidos
 
 | Método y endpoint | Auth / permiso | Request | Respuesta | Errores |
 | --- | --- | --- | --- | --- |
 | `GET /me/orders` | Customer | `OrderListParams` | `OrderPage` | `400`, `401`, `403` |
 | `GET /me/orders/:id` | Customer owner | UUID | `Order` | `401`, `403`, `404` |
+| `POST /me/orders/:id/payment-attempts` | Customer owner + CSRF + idempotencia | Sin body | `PaymentRetryResponse`, `201` | `400`, `401`, `403`, `404`, `409` |
+| `POST /me/orders/:id/cancellation` | Customer owner + CSRF + idempotencia | `{ reason }` | `CustomerOrderCancellationResponse` | `400`, `401`, `403`, `404`, `409` |
 | `GET /staff/orders` | Staff / `orders.view` | `StaffOrderListParams` | `StaffOrderPage` | `400`, `401`, `403` |
 | `GET /staff/orders/:id` | Staff / `orders.view` | UUID | `StaffOrder` | `401`, `403`, `404` |
 | `POST /staff/orders/:id/transitions` | Staff / `orders.update` + CSRF + idempotencia | `{ toStatus }` | `StaffOrder` | `400`, `401`, `403`, `404`, `409 INVALID_STATE_TRANSITION/IDEMPOTENCY_CONFLICT` |
 | `POST /staff/orders/:id/cancellation` | Staff / `orders.cancel` + CSRF + idempotencia | `{ reason }` | `StaffOrder` | `400`, `401`, `403`, `404`, `409` |
+| `POST /staff/orders/:id/refunds` | Staff / `orders.refund` + CSRF + idempotencia | `{ reason }` | `FullRefundResponse` | `400`, `401`, `403`, `404`, `409` |
 
-`CANCELLED` solo se alcanza por cancellation; cada cambio genera OrderStatusEvent y AuditLog.
+`CANCELLED` solo se alcanza por cancellation; customer solo puede cancelar `PENDING_PAYMENT`. El pago aprobado habilita `PAID -> PREPARING -> READY -> COMPLETED`; `COMPLETED` consume stock reservado. El reembolso actual es total; no genera devolución física de stock.
 
 ## Paquetes
 

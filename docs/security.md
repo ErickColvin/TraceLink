@@ -9,6 +9,8 @@ No son fuentes de autoridad:
 - `organizationId`, `customerId`, `userId` o `actor` enviados por el navegador;
 - reglas de transición ejecutadas solo en React;
 - disponibilidad o totales calculados solo en el cliente;
+- estado de retorno de `/checkout/resultado`;
+- body de webhook no verificado o no reconciliado contra el provider;
 - la visibilidad de un botón.
 
 ## Sesiones
@@ -150,4 +152,4 @@ La matriz mantenida por la suite está en `apps/api/tests/SECURITY-COVERAGE.md`.
 7. Definir alertas de errores 5xx, readiness, latencia, rate limit y saturación DB.
 8. Definir provisión segura del código de retiro y recuperación de cuenta.
 9. Ejecutar lint, tipos, unit, API, integración, seguridad y E2E en CI.
-10. Hacer revisión de seguridad específica antes de habilitar pagos/webhooks.
+10. Validar manualmente credenciales sandbox Mercado Pago, URLs HTTPS públicas y secreto de webhook antes de activar provider real.

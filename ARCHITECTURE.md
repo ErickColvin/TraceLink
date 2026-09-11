@@ -10,7 +10,7 @@ La entrega incluye tres experiencias React:
 2. portal autenticado de cliente;
 3. portal autenticado de personal/administración.
 
-Fase 2 cerró la experiencia frontend. Fase 3 incorpora API autoritativa, PostgreSQL, autenticación real, RBAC e integración HTTP sin reconstruir la UI. El modo mock sigue disponible para desarrollo y tests aislados.
+Fase 2 cerró la experiencia frontend. Fase 3 incorporó API autoritativa, PostgreSQL, autenticación real, RBAC e integración HTTP sin reconstruir la UI. Fase 4 conecta ecommerce real: checkout autenticado, reservas de inventario, pagos, webhooks, reintentos, cancelación pendiente y reembolso total. El modo mock sigue disponible para desarrollo y tests aislados.
 
 ## 2. Principios
 
@@ -108,6 +108,7 @@ TraceLink/
 /registro
 /carrito
 /checkout
+/checkout/resultado
 ```
 
 ### Customer
@@ -145,7 +146,7 @@ TraceLink/
 /app/settings
 ```
 
-El checkout sigue siendo una simulación explícita; no reserva stock ni procesa pagos.
+`/checkout` requiere sesión customer y crea una order autoritativa. `/checkout/resultado` solo presenta estado visual de retorno; los query params del proveedor no cambian pedidos ni pagos.
 
 ## 7. Estado y datos frontend
 
@@ -180,11 +181,15 @@ Category, Product y Customer son tenant-scoped. SKU, slug y barcode son únicos 
 
 ### Inventario
 
-InventoryBalance materializa físico/reservado; disponible se deriva. Todo ajuste físico produce InventoryMovement inmutable dentro de una transacción con bloqueo, invariantes de cantidades y AuditLog. InventoryReservation está persistido y probado, pero su uso por checkout corresponde a Fase 4.
+InventoryBalance materializa físico/reservado; disponible se deriva. Todo ajuste físico produce InventoryMovement inmutable dentro de una transacción con bloqueo, invariantes de cantidades y AuditLog. InventoryReservation se usa en checkout con estados `ACTIVE`, `COMMITTED`, `CONSUMED`, `RELEASED` y `EXPIRED`, TTL configurable y asignación FEFO por lote.
 
 ### Pedidos
 
-Order conserva montos CLP e items snapshot. La máquina de estados del servidor produce OrderStatusEvent y AuditLog atómicamente. Customer y staff leen la misma fila.
+Order conserva montos CLP e items snapshot. Checkout crea `PENDING_PAYMENT`; el pago aprobado proyecta `PAID`; staff procesa `PAID -> PREPARING -> READY -> COMPLETED`; `COMPLETED` consume reservas comprometidas y crea movimientos `SALE` exactamente una vez. La máquina de estados del servidor produce OrderStatusEvent y AuditLog atómicamente. Customer y staff leen la misma fila.
+
+### Pagos
+
+Payment, PaymentAttempt, PaymentProviderEvent y Refund modelan el ciclo de pago separado de Order. El dominio usa estados internos `CREATED`, `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED`, `REFUNDED` y `ERROR`. Mercado Pago Orders API y el provider fake quedan detrás de `PaymentProvider`; el frontend nunca recibe secretos ni construye URLs del proveedor.
 
 ### Paquetes
 
@@ -230,10 +235,10 @@ Las suites cubren:
 
 Los gates de cierre son `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` y `pnpm test:e2e`.
 
-## 14. Fuera de Fase 3
+## 14. Fuera de Fase 4
 
-- pago real, conciliación y webhooks;
-- reserva desde checkout y confirmación autoritativa de compra;
+- credenciales productivas Mercado Pago y cobros reales;
+- deploy productivo, dominio, SSL, Cloudflare/reverse proxy y CI/CD;
 - correo, SMS, WhatsApp y courier APIs;
 - uploads/almacenamiento de imágenes;
 - recuperación de contraseña;

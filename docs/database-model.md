@@ -28,7 +28,7 @@ Esta separación evita un campo global `User.role` y permite que una identidad t
 
 ### Role, Permission y RolePermission
 
-Los roles pertenecen a una organización. `Permission` es el catálogo estable de 19 claves y `RolePermission` resuelve la relación muchos-a-muchos, incluyendo `organization_id` en su clave y foreign key al rol.
+Los roles pertenecen a una organización. `Permission` es el catálogo estable tipado, incluyendo `orders.refund`, y `RolePermission` resuelve la relación muchos-a-muchos, incluyendo `organization_id` en su clave y foreign key al rol.
 
 ### Session
 
@@ -73,7 +73,7 @@ Ledger inmutable de ocho tipos. Conserva delta, snapshots físicos/reservados an
 
 ### InventoryReservation
 
-Reserva persistente preparada para ecommerce con estados `ACTIVE`, `CONSUMED`, `RELEASED` y `EXPIRED`, vencimiento y referencia opcional a Order. La lógica transaccional ajusta `reserved_quantity`, pero Fase 3 no la conecta al checkout.
+Reserva persistente de ecommerce con estados `ACTIVE`, `COMMITTED`, `CONSUMED`, `RELEASED` y `EXPIRED`, vencimiento y referencia a Order. Checkout incrementa `reserved_quantity`; pago aprobado compromete; cancelación/rechazo/expiración libera; fulfillment completado consume. La asignación usa FEFO por lote (`expiration_date ASC NULLS LAST`, luego antigüedad) y puede dividir una línea entre varios balances.
 
 ## Pedidos
 
@@ -82,6 +82,16 @@ Reserva persistente preparada para ecommerce con estados `ACTIVE`, `CONSUMED`, `
 Order pertenece a un Customer del mismo tenant y tiene número único por organización. Subtotal, descuento, despacho y total son enteros; un check verifica `total = subtotal - discount + shipping`.
 
 OrderItem guarda snapshots de SKU, nombre y precio para que el historial no cambie al editar Product. OrderStatusEvent conserva transición, actor, motivo y fecha. Los estados se cambian mediante la máquina de estados del servidor.
+
+### Payment, PaymentAttempt, PaymentProviderEvent y Refund
+
+`Payment` pertenece a una Order y conserva provider, external reference, estado interno, importe CLP, moneda, IDs del proveedor y timestamps de aprobación/cancelación/reembolso/reconciliación. `PaymentAttempt` permite reintentos sobre la misma Order sin duplicar pedidos. `PaymentProviderEvent` persiste eventos sanitizados y deduplica por `provider + provider_event_id`. `Refund` modela el reembolso total actual, con actor staff, reason, provider refund ID y estado.
+
+Estados internos de pago:
+
+```text
+CREATED, PENDING, APPROVED, REJECTED, CANCELLED, REFUNDED, ERROR
+```
 
 ## Paquetes
 
@@ -129,19 +139,20 @@ No se indexa cada columna indiscriminadamente.
 
 ## Inventario de modelos
 
-El contrato contiene 25 modelos de aplicación:
+El contrato contiene modelos de aplicación tenant-scoped:
 
 ```text
 Organization, User, Role, Permission, RolePermission, Membership, Customer,
 Session, Category, Product, InventoryLocation, InventoryLot, InventoryBalance,
 InventoryMovement, InventoryReservation, Order, OrderItem, OrderStatusEvent,
-Package, TrackingEvent, PackagePickupReceipt, OrganizationSettings, AuditLog,
-IdempotencyRecord, RateLimitBucket.
+Payment, PaymentAttempt, PaymentProviderEvent, Refund, Package, TrackingEvent,
+PackagePickupReceipt, OrganizationSettings, AuditLog, IdempotencyRecord,
+RateLimitBucket.
 ```
 
 También contiene enums para estado de identidad/membership/customer, audiencia, movimiento/reserva, pedido/pago/fulfillment, paquete e idempotencia.
 
-## Historial de migraciones de Fase 3
+## Historial de migraciones
 
 Las migraciones son incrementales; no se reescribe una migración aplicada:
 
@@ -152,5 +163,6 @@ Las migraciones son incrementales; no se reescribe una migración aplicada:
 5. `20260902T2237_order_status_reason_length`: longitud contractual del motivo.
 6. `20260904T0252_tracking_event_description_length`: longitud contractual de eventos.
 7. `20260904T0255_settings_contract_lengths`: longitudes del agregado settings.
+8. `20260907T0011_phase_4_payments`: pagos, intentos, eventos de provider, reembolsos, estado `COMMITTED` de reservas, vínculo reserva-movimiento y constraints/índices de Fase 4.
 
 `pnpm db:migration:check`, `pnpm db:verify` y las suites contra PostgreSQL comprueban la cadena sin ejecutar resets destructivos.

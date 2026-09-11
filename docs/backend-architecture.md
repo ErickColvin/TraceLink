@@ -2,7 +2,7 @@
 
 ## Alcance
 
-La API de Fase 3 convierte PostgreSQL en la fuente autoritativa de CH Market sin reconstruir las pantallas de Fase 2. El checkout continúa siendo visual y no crea pagos ni reservas desde el navegador.
+La API convierte PostgreSQL en la fuente autoritativa de CH Market sin reconstruir las pantallas de Fase 2. Desde Fase 4 el checkout crea pedidos reales, reserva inventario y coordina pagos mediante una abstracción de proveedor.
 
 El flujo principal es:
 
@@ -64,8 +64,11 @@ Las respuestas también se validan antes de salir de repositories/adapters. Las 
 | Producto | Alta/edición/cambio de estado más AuditLog. |
 | Perfil customer | Actualización tenant/owner-scoped más AuditLog. |
 | Movimiento de inventario | Reserva idempotente, bloqueo del balance, validación de cantidades, actualización del balance, ledger inmutable y AuditLog. |
+| Checkout customer | Transacción local A: bloqueo de stock, reserva FEFO, order `PENDING_PAYMENT`, snapshots, payment y attempt. Llamada externa fuera de la transacción. Transacción B: provider IDs, checkoutUrl, estado normalizado y reconciliación inmediata si corresponde. |
 | Reserva de inventario | Bloqueo de balance, cambio de reservado, alta/cambio de estado de reserva y AuditLog. |
-| Transición/cancelación de pedido | Reserva idempotente, bloqueo del pedido, validación de state machine, actualización, OrderStatusEvent y AuditLog. |
+| Transición/cancelación de pedido | Reserva idempotente, bloqueo del pedido, validación de state machine, actualización, OrderStatusEvent y AuditLog. `COMPLETED` consume reservas comprometidas y escribe `SALE` una sola vez. |
+| Webhook de pago | Validación de firma, deduplicación por provider/event, consulta autoritativa al provider, reconciliación de Payment/Order/Reservation y AuditLog. |
+| Reembolso total | Idempotencia, permiso `orders.refund`, llamada provider fuera del bloqueo largo, persistencia de Refund, Payment `REFUNDED`, Order `REFUNDED` y AuditLog. |
 | Recepción/transición/entrega de paquete | Reserva idempotente, validaciones tenant/owner, actualización, TrackingEvent y AuditLog; la entrega además consume el hash y crea PackagePickupReceipt. |
 | Acceso de usuario | Cambio de Membership/Role, revocación de sesiones cuando corresponde y AuditLog. |
 | Permisos de rol | Reemplazo validado de RolePermission y AuditLog. |
@@ -77,7 +80,7 @@ Las mutaciones idempotentes almacenan un HMAC de la clave y del request. La mism
 
 `InventoryBalance` materializa únicamente cantidades físicas y reservadas; el disponible se deriva. Todos los cambios físicos crean un `InventoryMovement` inmutable con snapshots anterior/posterior. El balance se bloquea dentro de la transacción y la base impide cantidades negativas o `reserved > physical`.
 
-`InventoryReservation` está implementado y probado como dominio persistente (`ACTIVE`, `CONSUMED`, `RELEASED`, `EXPIRED`), pero no está conectado al checkout de Fase 3.
+`InventoryReservation` está conectado al checkout. Las reservas nacen `ACTIVE`, pasan a `COMMITTED` cuando el pago queda aprobado, se liberan como `RELEASED` ante cancelación/rechazo, vencen como `EXPIRED` por job idempotente y terminan `CONSUMED` cuando fulfillment completa la venta física.
 
 ## Pedidos y paquetes
 
@@ -91,4 +94,4 @@ Dashboard y reportes calculan KPIs y filas desde productos, inventario, pedidos,
 
 ## Decisiones aplazadas
 
-Fase 3 no incluye pagos, checkout real, webhooks, notificaciones, couriers, uploads, Redis, colas ni microservicios. Optimistic concurrency para ediciones administrativas no críticas y el canal de provisión del código de retiro quedan como trabajo posterior explícito.
+Siguen aplazados para fases posteriores: credenciales productivas y cobros reales, dominio/SSL/deploy, notificaciones, couriers, uploads, Redis, colas y microservicios. Optimistic concurrency para ediciones administrativas no críticas y el canal de provisión del código de retiro quedan como trabajo posterior explícito.
