@@ -42,6 +42,7 @@ enum InventoryMovementType {
 enum InventoryReservationStatus {
   @@type("pg/text@1")
   ACTIVE
+  COMMITTED
   CONSUMED
   RELEASED
   EXPIRED
@@ -63,6 +64,23 @@ enum PaymentStatus {
   PENDING
   PAID
   REFUNDED
+}
+
+enum PaymentLifecycleStatus {
+  @@type("pg/text@1")
+  CREATED
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  REFUNDED
+  ERROR
+}
+
+enum PaymentProvider {
+  @@type("pg/text@1")
+  MERCADOPAGO
+  FAKE
 }
 
 enum FulfillmentType {
@@ -120,6 +138,10 @@ model Organization {
   settings             OrganizationSettings?
   auditLogs            AuditLog[]
   idempotencyRecords   IdempotencyRecord[]
+  payments             Payment[]
+  paymentAttempts      PaymentAttempt[]
+  paymentProviderEvents PaymentProviderEvent[]
+  refunds              Refund[]
 
   @@check(expression: "char_length(btrim(\"name\")) > 0 AND \"slug\" = lower(btrim(\"slug\")) AND char_length(\"currency\") = 3", name: "organization_identity_valid")
   @@map("organizations")
@@ -147,6 +169,7 @@ model User {
   pickupReceipts       PackagePickupReceipt[] @relation("PickupReceiptDeliverer")
   auditLogs            AuditLog[] @relation("AuditActor")
   idempotencyRecords   IdempotencyRecord[] @relation("IdempotencyActor")
+  refundsRequested     Refund[] @relation("RefundActor")
 
   @@check(expression: "\"email_normalized\" = lower(btrim(\"email_normalized\")) AND char_length(btrim(\"first_name\")) > 0 AND char_length(btrim(\"last_name\")) > 0 AND char_length(\"password_hash\") > 0", name: "user_identity_valid")
   @@index([status], map: "user_status_idx")
@@ -410,6 +433,7 @@ model InventoryMovement {
   productId                Uuid                  @map("product_id")
   locationId               Uuid                  @map("location_id")
   lotId                    Uuid?                 @map("lot_id")
+  reservationId            Uuid?                 @map("reservation_id")
   type                     InventoryMovementType
   quantityDelta            Int                   @map("quantity_delta")
   previousPhysicalQuantity Int                   @map("previous_physical_quantity")
@@ -429,9 +453,12 @@ model InventoryMovement {
   location     InventoryLocation @relation(fields: [organizationId, locationId], references: [organizationId, id], onDelete: Restrict, map: "inventory_movement_location_fkey")
   lot          InventoryLot?     @relation(fields: [organizationId, productId, lotId], references: [organizationId, productId, id], onDelete: Restrict, map: "inventory_movement_lot_fkey")
   actor        User              @relation("InventoryMovementActor", fields: [actorUserId], references: [id], onDelete: Restrict, map: "inventory_movement_actor_fkey")
+  reservation  InventoryReservation? @relation("InventoryReservationSaleMovement", fields: [organizationId, reservationId], references: [organizationId, id], onDelete: Restrict, map: "inventory_movement_reservation_fkey")
 
   @@unique([organizationId, id], map: "inventory_movement_tenant_id_key")
   @@check(expression: "\"quantity_delta\" <> 0 AND \"previous_physical_quantity\" >= 0 AND \"new_physical_quantity\" >= 0 AND \"new_physical_quantity\" = \"previous_physical_quantity\" + \"quantity_delta\" AND \"previous_reserved_quantity\" >= 0 AND \"previous_reserved_quantity\" <= \"previous_physical_quantity\" AND \"new_reserved_quantity\" >= 0 AND \"new_reserved_quantity\" <= \"new_physical_quantity\"", name: "inventory_movement_quantities_valid")
+  @@check(expression: "\"reservation_id\" IS NULL OR \"type\" = 'SALE'", name: "inventory_movement_reservation_sale_valid")
+  @@index([organizationId, reservationId], name: "inventory_movement_reservation_key", unique: true, where: "\"reservation_id\" IS NOT NULL")
   @@index([organizationId, productId, createdAt], map: "inventory_movement_product_created_idx")
   @@index([organizationId, type, createdAt], map: "inventory_movement_type_created_idx")
   @@index([organizationId, balanceId, createdAt], map: "inventory_movement_balance_created_idx")
@@ -456,6 +483,7 @@ model InventoryReservation {
   product      Product            @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: Restrict, map: "inventory_reservation_product_fkey")
   location     InventoryLocation  @relation(fields: [organizationId, locationId], references: [organizationId, id], onDelete: Restrict, map: "inventory_reservation_location_fkey")
   lot          InventoryLot?      @relation(fields: [organizationId, productId, lotId], references: [organizationId, productId, id], onDelete: Restrict, map: "inventory_reservation_lot_fkey")
+  saleMovements InventoryMovement[] @relation("InventoryReservationSaleMovement")
 
   @@unique([organizationId, id], map: "inventory_reservation_tenant_id_key")
   @@check(expression: "\"quantity\" > 0 AND \"expires_at\" > \"created_at\"", name: "inventory_reservation_values_valid")
@@ -489,6 +517,7 @@ model Order {
   statusEvents OrderStatusEvent[]
   packages     Package[]
   reservations InventoryReservation[]
+  payment      Payment?
 
   @@unique([organizationId, id], map: "order_tenant_id_key")
   @@unique([organizationId, orderNumber], map: "order_tenant_number_key")
@@ -539,6 +568,124 @@ model OrderStatusEvent {
   @@check(expression: "\"from_status\" IS NULL OR \"from_status\" <> \"to_status\"", name: "order_status_event_transition_valid")
   @@index([organizationId, orderId, occurredAt], map: "order_status_event_order_time_idx")
   @@map("order_status_events")
+}
+
+model Payment {
+  id                        Uuid                   @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId            Uuid                   @map("organization_id")
+  orderId                   Uuid                   @map("order_id")
+  provider                  PaymentProvider
+  status                    PaymentLifecycleStatus @default(CREATED)
+  amount                    Int
+  currency                  VarChar(3)             @default("CLP")
+  providerExternalReference VarChar(160)            @map("provider_external_reference")
+  providerPaymentId         VarChar(160)?           @map("provider_payment_id")
+  providerStatus            VarChar(120)?           @map("provider_status")
+  providerStatusDetail      VarChar(240)?           @map("provider_status_detail")
+  approvedAt                Timestamptz(3)?         @map("approved_at")
+  cancelledAt               Timestamptz(3)?         @map("cancelled_at")
+  refundedAt                Timestamptz(3)?         @map("refunded_at")
+  lastReconciledAt          Timestamptz(3)?         @map("last_reconciled_at")
+  createdAt                 Timestamptz(3)          @default(now()) @map("created_at")
+  updatedAt                 temporal.updatedAt()    @map("updated_at")
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "payment_organization_fkey")
+  order        Order                  @relation(fields: [organizationId, orderId], references: [organizationId, id], onDelete: Restrict, map: "payment_order_fkey")
+  attempts     PaymentAttempt[]
+  providerEvents PaymentProviderEvent[]
+  refunds      Refund[]
+
+  @@unique([organizationId, id], map: "payment_tenant_id_key")
+  @@unique([organizationId, orderId], map: "payment_order_key")
+  @@unique([provider, providerExternalReference], map: "payment_provider_external_reference_key")
+  @@check(expression: "\"amount\" > 0 AND \"currency\" = upper(btrim(\"currency\")) AND char_length(\"currency\") = 3 AND char_length(btrim(\"provider_external_reference\")) > 0 AND (\"provider_payment_id\" IS NULL OR char_length(btrim(\"provider_payment_id\")) > 0)", name: "payment_values_valid")
+  @@index([provider, providerPaymentId], name: "payment_provider_payment_id_key", unique: true, where: "\"provider_payment_id\" IS NOT NULL")
+  @@index([organizationId, status, updatedAt], map: "payment_status_updated_idx")
+  @@index([organizationId, orderId], map: "payment_order_idx")
+  @@map("payments")
+}
+
+model PaymentAttempt {
+  id                   Uuid                   @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId       Uuid                   @map("organization_id")
+  paymentId            Uuid                   @map("payment_id")
+  attemptNumber        Int                    @map("attempt_number")
+  status               PaymentLifecycleStatus @default(CREATED)
+  providerOrderId      VarChar(160)?           @map("provider_order_id")
+  providerPreferenceId VarChar(160)?           @map("provider_preference_id")
+  checkoutUrl          VarChar(2048)?          @map("checkout_url")
+  errorCode            VarChar(160)?           @map("error_code")
+  errorMessage         VarChar(1000)?          @map("error_message")
+  startedAt            Timestamptz(3)          @default(now()) @map("started_at")
+  completedAt          Timestamptz(3)?         @map("completed_at")
+  createdAt            Timestamptz(3)          @default(now()) @map("created_at")
+  updatedAt            temporal.updatedAt()    @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "payment_attempt_organization_fkey")
+  payment      Payment      @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict, map: "payment_attempt_payment_fkey")
+
+  @@unique([organizationId, id], map: "payment_attempt_tenant_id_key")
+  @@unique([organizationId, paymentId, attemptNumber], map: "payment_attempt_number_key")
+  @@check(expression: "\"attempt_number\" > 0 AND (\"provider_order_id\" IS NULL OR char_length(btrim(\"provider_order_id\")) > 0) AND (\"provider_preference_id\" IS NULL OR char_length(btrim(\"provider_preference_id\")) > 0) AND (\"checkout_url\" IS NULL OR \"checkout_url\" ~ '^https?://')", name: "payment_attempt_values_valid")
+  @@index([organizationId, providerOrderId], name: "payment_attempt_provider_order_key", unique: true, where: "\"provider_order_id\" IS NOT NULL")
+  @@index([organizationId, providerPreferenceId], name: "payment_attempt_provider_preference_key", unique: true, where: "\"provider_preference_id\" IS NOT NULL")
+  @@index([organizationId, paymentId, status, createdAt], map: "payment_attempt_payment_status_idx")
+  @@index([organizationId, status, updatedAt], map: "payment_attempt_reconciliation_idx")
+  @@map("payment_attempts")
+}
+
+model PaymentProviderEvent {
+  id                      Uuid            @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId          Uuid            @map("organization_id")
+  paymentId               Uuid            @map("payment_id")
+  provider                PaymentProvider
+  providerEventId         VarChar(160)     @map("provider_event_id")
+  eventType               VarChar(120)     @map("event_type")
+  providerResourceId      VarChar(160)?    @map("provider_resource_id")
+  sanitizedPayload        Json             @map("sanitized_payload")
+  payloadHash             Bytes            @map("payload_hash")
+  processed               Boolean          @default(false)
+  processingAttempts      Int              @default(0) @map("processing_attempts")
+  lastProcessingError     VarChar(1000)?    @map("last_processing_error")
+  receivedAt              Timestamptz(3)   @default(now()) @map("received_at")
+  processedAt             Timestamptz(3)?  @map("processed_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "payment_provider_event_organization_fkey")
+  payment      Payment      @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict, map: "payment_provider_event_payment_fkey")
+
+  @@unique([organizationId, id], map: "payment_provider_event_tenant_id_key")
+  @@unique([provider, providerEventId], map: "payment_provider_event_dedup_key")
+  @@check(expression: "char_length(btrim(\"provider_event_id\")) > 0 AND char_length(btrim(\"event_type\")) > 0 AND octet_length(\"payload_hash\") = 32 AND \"processing_attempts\" >= 0 AND ((NOT \"processed\" AND \"processed_at\" IS NULL) OR (\"processed\" AND \"processed_at\" IS NOT NULL))", name: "payment_provider_event_values_valid")
+  @@index([organizationId, processed, receivedAt], map: "payment_provider_event_processing_idx")
+  @@index([provider, providerResourceId], map: "payment_provider_event_resource_idx")
+  @@map("payment_provider_events")
+}
+
+model Refund {
+  id               Uuid                   @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId   Uuid                   @map("organization_id")
+  paymentId        Uuid                   @map("payment_id")
+  amount           Int
+  reason           VarChar(1000)
+  actorUserId      Uuid?                  @map("actor_user_id")
+  status           PaymentLifecycleStatus @default(CREATED)
+  providerRefundId VarChar(160)?           @map("provider_refund_id")
+  requestedAt      Timestamptz(3)          @default(now()) @map("requested_at")
+  completedAt      Timestamptz(3)?         @map("completed_at")
+  createdAt        Timestamptz(3)          @default(now()) @map("created_at")
+  updatedAt        temporal.updatedAt()    @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "refund_organization_fkey")
+  payment      Payment      @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict, map: "refund_payment_fkey")
+  actor        User?        @relation("RefundActor", fields: [actorUserId], references: [id], onDelete: SetNull, map: "refund_actor_fkey")
+
+  @@unique([organizationId, id], map: "refund_tenant_id_key")
+  @@unique([organizationId, paymentId], map: "refund_full_payment_key")
+  @@check(expression: "\"amount\" > 0 AND char_length(btrim(\"reason\")) >= 3 AND (\"provider_refund_id\" IS NULL OR char_length(btrim(\"provider_refund_id\")) > 0)", name: "refund_values_valid")
+  @@index([organizationId, providerRefundId], name: "refund_provider_id_key", unique: true, where: "\"provider_refund_id\" IS NOT NULL")
+  @@index([organizationId, status, requestedAt], map: "refund_status_requested_idx")
+  @@index([actorUserId], map: "refund_actor_idx")
+  @@map("refunds")
 }
 
 model Package {

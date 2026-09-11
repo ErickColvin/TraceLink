@@ -12,6 +12,7 @@ import {
   pageSchema,
   pageSizeSchema,
 } from "../pagination/index.js";
+import { paymentDetailsSchema } from "../payments/payment.js";
 
 export const ORDER_STATUSES = [
   "PENDING_PAYMENT",
@@ -82,6 +83,7 @@ const orderShape = {
   pickupLocation: z.string().trim().min(1).max(500).optional(),
   notes: z.string().trim().min(1).max(5_000).optional(),
   packageIds: z.array(entityIdSchema),
+  paymentDetails: paymentDetailsSchema.optional(),
 } satisfies z.ZodRawShape;
 
 export const orderSchema = z.object(orderShape).strict();

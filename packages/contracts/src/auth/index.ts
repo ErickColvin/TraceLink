@@ -17,6 +17,7 @@ export const PERMISSIONS = [
   "orders.view",
   "orders.update",
   "orders.cancel",
+  "orders.refund",
   "packages.view",
   "packages.receive",
   "packages.update",

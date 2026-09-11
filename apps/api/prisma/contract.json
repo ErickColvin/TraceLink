@@ -72,6 +72,18 @@
       "model": "Package",
       "namespace": "public"
     },
+    "payment_attempts": {
+      "model": "PaymentAttempt",
+      "namespace": "public"
+    },
+    "payment_provider_events": {
+      "model": "PaymentProviderEvent",
+      "namespace": "public"
+    },
+    "payments": {
+      "model": "Payment",
+      "namespace": "public"
+    },
     "permissions": {
       "model": "Permission",
       "namespace": "public"
@@ -82,6 +94,10 @@
     },
     "rate_limit_buckets": {
       "model": "RateLimitBucket",
+      "namespace": "public"
+    },
+    "refunds": {
+      "model": "Refund",
       "namespace": "public"
     },
     "role_permissions": {
@@ -206,6 +222,10 @@
                 "value": "ACTIVE"
               },
               {
+                "name": "COMMITTED",
+                "value": "COMMITTED"
+              },
+              {
                 "name": "CONSUMED",
                 "value": "CONSUMED"
               },
@@ -299,6 +319,52 @@
               {
                 "name": "INCIDENT",
                 "value": "INCIDENT"
+              }
+            ]
+          },
+          "PaymentLifecycleStatus": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "CREATED",
+                "value": "CREATED"
+              },
+              {
+                "name": "PENDING",
+                "value": "PENDING"
+              },
+              {
+                "name": "APPROVED",
+                "value": "APPROVED"
+              },
+              {
+                "name": "REJECTED",
+                "value": "REJECTED"
+              },
+              {
+                "name": "CANCELLED",
+                "value": "CANCELLED"
+              },
+              {
+                "name": "REFUNDED",
+                "value": "REFUNDED"
+              },
+              {
+                "name": "ERROR",
+                "value": "ERROR"
+              }
+            ]
+          },
+          "PaymentProvider": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "MERCADOPAGO",
+                "value": "MERCADOPAGO"
+              },
+              {
+                "name": "FAKE",
+                "value": "FAKE"
               }
             ]
           },
@@ -1793,6 +1859,13 @@
                   }
                 }
               },
+              "reservationId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
               "type": {
                 "nullable": false,
                 "type": {
@@ -1907,6 +1980,23 @@
                   "model": "Product",
                   "namespace": "public"
                 }
+              },
+              "reservation": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "organizationId",
+                    "reservationId"
+                  ],
+                  "targetFields": [
+                    "organizationId",
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "InventoryReservation",
+                  "namespace": "public"
+                }
               }
             },
             "storage": {
@@ -1961,6 +2051,9 @@
                 },
                 "reason": {
                   "column": "reason"
+                },
+                "reservationId": {
+                  "column": "reservation_id"
                 },
                 "type": {
                   "column": "type"
@@ -2145,6 +2238,23 @@
                 },
                 "to": {
                   "model": "Product",
+                  "namespace": "public"
+                }
+              },
+              "saleMovements": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "organizationId",
+                    "id"
+                  ],
+                  "targetFields": [
+                    "organizationId",
+                    "reservationId"
+                  ]
+                },
+                "to": {
+                  "model": "InventoryMovement",
                   "namespace": "public"
                 }
               }
@@ -2553,6 +2663,23 @@
                 },
                 "to": {
                   "model": "Package",
+                  "namespace": "public"
+                }
+              },
+              "payment": {
+                "cardinality": "1:1",
+                "on": {
+                  "localFields": [
+                    "organizationId",
+                    "id"
+                  ],
+                  "targetFields": [
+                    "organizationId",
+                    "orderId"
+                  ]
+                },
+                "to": {
+                  "model": "Payment",
                   "namespace": "public"
                 }
               },
@@ -3270,6 +3397,51 @@
                   "namespace": "public"
                 }
               },
+              "paymentAttempts": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "organizationId"
+                  ]
+                },
+                "to": {
+                  "model": "PaymentAttempt",
+                  "namespace": "public"
+                }
+              },
+              "paymentProviderEvents": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "organizationId"
+                  ]
+                },
+                "to": {
+                  "model": "PaymentProviderEvent",
+                  "namespace": "public"
+                }
+              },
+              "payments": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "organizationId"
+                  ]
+                },
+                "to": {
+                  "model": "Payment",
+                  "namespace": "public"
+                }
+              },
               "products": {
                 "cardinality": "1:N",
                 "on": {
@@ -3282,6 +3454,21 @@
                 },
                 "to": {
                   "model": "Product",
+                  "namespace": "public"
+                }
+              },
+              "refunds": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "organizationId"
+                  ]
+                },
+                "to": {
+                  "model": "Refund",
                   "namespace": "public"
                 }
               },
@@ -4044,6 +4231,735 @@
               "table": "package_pickup_receipts"
             }
           },
+          "Payment": {
+            "fields": {
+              "amount": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "approvedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "cancelledAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "currency": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 3
+                  }
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "lastReconciledAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "orderId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "organizationId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "provider": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "PaymentProvider",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
+              "providerExternalReference": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 160
+                  }
+                }
+              },
+              "providerPaymentId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 160
+                  }
+                }
+              },
+              "providerStatus": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 120
+                  }
+                }
+              },
+              "providerStatusDetail": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 240
+                  }
+                }
+              },
+              "refundedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "PaymentLifecycleStatus",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "attempts": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "organizationId",
+                    "id"
+                  ],
+                  "targetFields": [
+                    "organizationId",
+                    "paymentId"
+                  ]
+                },
+                "to": {
+                  "model": "PaymentAttempt",
+                  "namespace": "public"
+                }
+              },
+              "order": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "organizationId",
+                    "orderId"
+                  ],
+                  "targetFields": [
+                    "organizationId",
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Order",
+                  "namespace": "public"
+                }
+              },
+              "organization": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "organizationId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Organization",
+                  "namespace": "public"
+                }
+              },
+              "providerEvents": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "organizationId",
+                    "id"
+                  ],
+                  "targetFields": [
+                    "organizationId",
+                    "paymentId"
+                  ]
+                },
+                "to": {
+                  "model": "PaymentProviderEvent",
+                  "namespace": "public"
+                }
+              },
+              "refunds": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "organizationId",
+                    "id"
+                  ],
+                  "targetFields": [
+                    "organizationId",
+                    "paymentId"
+                  ]
+                },
+                "to": {
+                  "model": "Refund",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "amount": {
+                  "column": "amount"
+                },
+                "approvedAt": {
+                  "column": "approved_at"
+                },
+                "cancelledAt": {
+                  "column": "cancelled_at"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "currency": {
+                  "column": "currency"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "lastReconciledAt": {
+                  "column": "last_reconciled_at"
+                },
+                "orderId": {
+                  "column": "order_id"
+                },
+                "organizationId": {
+                  "column": "organization_id"
+                },
+                "provider": {
+                  "column": "provider"
+                },
+                "providerExternalReference": {
+                  "column": "provider_external_reference"
+                },
+                "providerPaymentId": {
+                  "column": "provider_payment_id"
+                },
+                "providerStatus": {
+                  "column": "provider_status"
+                },
+                "providerStatusDetail": {
+                  "column": "provider_status_detail"
+                },
+                "refundedAt": {
+                  "column": "refunded_at"
+                },
+                "status": {
+                  "column": "status"
+                },
+                "updatedAt": {
+                  "column": "updated_at"
+                }
+              },
+              "namespaceId": "public",
+              "table": "payments"
+            }
+          },
+          "PaymentAttempt": {
+            "fields": {
+              "attemptNumber": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "checkoutUrl": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 2048
+                  }
+                }
+              },
+              "completedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "errorCode": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 160
+                  }
+                }
+              },
+              "errorMessage": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 1000
+                  }
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "organizationId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "paymentId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "providerOrderId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 160
+                  }
+                }
+              },
+              "providerPreferenceId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 160
+                  }
+                }
+              },
+              "startedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "PaymentLifecycleStatus",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "organization": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "organizationId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Organization",
+                  "namespace": "public"
+                }
+              },
+              "payment": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "organizationId",
+                    "paymentId"
+                  ],
+                  "targetFields": [
+                    "organizationId",
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Payment",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "attemptNumber": {
+                  "column": "attempt_number"
+                },
+                "checkoutUrl": {
+                  "column": "checkout_url"
+                },
+                "completedAt": {
+                  "column": "completed_at"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "errorCode": {
+                  "column": "error_code"
+                },
+                "errorMessage": {
+                  "column": "error_message"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "organizationId": {
+                  "column": "organization_id"
+                },
+                "paymentId": {
+                  "column": "payment_id"
+                },
+                "providerOrderId": {
+                  "column": "provider_order_id"
+                },
+                "providerPreferenceId": {
+                  "column": "provider_preference_id"
+                },
+                "startedAt": {
+                  "column": "started_at"
+                },
+                "status": {
+                  "column": "status"
+                },
+                "updatedAt": {
+                  "column": "updated_at"
+                }
+              },
+              "namespaceId": "public",
+              "table": "payment_attempts"
+            }
+          },
+          "PaymentProviderEvent": {
+            "fields": {
+              "eventType": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 120
+                  }
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "lastProcessingError": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 1000
+                  }
+                }
+              },
+              "organizationId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "payloadHash": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bytea@1",
+                  "kind": "scalar"
+                }
+              },
+              "paymentId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "processed": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "processedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "processingAttempts": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "provider": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "PaymentProvider",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
+              "providerEventId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 160
+                  }
+                }
+              },
+              "providerResourceId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 160
+                  }
+                }
+              },
+              "receivedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "sanitizedPayload": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/json@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "organization": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "organizationId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Organization",
+                  "namespace": "public"
+                }
+              },
+              "payment": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "organizationId",
+                    "paymentId"
+                  ],
+                  "targetFields": [
+                    "organizationId",
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Payment",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "eventType": {
+                  "column": "event_type"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "lastProcessingError": {
+                  "column": "last_processing_error"
+                },
+                "organizationId": {
+                  "column": "organization_id"
+                },
+                "payloadHash": {
+                  "column": "payload_hash"
+                },
+                "paymentId": {
+                  "column": "payment_id"
+                },
+                "processed": {
+                  "column": "processed"
+                },
+                "processedAt": {
+                  "column": "processed_at"
+                },
+                "processingAttempts": {
+                  "column": "processing_attempts"
+                },
+                "provider": {
+                  "column": "provider"
+                },
+                "providerEventId": {
+                  "column": "provider_event_id"
+                },
+                "providerResourceId": {
+                  "column": "provider_resource_id"
+                },
+                "receivedAt": {
+                  "column": "received_at"
+                },
+                "sanitizedPayload": {
+                  "column": "sanitized_payload"
+                }
+              },
+              "namespaceId": "public",
+              "table": "payment_provider_events"
+            }
+          },
           "Permission": {
             "fields": {
               "createdAt": {
@@ -4531,6 +5447,206 @@
               },
               "namespaceId": "public",
               "table": "rate_limit_buckets"
+            }
+          },
+          "Refund": {
+            "fields": {
+              "actorUserId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "amount": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "completedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "organizationId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "paymentId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "providerRefundId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 160
+                  }
+                }
+              },
+              "reason": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 1000
+                  }
+                }
+              },
+              "requestedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "PaymentLifecycleStatus",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "actor": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "actorUserId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "User",
+                  "namespace": "public"
+                }
+              },
+              "organization": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "organizationId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Organization",
+                  "namespace": "public"
+                }
+              },
+              "payment": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "organizationId",
+                    "paymentId"
+                  ],
+                  "targetFields": [
+                    "organizationId",
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Payment",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "actorUserId": {
+                  "column": "actor_user_id"
+                },
+                "amount": {
+                  "column": "amount"
+                },
+                "completedAt": {
+                  "column": "completed_at"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "organizationId": {
+                  "column": "organization_id"
+                },
+                "paymentId": {
+                  "column": "payment_id"
+                },
+                "providerRefundId": {
+                  "column": "provider_refund_id"
+                },
+                "reason": {
+                  "column": "reason"
+                },
+                "requestedAt": {
+                  "column": "requested_at"
+                },
+                "status": {
+                  "column": "status"
+                },
+                "updatedAt": {
+                  "column": "updated_at"
+                }
+              },
+              "namespaceId": "public",
+              "table": "refunds"
             }
           },
           "Role": {
@@ -5388,6 +6504,21 @@
                 },
                 "to": {
                   "model": "PackagePickupReceipt",
+                  "namespace": "public"
+                }
+              },
+              "refundsRequested": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "actorUserId"
+                  ]
+                },
+                "to": {
+                  "model": "Refund",
                   "namespace": "public"
                 }
               },
@@ -6743,6 +7874,11 @@
                   "prefix": "inventory_movement_quantities_valid"
                 },
                 {
+                  "expression": "\"reservation_id\" IS NULL OR \"type\" = 'SALE'",
+                  "name": "inventory_movement_reservation_sale_valid_d8fc8525",
+                  "prefix": "inventory_movement_reservation_sale_valid"
+                },
+                {
                   "expression": "\"type\" IN ('PURCHASE_RECEIPT', 'SALE', 'ADJUSTMENT', 'RETURN', 'DAMAGE', 'EXPIRED', 'TRANSFER_IN', 'TRANSFER_OUT')",
                   "name": "inventory_movements_type_check_4666765d",
                   "prefix": "inventory_movements_type_check"
@@ -6865,6 +8001,11 @@
                   "typeParams": {
                     "length": 240
                   }
+                },
+                "reservation_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": true
                 },
                 "type": {
                   "codecId": "pg/text@1",
@@ -6996,6 +8137,26 @@
                     "namespaceId": "public",
                     "tableName": "users"
                   }
+                },
+                {
+                  "name": "inventory_movement_reservation_fkey",
+                  "onDelete": "restrict",
+                  "source": {
+                    "columns": [
+                      "organization_id",
+                      "reservation_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "inventory_movements"
+                  },
+                  "target": {
+                    "columns": [
+                      "organization_id",
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "inventory_reservations"
+                  }
                 }
               ],
               "indexes": [
@@ -7016,6 +8177,16 @@
                   ],
                   "name": "inventory_movement_product_created_idx",
                   "unique": false
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "reservation_id"
+                  ],
+                  "name": "inventory_movement_reservation_key_3c5dba80",
+                  "prefix": "inventory_movement_reservation_key",
+                  "unique": true,
+                  "where": "\"reservation_id\" IS NOT NULL"
                 },
                 {
                   "columns": [
@@ -7103,8 +8274,8 @@
                   "prefix": "inventory_reservation_values_valid"
                 },
                 {
-                  "expression": "\"status\" IN ('ACTIVE', 'CONSUMED', 'RELEASED', 'EXPIRED')",
-                  "name": "inventory_reservations_status_check_e4d0c47e",
+                  "expression": "\"status\" IN ('ACTIVE', 'COMMITTED', 'CONSUMED', 'RELEASED', 'EXPIRED')",
+                  "name": "inventory_reservations_status_check_8533bca8",
                   "prefix": "inventory_reservations_status_check"
                 }
               ],
@@ -8961,6 +10132,750 @@
                 }
               ]
             },
+            "payment_attempts": {
+              "checks": [
+                {
+                  "expression": "\"attempt_number\" > 0 AND (\"provider_order_id\" IS NULL OR char_length(btrim(\"provider_order_id\")) > 0) AND (\"provider_preference_id\" IS NULL OR char_length(btrim(\"provider_preference_id\")) > 0) AND (\"checkout_url\" IS NULL OR \"checkout_url\" ~ '^https?://')",
+                  "name": "payment_attempt_values_valid_c3adc581",
+                  "prefix": "payment_attempt_values_valid"
+                },
+                {
+                  "expression": "\"status\" IN ('CREATED', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'REFUNDED', 'ERROR')",
+                  "name": "payment_attempts_status_check_ef2a1e2b",
+                  "prefix": "payment_attempts_status_check"
+                }
+              ],
+              "columns": {
+                "attempt_number": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "checkout_url": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 2048
+                  }
+                },
+                "completed_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "created_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "error_code": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 160
+                  }
+                },
+                "error_message": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 1000
+                  }
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "default": {
+                    "expression": "gen_random_uuid()",
+                    "kind": "function"
+                  },
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "organization_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "payment_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "provider_order_id": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 160
+                  }
+                },
+                "provider_preference_id": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 160
+                  }
+                },
+                "started_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "status": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "CREATED"
+                  },
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "PaymentLifecycleStatus",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "updated_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "name": "payment_attempt_organization_fkey",
+                  "onDelete": "restrict",
+                  "source": {
+                    "columns": [
+                      "organization_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "payment_attempts"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "organizations"
+                  }
+                },
+                {
+                  "name": "payment_attempt_payment_fkey",
+                  "onDelete": "restrict",
+                  "source": {
+                    "columns": [
+                      "organization_id",
+                      "payment_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "payment_attempts"
+                  },
+                  "target": {
+                    "columns": [
+                      "organization_id",
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "payments"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "organization_id",
+                    "payment_id",
+                    "status",
+                    "created_at"
+                  ],
+                  "name": "payment_attempt_payment_status_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "provider_order_id"
+                  ],
+                  "name": "payment_attempt_provider_order_key_207184d0",
+                  "prefix": "payment_attempt_provider_order_key",
+                  "unique": true,
+                  "where": "\"provider_order_id\" IS NOT NULL"
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "provider_preference_id"
+                  ],
+                  "name": "payment_attempt_provider_preference_key_45ef268b",
+                  "prefix": "payment_attempt_provider_preference_key",
+                  "unique": true,
+                  "where": "\"provider_preference_id\" IS NOT NULL"
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "status",
+                    "updated_at"
+                  ],
+                  "name": "payment_attempt_reconciliation_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "organization_id"
+                  ],
+                  "name": "payment_attempts_organization_id_idx_1a5cd3f5",
+                  "prefix": "payment_attempts_organization_id_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "payment_id"
+                  ],
+                  "name": "payment_attempts_organization_id_payment_id_idx_2d32040f",
+                  "prefix": "payment_attempts_organization_id_payment_id_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "organization_id",
+                    "payment_id",
+                    "attempt_number"
+                  ],
+                  "name": "payment_attempt_number_key"
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "id"
+                  ],
+                  "name": "payment_attempt_tenant_id_key"
+                }
+              ]
+            },
+            "payment_provider_events": {
+              "checks": [
+                {
+                  "expression": "char_length(btrim(\"provider_event_id\")) > 0 AND char_length(btrim(\"event_type\")) > 0 AND octet_length(\"payload_hash\") = 32 AND \"processing_attempts\" >= 0 AND ((NOT \"processed\" AND \"processed_at\" IS NULL) OR (\"processed\" AND \"processed_at\" IS NOT NULL))",
+                  "name": "payment_provider_event_values_valid_9864c1b3",
+                  "prefix": "payment_provider_event_values_valid"
+                },
+                {
+                  "expression": "\"provider\" IN ('MERCADOPAGO', 'FAKE')",
+                  "name": "payment_provider_events_provider_check_48eddf40",
+                  "prefix": "payment_provider_events_provider_check"
+                }
+              ],
+              "columns": {
+                "event_type": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 120
+                  }
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "default": {
+                    "expression": "gen_random_uuid()",
+                    "kind": "function"
+                  },
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "last_processing_error": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 1000
+                  }
+                },
+                "organization_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "payload_hash": {
+                  "codecId": "pg/bytea@1",
+                  "nativeType": "bytea",
+                  "nullable": false
+                },
+                "payment_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "processed": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "processed_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "processing_attempts": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "provider": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "PaymentProvider",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "provider_event_id": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 160
+                  }
+                },
+                "provider_resource_id": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 160
+                  }
+                },
+                "received_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "sanitized_payload": {
+                  "codecId": "pg/json@1",
+                  "nativeType": "json",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "name": "payment_provider_event_organization_fkey",
+                  "onDelete": "restrict",
+                  "source": {
+                    "columns": [
+                      "organization_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "payment_provider_events"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "organizations"
+                  }
+                },
+                {
+                  "name": "payment_provider_event_payment_fkey",
+                  "onDelete": "restrict",
+                  "source": {
+                    "columns": [
+                      "organization_id",
+                      "payment_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "payment_provider_events"
+                  },
+                  "target": {
+                    "columns": [
+                      "organization_id",
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "payments"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "organization_id",
+                    "processed",
+                    "received_at"
+                  ],
+                  "name": "payment_provider_event_processing_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "provider",
+                    "provider_resource_id"
+                  ],
+                  "name": "payment_provider_event_resource_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "organization_id"
+                  ],
+                  "name": "payment_provider_events_organization_id_idx_1a5cd3f5",
+                  "prefix": "payment_provider_events_organization_id_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "payment_id"
+                  ],
+                  "name": "payment_provider_events_organization_id_payment_id_idx_2d32040f",
+                  "prefix": "payment_provider_events_organization_id_payment_id_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "provider",
+                    "provider_event_id"
+                  ],
+                  "name": "payment_provider_event_dedup_key"
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "id"
+                  ],
+                  "name": "payment_provider_event_tenant_id_key"
+                }
+              ]
+            },
+            "payments": {
+              "checks": [
+                {
+                  "expression": "\"amount\" > 0 AND \"currency\" = upper(btrim(\"currency\")) AND char_length(\"currency\") = 3 AND char_length(btrim(\"provider_external_reference\")) > 0 AND (\"provider_payment_id\" IS NULL OR char_length(btrim(\"provider_payment_id\")) > 0)",
+                  "name": "payment_values_valid_1e7d7f73",
+                  "prefix": "payment_values_valid"
+                },
+                {
+                  "expression": "\"provider\" IN ('MERCADOPAGO', 'FAKE')",
+                  "name": "payments_provider_check_48eddf40",
+                  "prefix": "payments_provider_check"
+                },
+                {
+                  "expression": "\"status\" IN ('CREATED', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'REFUNDED', 'ERROR')",
+                  "name": "payments_status_check_ef2a1e2b",
+                  "prefix": "payments_status_check"
+                }
+              ],
+              "columns": {
+                "amount": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "approved_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "cancelled_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "created_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "currency": {
+                  "codecId": "sql/varchar@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "CLP"
+                  },
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 3
+                  }
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "default": {
+                    "expression": "gen_random_uuid()",
+                    "kind": "function"
+                  },
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "last_reconciled_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "order_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "organization_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "provider": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "PaymentProvider",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "provider_external_reference": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 160
+                  }
+                },
+                "provider_payment_id": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 160
+                  }
+                },
+                "provider_status": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 120
+                  }
+                },
+                "provider_status_detail": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 240
+                  }
+                },
+                "refunded_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "status": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "CREATED"
+                  },
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "PaymentLifecycleStatus",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "updated_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "name": "payment_organization_fkey",
+                  "onDelete": "restrict",
+                  "source": {
+                    "columns": [
+                      "organization_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "payments"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "organizations"
+                  }
+                },
+                {
+                  "name": "payment_order_fkey",
+                  "onDelete": "restrict",
+                  "source": {
+                    "columns": [
+                      "organization_id",
+                      "order_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "payments"
+                  },
+                  "target": {
+                    "columns": [
+                      "organization_id",
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "orders"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "organization_id",
+                    "order_id"
+                  ],
+                  "name": "payment_order_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "provider",
+                    "provider_payment_id"
+                  ],
+                  "name": "payment_provider_payment_id_key_52208e71",
+                  "prefix": "payment_provider_payment_id_key",
+                  "unique": true,
+                  "where": "\"provider_payment_id\" IS NOT NULL"
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "status",
+                    "updated_at"
+                  ],
+                  "name": "payment_status_updated_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "organization_id"
+                  ],
+                  "name": "payments_organization_id_idx_1a5cd3f5",
+                  "prefix": "payments_organization_id_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "organization_id",
+                    "order_id"
+                  ],
+                  "name": "payment_order_key"
+                },
+                {
+                  "columns": [
+                    "provider",
+                    "provider_external_reference"
+                  ],
+                  "name": "payment_provider_external_reference_key"
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "id"
+                  ],
+                  "name": "payment_tenant_id_key"
+                }
+              ]
+            },
             "permissions": {
               "checks": [
                 {
@@ -9353,6 +11268,234 @@
                     "key_hash"
                   ],
                   "name": "rate_limit_bucket_scope_key"
+                }
+              ]
+            },
+            "refunds": {
+              "checks": [
+                {
+                  "expression": "\"amount\" > 0 AND char_length(btrim(\"reason\")) >= 3 AND (\"provider_refund_id\" IS NULL OR char_length(btrim(\"provider_refund_id\")) > 0)",
+                  "name": "refund_values_valid_9e5d2734",
+                  "prefix": "refund_values_valid"
+                },
+                {
+                  "expression": "\"status\" IN ('CREATED', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'REFUNDED', 'ERROR')",
+                  "name": "refunds_status_check_ef2a1e2b",
+                  "prefix": "refunds_status_check"
+                }
+              ],
+              "columns": {
+                "actor_user_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": true
+                },
+                "amount": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "completed_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "created_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "default": {
+                    "expression": "gen_random_uuid()",
+                    "kind": "function"
+                  },
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "organization_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "payment_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "provider_refund_id": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 160
+                  }
+                },
+                "reason": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 1000
+                  }
+                },
+                "requested_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "status": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "CREATED"
+                  },
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "PaymentLifecycleStatus",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "updated_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "name": "refund_organization_fkey",
+                  "onDelete": "restrict",
+                  "source": {
+                    "columns": [
+                      "organization_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "refunds"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "organizations"
+                  }
+                },
+                {
+                  "name": "refund_payment_fkey",
+                  "onDelete": "restrict",
+                  "source": {
+                    "columns": [
+                      "organization_id",
+                      "payment_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "refunds"
+                  },
+                  "target": {
+                    "columns": [
+                      "organization_id",
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "payments"
+                  }
+                },
+                {
+                  "name": "refund_actor_fkey",
+                  "onDelete": "setNull",
+                  "source": {
+                    "columns": [
+                      "actor_user_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "refunds"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "users"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "actor_user_id"
+                  ],
+                  "name": "refund_actor_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "provider_refund_id"
+                  ],
+                  "name": "refund_provider_id_key_f334fafd",
+                  "prefix": "refund_provider_id_key",
+                  "unique": true,
+                  "where": "\"provider_refund_id\" IS NOT NULL"
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "status",
+                    "requested_at"
+                  ],
+                  "name": "refund_status_requested_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "organization_id"
+                  ],
+                  "name": "refunds_organization_id_idx_1a5cd3f5",
+                  "prefix": "refunds_organization_id_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "organization_id",
+                    "payment_id"
+                  ],
+                  "name": "refund_full_payment_key"
+                },
+                {
+                  "columns": [
+                    "organization_id",
+                    "id"
+                  ],
+                  "name": "refund_tenant_id_key"
                 }
               ]
             },
@@ -10224,6 +12367,7 @@
               "kind": "valueSet",
               "values": [
                 "ACTIVE",
+                "COMMITTED",
                 "CONSUMED",
                 "RELEASED",
                 "EXPIRED"
@@ -10261,6 +12405,25 @@
                 "INCIDENT"
               ]
             },
+            "PaymentLifecycleStatus": {
+              "kind": "valueSet",
+              "values": [
+                "CREATED",
+                "PENDING",
+                "APPROVED",
+                "REJECTED",
+                "CANCELLED",
+                "REFUNDED",
+                "ERROR"
+              ]
+            },
+            "PaymentProvider": {
+              "kind": "valueSet",
+              "values": [
+                "MERCADOPAGO",
+                "FAKE"
+              ]
+            },
             "PaymentStatus": {
               "kind": "valueSet",
               "values": [
@@ -10282,10 +12445,10 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "8043015b27b719508697e4eb1e9d67b20bf2e86e084981a0e244069229ca7db8"
+    "storageHash": "8f5007ad88822c9ece5890c5228418a473a1a4c95526960a54bcabec014bb966"
   },
   "execution": {
-    "executionHash": "af0e6dd3c0f70543593347aec45c7552a5871e9ee48dd288251d0a437a746587",
+    "executionHash": "7abeaeb4d855f2142a38a37bc91fbb8bf2d7a8647c7b2d84f479f3dbd7791ae5",
     "mutations": {
       "defaults": [
         {
@@ -10450,6 +12613,36 @@
           "ref": {
             "column": "updated_at",
             "namespace": "public",
+            "table": "payment_attempts"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "instantNow",
+            "kind": "generator"
+          },
+          "onUpdate": {
+            "id": "instantNow",
+            "kind": "generator"
+          },
+          "ref": {
+            "column": "updated_at",
+            "namespace": "public",
+            "table": "payments"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "instantNow",
+            "kind": "generator"
+          },
+          "onUpdate": {
+            "id": "instantNow",
+            "kind": "generator"
+          },
+          "ref": {
+            "column": "updated_at",
+            "namespace": "public",
             "table": "products"
           }
         },
@@ -10466,6 +12659,21 @@
             "column": "updated_at",
             "namespace": "public",
             "table": "rate_limit_buckets"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "instantNow",
+            "kind": "generator"
+          },
+          "onUpdate": {
+            "id": "instantNow",
+            "kind": "generator"
+          },
+          "ref": {
+            "column": "updated_at",
+            "namespace": "public",
+            "table": "refunds"
           }
         },
         {

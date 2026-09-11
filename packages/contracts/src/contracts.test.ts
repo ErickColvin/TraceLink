@@ -7,9 +7,15 @@ import {
   apiErrorResponseSchema,
   authSessionEnvelopeSchema,
   booleanQuerySchema,
+  cancelPaymentRequestSchema,
+  checkoutResponseSchema,
+  createCheckoutRequestSchema,
+  createFullRefundRequestSchema,
   createInventoryMovementRequestSchema,
   orderTransitionRequestSchema,
   packageTransitionTargetSchema,
+  paymentLifecycleStatusSchema,
+  paymentProviderSchema,
   paginationQuerySchema,
   productCommercialInputSchema,
   productListParamsSchema,
@@ -20,9 +26,10 @@ import {
 } from "./test-exports.js";
 
 describe("catálogos autoritativos", () => {
-  it("conserva exactamente las 19 permissions y seis roles de Fase 2", () => {
-    expect(PERMISSIONS).toHaveLength(19);
-    expect(new Set(PERMISSIONS)).toHaveLength(19);
+  it("conserva exactamente las 20 permissions y seis roles", () => {
+    expect(PERMISSIONS).toHaveLength(20);
+    expect(new Set(PERMISSIONS)).toHaveLength(20);
+    expect(PERMISSIONS).toContain("orders.refund");
     expect(ROLE_CODES).toHaveLength(6);
     expect(roleCodeSchema.safeParse("WAREHOUSE").success).toBe(true);
     expect(roleCodeSchema.safeParse("OWNER").success).toBe(false);
@@ -82,6 +89,113 @@ describe("fronteras de seguridad", () => {
 });
 
 describe("integridad de DTO", () => {
+  it("acepta checkout pickup sin confiar en totales ni identidad del cliente", () => {
+    expect(
+      createCheckoutRequestSchema.safeParse({
+        items: [{ productId: "product-1", quantity: 2 }],
+        fulfillmentMethod: "PICKUP",
+        notes: "Entregar por la tarde",
+      }).success,
+    ).toBe(true);
+    expect(
+      createCheckoutRequestSchema.safeParse({
+        items: [{ productId: "product-1", quantity: 2 }],
+        fulfillmentMethod: "DELIVERY",
+      }).success,
+    ).toBe(false);
+    expect(
+      createCheckoutRequestSchema.safeParse({
+        items: [{ productId: "product-1", quantity: 2 }],
+        fulfillmentMethod: "PICKUP",
+        total: 1,
+        customerId: "spoofed",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rechaza productos duplicados y cantidades no enteras en checkout", () => {
+    expect(
+      createCheckoutRequestSchema.safeParse({
+        items: [
+          { productId: "product-1", quantity: 1 },
+          { productId: "product-1", quantity: 2 },
+        ],
+        fulfillmentMethod: "PICKUP",
+      }).success,
+    ).toBe(false);
+    expect(
+      createCheckoutRequestSchema.safeParse({
+        items: [{ productId: "product-1", quantity: 1.5 }],
+        fulfillmentMethod: "PICKUP",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("mantiene enums y mutaciones de pago estrictos", () => {
+    expect(paymentProviderSchema.safeParse("MERCADOPAGO").success).toBe(true);
+    expect(paymentProviderSchema.safeParse("mercadopago").success).toBe(false);
+    expect(paymentLifecycleStatusSchema.safeParse("APPROVED").success).toBe(true);
+    expect(paymentLifecycleStatusSchema.safeParse("AUTHORIZED").success).toBe(false);
+    expect(
+      createFullRefundRequestSchema.safeParse({ reason: "Solicitud aprobada" })
+        .success,
+    ).toBe(true);
+    expect(
+      createFullRefundRequestSchema.safeParse({
+        reason: "Solicitud aprobada",
+        amount: 100,
+      }).success,
+    ).toBe(false);
+    expect(
+      cancelPaymentRequestSchema.safeParse({ reason: "Compra abandonada" })
+        .success,
+    ).toBe(true);
+  });
+
+  it("valida la respuesta autoritativa de checkout", () => {
+    const now = "2026-09-06T12:00:00.000Z";
+    const payment = {
+      id: "payment-1",
+      orderId: "order-1",
+      provider: "FAKE",
+      status: "PENDING",
+      amount: 10_000,
+      currency: "CLP",
+      providerExternalReference: "payment-1",
+      createdAt: now,
+      updatedAt: now,
+    };
+    expect(
+      checkoutResponseSchema.safeParse({
+        order: {
+          id: "order-1",
+          orderNumber: "CH-1001",
+          status: "PENDING_PAYMENT",
+          paymentStatus: "PENDING",
+          fulfillmentMethod: "PICKUP",
+          subtotal: 10_000,
+          discountTotal: 0,
+          deliveryFee: 0,
+          total: 10_000,
+          createdAt: now,
+        },
+        payment,
+        attempt: {
+          id: "attempt-1",
+          paymentId: "payment-1",
+          attemptNumber: 1,
+          status: "PENDING",
+          checkoutUrl: "https://payments.example.invalid/checkout/attempt-1",
+          startedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        },
+        checkoutUrl: "https://payments.example.invalid/checkout/attempt-1",
+        reservationExpiresAt: "2026-09-06T12:15:00.000Z",
+      }).success,
+    ).toBe(true);
+  });
+
   it("rechaza CLP fraccional", () => {
     const result = productCommercialInputSchema.safeParse({
       sku: "SKU-1",

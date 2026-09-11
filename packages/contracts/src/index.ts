@@ -6,6 +6,7 @@ export * from "./errors/index.js";
 export * from "./inventory/index.js";
 export * from "./orders/index.js";
 export * from "./packages/index.js";
+export * from "./payments/index.js";
 export * from "./pagination/index.js";
 export * from "./products/index.js";
 export * from "./reports/index.js";
