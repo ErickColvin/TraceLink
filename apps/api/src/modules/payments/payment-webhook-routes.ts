@@ -1,4 +1,5 @@
 import { Router, type RequestHandler } from "express";
+import type { Logger } from "pino";
 import { z } from "zod";
 
 import type { PostgresDatabase } from "../../database/index.js";
@@ -32,6 +33,7 @@ function requiredHeader(request: Parameters<RequestHandler>[0], name: string): s
 export function createPaymentWebhookRouter(options: Readonly<{
   database: PostgresDatabase;
   provider: PaymentProvider;
+  logger: Logger;
 }>): Router {
   const router = Router();
   const service = new PaymentWebhookService(options.database, options.provider);
@@ -48,6 +50,14 @@ export function createPaymentWebhookRouter(options: Readonly<{
         message: "El recurso del webhook no coincide con el query param.",
       });
     }
+    const requestId = getResponseRequestId(response);
+    options.logger.info({
+      event: "payment.webhook.received",
+      requestId,
+      provider: options.provider.code,
+      providerEventId: body.id,
+      providerOrderId: dataId,
+    });
     const result = await service.process({
       eventId: body.id,
       eventType: body.type,
@@ -55,12 +65,21 @@ export function createPaymentWebhookRouter(options: Readonly<{
       dataId,
       signature: requiredHeader(request, "x-signature"),
       providerRequestId: requiredHeader(request, "x-request-id"),
-      requestId: getResponseRequestId(response),
+      requestId,
       ...(body.live_mode === undefined ? {} : { liveMode: body.live_mode }),
       ...(body.date_created === undefined ? {} : { dateCreated: body.date_created }),
+    });
+    options.logger.info({
+      event: result.duplicate
+        ? "payment.webhook.duplicate"
+        : "payment.webhook.validated",
+      requestId,
+      provider: options.provider.code,
+      providerEventId: body.id,
+      providerOrderId: dataId,
+      outcome: result.outcome,
     });
     response.status(200).json({ received: true, ...result });
   });
   return router;
 }
-

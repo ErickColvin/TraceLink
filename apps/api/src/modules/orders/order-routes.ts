@@ -1,4 +1,5 @@
 import { Router, type RequestHandler } from "express";
+import type { Logger } from "pino";
 
 import type { AppConfig } from "../../config/env.js";
 import type { PostgresDatabase } from "../../database/index.js";
@@ -26,6 +27,7 @@ export function createOrderRouter(options: Readonly<{
   paymentProvider: PaymentProvider;
   authenticate: RequestHandler;
   csrf: RequestHandler;
+  logger: Logger;
 }>): Router {
   const controller = createOrderController(
     new OrderService(options.database, options.config.idempotencySecret),
@@ -76,6 +78,16 @@ export function createOrderRouter(options: Readonly<{
         requestId: getResponseRequestId(response),
       });
       if (result.replayed) response.setHeader("Idempotency-Replayed", "true");
+      options.logger.info({
+        event: "payment.retry.created",
+        requestId: getResponseRequestId(response),
+        organizationId: auth.organization.id,
+        userId: auth.user.id,
+        orderId: id,
+        paymentId: result.body.payment.id,
+        provider: result.body.payment.provider,
+        replayed: result.replayed,
+      });
       response.status(201).json(result.body);
     },
   );
@@ -98,6 +110,14 @@ export function createOrderRouter(options: Readonly<{
         requestId: getResponseRequestId(response),
       });
       if (result.replayed) response.setHeader("Idempotency-Replayed", "true");
+      options.logger.info({
+        event: "order.cancelled",
+        requestId: getResponseRequestId(response),
+        organizationId: auth.organization.id,
+        userId: auth.user.id,
+        orderId: id,
+        replayed: result.replayed,
+      });
       response.status(result.statusCode).json(result.body);
     },
   );
@@ -136,6 +156,17 @@ export function createOrderRouter(options: Readonly<{
         requestId: getResponseRequestId(response),
       });
       if (result.replayed) response.setHeader("Idempotency-Replayed", "true");
+      options.logger.info({
+        event: "payment.refund.completed",
+        requestId: getResponseRequestId(response),
+        organizationId: auth.organization.id,
+        userId: auth.user.id,
+        orderId: id,
+        paymentId: result.body.payment.id,
+        provider: result.body.payment.provider,
+        refundId: result.body.refund.id,
+        replayed: result.replayed,
+      });
       response.status(200).json(result.body);
     },
   );

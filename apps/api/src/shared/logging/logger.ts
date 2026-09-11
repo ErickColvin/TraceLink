@@ -198,14 +198,15 @@ function serializeResponse(value: unknown): Readonly<Record<string, unknown>> {
 }
 
 export function createLogger(
-  config: Pick<AppConfig, "nodeEnv" | "logLevel">,
+  config: Pick<AppConfig, "nodeEnv" | "logLevel"> &
+    Partial<Pick<AppConfig, "appEnv">>,
   destination?: DestinationStream,
 ): Logger {
   const options: LoggerOptions = {
     level: config.logLevel,
     base: {
       service: "tracelink-api",
-      environment: config.nodeEnv,
+      environment: config.appEnv ?? config.nodeEnv,
     },
     redact: {
       censor: "[REDACTED]",

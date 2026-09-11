@@ -1,4 +1,5 @@
 import { Router, type RequestHandler } from "express";
+import type { Logger } from "pino";
 
 import type { AppConfig } from "../../config/env.js";
 import type { PostgresDatabase } from "../../database/index.js";
@@ -13,6 +14,7 @@ export function createCheckoutRouter(options: Readonly<{
   provider: PaymentProvider;
   authenticate: RequestHandler;
   csrf: RequestHandler;
+  logger: Logger;
 }>): Router {
   const router = Router();
   const service = new CheckoutService({
@@ -26,8 +28,7 @@ export function createCheckoutRouter(options: Readonly<{
     options.authenticate,
     requireCustomer(),
     options.csrf,
-    createCheckoutController(service),
+    createCheckoutController(service, options.logger),
   );
   return router;
 }
-

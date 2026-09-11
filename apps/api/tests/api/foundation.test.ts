@@ -41,16 +41,32 @@ describe("API foundation", () => {
     });
   });
 
-  it("reports a sanitized degraded state when the database probe fails", async () => {
+  it("keeps liveness healthy when the database probe fails", async () => {
     const response = await request(
       createTestApp(async () => {
         throw new Error("postgresql://admin:secret@database/private");
       }),
     ).get("/api/v1/health");
 
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      status: "ok",
+      checks: { application: "up" },
+    });
+    expect(response.text).not.toContain("admin");
+    expect(response.text).not.toContain("secret");
+  });
+
+  it("reports sanitized readiness failure when PostgreSQL is unavailable", async () => {
+    const response = await request(
+      createTestApp(async () => {
+        throw new Error("postgresql://admin:secret@database/private");
+      }),
+    ).get("/api/v1/health/ready");
+
     expect(response.status).toBe(503);
     expect(response.body).toMatchObject({
-      status: "degraded",
+      status: "not_ready",
       checks: { application: "up", database: "down" },
     });
     expect(response.text).not.toContain("admin");

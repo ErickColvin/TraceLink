@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { Logger } from "pino";
 
 import type { AppConfig } from "../config/env.js";
 import type { PostgresDatabase } from "../database/index.js";
@@ -22,6 +23,7 @@ export function createApiRouter(options: Readonly<{
   database: PostgresDatabase;
   config: AppConfig;
   paymentProvider: PaymentProvider;
+  logger: Logger;
 }>): Router {
   const router = Router();
   const authRepository = new PostgresAuthRepository(options.database);
@@ -40,6 +42,7 @@ export function createApiRouter(options: Readonly<{
       provider: options.paymentProvider,
       authenticate,
       csrf,
+      logger: options.logger,
     }),
   );
 
@@ -69,6 +72,7 @@ export function createApiRouter(options: Readonly<{
       paymentProvider: options.paymentProvider,
       authenticate,
       csrf,
+      logger: options.logger,
     }),
   );
   router.use(

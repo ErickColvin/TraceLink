@@ -40,11 +40,10 @@ export function createHealthRouter(readinessCheck: ReadinessCheck): Router {
     });
   });
 
-  router.get("/", async (_request, response) => {
-    const state = await resolveHealthState(readinessCheck);
-    response.status(state.ready ? 200 : 503).json({
-      status: state.ready ? "ok" : "degraded",
-      checks: { application: "up", database: state.database },
+  router.get("/", (_request, response) => {
+    response.status(200).json({
+      status: "ok",
+      checks: { application: "up" },
       requestId: getResponseRequestId(response),
     });
   });

@@ -1,0 +1,28 @@
+name: Availability monitor
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: availability-monitor
+  cancel-in-progress: true
+
+jobs:
+  production:
+    name: Frontend, health and readiness
+    if: vars.PRODUCTION_WEB_URL != '' && vars.PRODUCTION_API_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: node tools/smoke-deployment.mjs
+        env:
+          SMOKE_WEB_URL: ${{ vars.PRODUCTION_WEB_URL }}
+          SMOKE_API_URL: ${{ vars.PRODUCTION_API_URL }}

@@ -97,6 +97,7 @@ export function createApp(options: CreateAppOptions): Express {
       createPaymentWebhookRouter({
         database: options.database,
         provider: paymentProvider,
+        logger,
       }),
     );
   }
@@ -115,6 +116,7 @@ export function createApp(options: CreateAppOptions): Express {
         database: options.database,
         config,
         paymentProvider,
+        logger,
       }),
     );
   }
