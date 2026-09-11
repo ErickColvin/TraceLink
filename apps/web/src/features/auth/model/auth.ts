@@ -8,6 +8,7 @@ export const PERMISSIONS = Object.freeze([
   "orders.view",
   "orders.update",
   "orders.cancel",
+  "orders.refund",
   "packages.view",
   "packages.receive",
   "packages.update",
@@ -83,6 +84,14 @@ export type SignInCredentials = Readonly<{
   audience: AuthAudience;
   email: string;
   password: string;
+}>;
+
+export type RegisterCredentials = Readonly<{
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phone?: string;
 }>;
 
 export function isCustomerSession(

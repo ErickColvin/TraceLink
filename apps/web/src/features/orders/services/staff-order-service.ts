@@ -1,5 +1,6 @@
 import type {
   CancelStaffOrderInput,
+  FullRefundResult,
   StaffOrder,
   StaffOrderListParams,
   StaffOrderPage,
@@ -17,6 +18,10 @@ export interface StaffOrderService {
     options?: RequestOptions,
   ): Promise<StaffOrder>;
   cancel(input: CancelStaffOrderInput, options?: RequestOptions): Promise<StaffOrder>;
+  refund(
+    input: Readonly<{ orderId: string; reason: string }>,
+    options?: RequestOptions,
+  ): Promise<FullRefundResult>;
 }
 
 export class StaffOrderNotFoundError extends Error {

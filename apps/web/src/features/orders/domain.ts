@@ -1,3 +1,10 @@
+import type {
+  CustomerOrderCancellationResponse,
+  FullRefundResponse,
+  PaymentDetails,
+  RetryPaymentResponse,
+} from "@tracelink/contracts";
+
 export const ORDER_STATUSES = [
   "PENDING_PAYMENT",
   "PAID",
@@ -46,6 +53,7 @@ export interface Order {
   pickupLocation?: string;
   notes?: string;
   packageIds: string[];
+  paymentDetails?: PaymentDetails;
 }
 
 export const ORDER_SORT_OPTIONS = ["NEWEST", "OLDEST", "TOTAL_DESC", "TOTAL_ASC"] as const;
@@ -136,3 +144,7 @@ export type CancelStaffOrderInput = Readonly<{
   reason: string;
   actor: OrderActor;
 }>;
+
+export type RetryCustomerPaymentResult = RetryPaymentResponse;
+export type CancelCustomerOrderResult = CustomerOrderCancellationResponse;
+export type FullRefundResult = FullRefundResponse;

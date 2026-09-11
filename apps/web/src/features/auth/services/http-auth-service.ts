@@ -9,6 +9,7 @@ import {
   type AuthAudience,
   type AuthenticatedSession,
   type AuthSession,
+  type RegisterCredentials,
   type SignInCredentials,
 } from "../model/auth";
 import { HttpClient, HttpClientError } from "../../../lib/http/http-client";
@@ -104,6 +105,20 @@ export class HttpAuthService implements AuthService {
   ): Promise<AuthenticatedSession> {
     try {
       const envelope = await this.#getSessionEnvelope("/auth/login", {
+        method: "POST",
+        body: credentials,
+      });
+      return toFrontendSession(envelope.session);
+    } catch (error: unknown) {
+      throw toAuthError(error);
+    }
+  }
+
+  async register(
+    credentials: RegisterCredentials,
+  ): Promise<AuthenticatedSession> {
+    try {
+      const envelope = await this.#getSessionEnvelope("/auth/register", {
         method: "POST",
         body: credentials,
       });

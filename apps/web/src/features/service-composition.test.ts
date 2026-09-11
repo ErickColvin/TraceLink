@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { HttpAuthService } from "./auth/services/http-auth-service";
 import { MockAuthService } from "./auth/services/mock-auth-service";
+import { HttpCheckoutService } from "./checkout/services/http-checkout-service";
 import {
   composeApplicationServices,
   createMockApplicationServices,
@@ -21,6 +22,7 @@ describe("service composition root", () => {
     });
 
     expect(services.authService).toBeInstanceOf(HttpAuthService);
-    expect(Object.keys(services)).toHaveLength(15);
+    expect(services.checkoutService).toBeInstanceOf(HttpCheckoutService);
+    expect(Object.keys(services)).toHaveLength(16);
   });
 });

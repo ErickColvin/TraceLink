@@ -5,6 +5,7 @@ import {
   type AuthenticatedSession,
   type AuthSession,
   type CustomerSession,
+  type RegisterCredentials,
   type SignInCredentials,
   type StaffSession,
 } from "../model/auth";
@@ -51,6 +52,15 @@ export class MockAuthService implements AuthService {
     );
   }
 
+  async register(
+    credentials: RegisterCredentials,
+  ): Promise<AuthenticatedSession> {
+    const session = this.createRegisteredCustomerSession(credentials);
+    this.sessionContext.setCurrentCustomer(session.customer.customerId);
+    this.currentSession = session;
+    return session;
+  }
+
   async startDemoSession(
     audience: AuthAudience,
   ): Promise<AuthenticatedSession> {
@@ -84,6 +94,23 @@ export class MockAuthService implements AuthService {
         firstName: "Valentina",
         lastName: "Rojas",
         email: "valentina.rojas@example.cl",
+      },
+    };
+  }
+
+  private createRegisteredCustomerSession(
+    credentials: RegisterCredentials,
+  ): CustomerSession {
+    return {
+      kind: "customer",
+      authSource: "demo",
+      authenticatedAt: this.now().toISOString(),
+      customer: {
+        id: "account-customer-demo-registration",
+        customerId: DEMO_CUSTOMER_ID,
+        firstName: credentials.firstName.trim(),
+        lastName: credentials.lastName.trim(),
+        email: credentials.email.trim(),
       },
     };
   }

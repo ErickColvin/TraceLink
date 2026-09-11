@@ -25,20 +25,20 @@ describe("MockStaffOrderService", () => {
 
   it("aplica una transición válida y registra el evento auditado", async () => {
     const service = new MockStaffOrderService({ latencyMs: 0, now: fixedNow });
-    const before = await service.getById("order-2026-0849");
+    const before = await service.getById("order-2026-0845");
 
     const result = await service.transitionStatus({
       orderId: before.id,
-      toStatus: "PAID",
+      toStatus: "PREPARING",
       actor,
     });
 
-    expect(result.status).toBe("PAID");
+    expect(result.status).toBe("PREPARING");
     expect(result.paymentStatus).toBe("PAID");
     expect(result.statusEvents).toHaveLength(before.statusEvents.length + 1);
     expect(result.statusEvents.at(-1)).toMatchObject({
-      fromStatus: "PENDING_PAYMENT",
-      toStatus: "PAID",
+      fromStatus: "PAID",
+      toStatus: "PREPARING",
       actorId: actor.id,
       actorName: actor.name,
       occurredAt: "2026-08-30T12:00:00.000Z",
@@ -67,14 +67,14 @@ describe("MockStaffOrderService", () => {
 
     await expect(
       service.cancel({
-        orderId: "order-2026-0845",
+        orderId: "order-2026-0849",
         reason: "   ",
         actor,
       }),
     ).rejects.toMatchObject({ name: "InvalidOrderCancellationError" });
 
     const result = await service.cancel({
-      orderId: "order-2026-0845",
+      orderId: "order-2026-0849",
       reason: "  Cliente solicitó anular el retiro.  ",
       actor,
     });
@@ -84,7 +84,7 @@ describe("MockStaffOrderService", () => {
       "Cliente solicitó anular el retiro.",
     );
     expect(result.statusEvents.at(-1)).toMatchObject({
-      fromStatus: "PAID",
+      fromStatus: "PENDING_PAYMENT",
       toStatus: "CANCELLED",
       actorId: actor.id,
       reason: "Cliente solicitó anular el retiro.",

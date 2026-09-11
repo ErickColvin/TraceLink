@@ -3,6 +3,9 @@ import { HttpClient } from "../lib/http/http-client";
 import type { AuthService } from "./auth/services/auth-service";
 import { HttpAuthService } from "./auth/services/http-auth-service";
 import { MockAuthService } from "./auth/services/mock-auth-service";
+import type { CheckoutService } from "./checkout/services/checkout-service";
+import { HttpCheckoutService } from "./checkout/services/http-checkout-service";
+import { MockCheckoutService } from "./checkout/services/mock-checkout-service";
 import type {
   CustomerSelfService,
   CustomerService,
@@ -49,6 +52,7 @@ import type { UserService } from "./users/services/user-service";
 
 export type ApplicationServices = Readonly<{
   authService: AuthService;
+  checkoutService: CheckoutService;
   customerSelfService: CustomerSelfService;
   customerService: CustomerService;
   dashboardService: DashboardService;
@@ -80,6 +84,7 @@ export function createMockApplicationServices(): ApplicationServices {
 
   return Object.freeze({
     authService: new MockAuthService(),
+    checkoutService: new MockCheckoutService(),
     customerSelfService: customerService,
     customerService,
     dashboardService: new MockDashboardService({
@@ -110,6 +115,7 @@ export function createHttpApplicationServices(
 
   return Object.freeze({
     authService: new HttpAuthService(client),
+    checkoutService: new HttpCheckoutService(client),
     customerSelfService,
     customerService: {
       getCurrent: () => customerSelfService.getCurrent(),

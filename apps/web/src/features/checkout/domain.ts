@@ -1,6 +1,7 @@
 import type { CartItem } from "@/features/cart/domain/cart";
+import type { CheckoutResponse } from "@tracelink/contracts";
 
-export const DELIVERY_METHODS = ["PICKUP", "DELIVERY"] as const;
+export const DELIVERY_METHODS = ["PICKUP"] as const;
 
 export type DeliveryMethod = (typeof DELIVERY_METHODS)[number];
 
@@ -38,5 +39,5 @@ export type CheckoutReceipt = {
 export type CheckoutSubmissionState =
   | { kind: "idle" }
   | { kind: "pending" }
-  | { kind: "success"; receipt: CheckoutReceipt }
+  | { kind: "success"; receipt: CheckoutReceipt | CheckoutResponse }
   | { kind: "error"; message: string };

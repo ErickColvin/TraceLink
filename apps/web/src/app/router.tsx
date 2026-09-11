@@ -1,6 +1,6 @@
 import { lazy, Suspense, type PropsWithChildren } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { CustomerRoute, LoginPage, StaffRoute } from "@/features/auth";
+import { CustomerRoute, LoginPage, RegisterPage, StaffRoute } from "@/features/auth";
 import { CartPage } from "@/features/cart/cart-page";
 import { AboutPage } from "@/features/content/pages/about-page";
 import { ContactPage } from "@/features/content/pages/contact-page";
@@ -21,6 +21,9 @@ import { PublicLayout } from "@/layouts/public-layout";
 
 const CheckoutPage = lazy(() =>
   import("@/features/checkout/pages/checkout-page").then((module) => ({ default: module.CheckoutPage })),
+);
+const CheckoutResultPage = lazy(() =>
+  import("@/features/checkout/pages/checkout-result-page").then((module) => ({ default: module.CheckoutResultPage })),
 );
 const AdminDashboardPage = lazy(() =>
   import("@/features/dashboard/pages/admin-dashboard-page").then((module) => ({ default: module.AdminDashboardPage })),
@@ -104,8 +107,9 @@ export function AppRouter() {
         <Route path="nosotros" element={<AboutPage />} />
         <Route path="contacto" element={<ContactPage />} />
         <Route path="carrito" element={<CartPage />} />
-        <Route path="checkout" element={<DeferredRoute><CheckoutPage /></DeferredRoute>} />
-        <Route path="registro" element={<Navigate replace to="/login" />} />
+        <Route path="checkout" element={<CustomerRoute><DeferredRoute><CheckoutPage /></DeferredRoute></CustomerRoute>} />
+        <Route path="checkout/resultado" element={<DeferredRoute><CheckoutResultPage /></DeferredRoute>} />
+        <Route path="registro" element={<RegisterPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
 

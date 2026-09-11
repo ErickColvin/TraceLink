@@ -9,6 +9,8 @@ import {
 } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
+import { AppRouter } from "../../../app/router";
+import { CartProvider } from "../../cart/cart-provider";
 import { AuthProvider } from "../context/auth-provider";
 import type {
   AuthSession,
@@ -23,6 +25,13 @@ function createStaticService(session: AuthSession): AuthService {
   return {
     demoSessionsEnabled: false,
     getSession: async () => session,
+    register: async () => {
+      if (session.kind === "anonymous") {
+        throw new Error("No authenticated session configured for this test.");
+      }
+
+      return session;
+    },
     signIn: async (credentials: SignInCredentials) => {
       void credentials;
       if (session.kind === "anonymous") {
@@ -76,6 +85,22 @@ const limitedStaffSession: StaffSession = {
 };
 
 describe("authentication route guards", () => {
+  it("expone el formulario público en /registro", async () => {
+    render(
+      <MemoryRouter initialEntries={["/registro"]}>
+        <AuthTestProvider session={{ kind: "anonymous" }}>
+          <CartProvider>
+            <AppRouter />
+          </CartProvider>
+        </AuthTestProvider>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Crea tu cuenta" }),
+    ).toBeInTheDocument();
+  });
+
   it("sends anonymous customers to login and safely preserves their location", async () => {
     render(
       <MemoryRouter

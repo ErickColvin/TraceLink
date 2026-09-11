@@ -66,3 +66,21 @@ export function useCancelStaffOrder() {
     },
   });
 }
+
+export function useRefundStaffOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: Readonly<{ orderId: string; reason: string }>) =>
+      staffOrderService.refund(input),
+    onSuccess: async (result) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: staffOrderKeys.lists() }),
+        queryClient.invalidateQueries({
+          queryKey: staffOrderKeys.detail(result.payment.orderId),
+        }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
+    },
+  });
+}

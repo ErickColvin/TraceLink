@@ -113,8 +113,8 @@ describe("MockDashboardService", () => {
         fullName: "Cliente Prueba",
         email: "cliente@example.cl",
       },
-      status: "PENDING_PAYMENT",
-      paymentStatus: "PENDING",
+      status: "PAID",
+      paymentStatus: "PAID",
       fulfillmentMethod: "PICKUP",
       items: [],
       subtotal: 5_000,
@@ -130,7 +130,7 @@ describe("MockDashboardService", () => {
           id: "order-test-event-1",
           orderId: "order-test",
           fromStatus: null,
-          toStatus: "PENDING_PAYMENT",
+          toStatus: "PAID",
           occurredAt: "2026-08-30T12:00:00.000Z",
           actorId: "system",
           actorName: "Sistema demo",
@@ -167,7 +167,7 @@ describe("MockDashboardService", () => {
 
     const before = await dashboardService.getOverview();
     expect(before.kpis).toMatchObject({
-      salesTodayClp: 0,
+      salesTodayClp: 5_000,
       ordersToday: 1,
       pendingOrders: 1,
       storedPackages: 1,
@@ -179,11 +179,6 @@ describe("MockDashboardService", () => {
       type: "PURCHASE_RECEIPT",
       quantity: 4,
       adjustmentDirection: "INCREASE",
-    });
-    await staffOrderService.transitionStatus({
-      orderId: order.id,
-      toStatus: "PAID",
-      actor: { id: "staff-test", name: "Personal prueba" },
     });
     await staffOrderService.transitionStatus({
       orderId: order.id,

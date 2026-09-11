@@ -3,6 +3,7 @@ import { delay } from "@/lib/delay";
 import { mockStaffOrders } from "../data/mock-staff-orders";
 import type {
   CancelStaffOrderInput,
+  FullRefundResult,
   OrderStatus,
   StaffOrder,
   StaffOrderListParams,
@@ -238,5 +239,37 @@ export class MockStaffOrderService implements StaffOrderService {
     };
     this.orders[index] = next;
     return cloneStaffOrder(next);
+  }
+
+  async refund(input: Readonly<{ orderId: string; reason: string }>): Promise<FullRefundResult> {
+    await delay(this.latencyMs);
+    const order = await this.getById(input.orderId);
+    const now = this.now().toISOString();
+
+    return {
+      payment: {
+        id: `${order.id}-payment`,
+        orderId: order.id,
+        provider: "FAKE",
+        status: "REFUNDED",
+        amount: order.total,
+        currency: "CLP",
+        providerExternalReference: `${order.id}-mock`,
+        refundedAt: now,
+        createdAt: order.createdAt,
+        updatedAt: now,
+      },
+      refund: {
+        id: `${order.id}-refund`,
+        paymentId: `${order.id}-payment`,
+        status: "REFUNDED",
+        amount: order.total,
+        reason: input.reason,
+        requestedAt: now,
+        completedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    };
   }
 }

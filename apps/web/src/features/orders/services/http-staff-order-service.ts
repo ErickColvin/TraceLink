@@ -1,4 +1,8 @@
-import { staffOrderPageSchema, staffOrderSchema } from "@tracelink/contracts";
+import {
+  fullRefundResponseSchema,
+  staffOrderPageSchema,
+  staffOrderSchema,
+} from "@tracelink/contracts";
 
 import {
   encodePathSegment,
@@ -8,6 +12,7 @@ import {
 } from "../../../lib/http/http-client";
 import type {
   CancelStaffOrderInput,
+  FullRefundResult,
   StaffOrder,
   StaffOrderListParams,
   StaffOrderPage,
@@ -63,6 +68,22 @@ export class HttpStaffOrderService implements StaffOrderService {
         csrf: true,
         idempotencyKey: resolveIdempotencyKey(options),
         responseSchema: staffOrderSchema,
+      },
+    );
+  }
+
+  refund(
+    input: Readonly<{ orderId: string; reason: string }>,
+    options?: RequestOptions,
+  ): Promise<FullRefundResult> {
+    return this.#client.request(
+      `/staff/orders/${encodePathSegment(input.orderId)}/refunds`,
+      {
+        method: "POST",
+        body: { reason: input.reason },
+        csrf: true,
+        idempotencyKey: resolveIdempotencyKey(options),
+        responseSchema: fullRefundResponseSchema,
       },
     );
   }

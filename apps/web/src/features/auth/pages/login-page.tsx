@@ -64,6 +64,9 @@ export function LoginPage() {
   const [searchParams] = useSearchParams();
   const [activeDemo, setActiveDemo] = useState<AuthAudience | null>(null);
   const requestedPath = sanitizeInternalPath(searchParams.get("returnTo"));
+  const registrationPath = requestedPath
+    ? `/registro?returnTo=${encodeURIComponent(requestedPath)}`
+    : "/registro";
   const {
     register,
     handleSubmit,
@@ -360,7 +363,13 @@ export function LoginPage() {
             ) : null}
           </CardContent>
 
-          <CardFooter className="bg-ink-50">
+          <CardFooter className="flex-col items-start gap-3 bg-ink-50">
+            <p className="text-sm text-ink-700">
+              ¿Aún no tienes cuenta?{" "}
+              <Link className="font-bold text-brand-700 hover:text-brand-800" to={registrationPath}>
+                Regístrate como cliente
+              </Link>
+            </p>
             <p className="text-xs leading-5 text-ink-600">
               {demoSessionsEnabled
                 ? "Los accesos demo no usan credenciales y su sesión vive únicamente en memoria. No ingreses una contraseña real en este entorno."

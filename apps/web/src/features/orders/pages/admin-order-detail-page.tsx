@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   CircleDot,
+  RotateCcw,
   MapPin,
   UserRound,
 } from "lucide-react";
@@ -30,6 +31,7 @@ import {
 import { useAuth, useHasPermission } from "../../auth";
 import {
   useCancelStaffOrder,
+  useRefundStaffOrder,
   useStaffOrder,
   useTransitionStaffOrder,
 } from "../queries/staff-order-queries";
@@ -56,13 +58,18 @@ export function AdminOrderDetailPage() {
   const canView = useHasPermission("orders.view");
   const canUpdate = useHasPermission("orders.update");
   const canCancel = useHasPermission("orders.cancel");
+  const canRefund = useHasPermission("orders.refund");
   const orderQuery = useStaffOrder(canView ? id : undefined);
   const transitionMutation = useTransitionStaffOrder();
   const cancelMutation = useCancelStaffOrder();
+  const refundMutation = useRefundStaffOrder();
   const [feedback, setFeedback] = useState<MutationFeedback>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [refundReason, setRefundReason] = useState("");
   const [cancelReasonError, setCancelReasonError] = useState<string | null>(null);
+  const [refundReasonError, setRefundReasonError] = useState<string | null>(null);
 
   if (!canView) {
     return (
@@ -118,7 +125,9 @@ export function AdminOrderDetailPage() {
         }
       : null;
   const mutationPending =
-    transitionMutation.isPending || cancelMutation.isPending;
+    transitionMutation.isPending || cancelMutation.isPending || refundMutation.isPending;
+  const payment = order.paymentDetails?.payment;
+  const canRequestRefund = canRefund && payment?.status === "APPROVED";
 
   const handleTransition = async () => {
     if (!nextStatus || !actor || mutationPending) return;
@@ -170,6 +179,35 @@ export function AdminOrderDetailPage() {
       });
     } catch (error: unknown) {
       setCancelReasonError(getErrorMessage(error));
+    }
+  };
+
+  const handleRefund = async () => {
+    if (refundMutation.isPending) return;
+    const normalizedReason = refundReason.trim();
+
+    if (normalizedReason.length < 3) {
+      setRefundReasonError("Escribe un motivo de al menos 3 caracteres.");
+      return;
+    }
+
+    setRefundReasonError(null);
+    setFeedback(null);
+    try {
+      await refundMutation.mutateAsync({
+        orderId: order.id,
+        reason: normalizedReason,
+      });
+      setRefundDialogOpen(false);
+      setRefundReason("");
+      setFeedback({
+        tone: "success",
+        title: "Reembolso solicitado",
+        description: "El reembolso total quedo registrado sin retornar stock.",
+      });
+      await orderQuery.refetch();
+    } catch (error: unknown) {
+      setRefundReasonError(getErrorMessage(error));
     }
   };
 
@@ -238,6 +276,16 @@ export function AdminOrderDetailPage() {
                     onClick={() => setCancelDialogOpen(true)}
                   >
                     Cancelar pedido
+                  </Button>
+                ) : null}
+                {canRequestRefund ? (
+                  <Button
+                    variant="outline"
+                    disabled={mutationPending}
+                    onClick={() => setRefundDialogOpen(true)}
+                  >
+                    <RotateCcw aria-hidden="true" />
+                    Reembolso total
                   </Button>
                 ) : null}
               </div>
@@ -388,6 +436,11 @@ export function AdminOrderDetailPage() {
               <div className="text-ink-600">
                 Pago: {order.paymentStatus === "PAID" ? "Pagado" : order.paymentStatus === "REFUNDED" ? "Reembolsado" : "Pendiente"}
               </div>
+              {payment ? (
+                <div className="text-ink-600">
+                  Proveedor: {payment.provider} / {payment.status}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -441,6 +494,45 @@ export function AdminOrderDetailPage() {
         {cancelReasonError ? (
           <p id="order-cancellation-error" className="mt-2 text-sm font-semibold text-coral-700" role="alert">
             {cancelReasonError}
+          </p>
+        ) : null}
+      </ConfirmationDialog>
+      <ConfirmationDialog
+        open={refundDialogOpen}
+        title={`Reembolsar ${order.orderNumber}`}
+        description="El reembolso es total, requiere motivo y no devuelve stock al inventario."
+        confirmLabel="Confirmar reembolso"
+        cancelLabel="Cerrar"
+        pending={refundMutation.isPending}
+        tone="danger"
+        onConfirm={() => void handleRefund()}
+        onOpenChange={(open) => {
+          if (refundMutation.isPending) return;
+          setRefundDialogOpen(open);
+          if (!open) {
+            setRefundReason("");
+            setRefundReasonError(null);
+          }
+        }}
+      >
+        <Label htmlFor="order-refund-reason">Motivo del reembolso</Label>
+        <textarea
+          id="order-refund-reason"
+          rows={4}
+          value={refundReason}
+          disabled={refundMutation.isPending}
+          aria-invalid={Boolean(refundReasonError)}
+          aria-describedby={refundReasonError ? "order-refund-error" : undefined}
+          className="mt-1.5 w-full resize-y rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-60"
+          placeholder="Ej.: solicitud confirmada por el cliente"
+          onChange={(event) => {
+            setRefundReason(event.target.value);
+            if (refundReasonError) setRefundReasonError(null);
+          }}
+        />
+        {refundReasonError ? (
+          <p id="order-refund-error" className="mt-2 text-sm font-semibold text-coral-700" role="alert">
+            {refundReasonError}
           </p>
         ) : null}
       </ConfirmationDialog>

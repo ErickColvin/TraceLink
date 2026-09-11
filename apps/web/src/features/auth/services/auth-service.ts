@@ -2,6 +2,7 @@ import type {
   AuthAudience,
   AuthenticatedSession,
   AuthSession,
+  RegisterCredentials,
   SignInCredentials,
 } from "../model/auth";
 
@@ -32,6 +33,7 @@ export class AuthError extends Error {
 export interface AuthService {
   readonly demoSessionsEnabled: boolean;
   getSession(): Promise<AuthSession>;
+  register(credentials: RegisterCredentials): Promise<AuthenticatedSession>;
   signIn(credentials: SignInCredentials): Promise<AuthenticatedSession>;
   startDemoSession(audience: AuthAudience): Promise<AuthenticatedSession>;
   signOut(): Promise<void>;

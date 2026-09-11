@@ -14,6 +14,7 @@ import {
   type AuthenticatedSession,
   type AuthSession,
   type Permission,
+  type RegisterCredentials,
   type SignInCredentials,
 } from "../model/auth";
 import {
@@ -109,6 +110,12 @@ export function AuthProvider({ children, service }: AuthProviderProps) {
     [authService, runSessionOperation],
   );
 
+  const registerAccount = useCallback(
+    (credentials: RegisterCredentials) =>
+      runSessionOperation(() => authService.register(credentials)),
+    [authService, runSessionOperation],
+  );
+
   const startDemoSession = useCallback(
     (audience: AuthAudience) =>
       runSessionOperation(() => authService.startDemoSession(audience)),
@@ -150,6 +157,7 @@ export function AuthProvider({ children, service }: AuthProviderProps) {
       demoSessionsEnabled: authService.demoSessionsEnabled,
       isPending,
       error,
+      registerAccount,
       signIn,
       startDemoSession,
       signOut,
@@ -162,6 +170,7 @@ export function AuthProvider({ children, service }: AuthProviderProps) {
       authService,
       isPending,
       error,
+      registerAccount,
       signIn,
       startDemoSession,
       signOut,

@@ -19,7 +19,7 @@ export class MockCheckoutService implements CheckoutService {
       receivedAt: new Date().toISOString(),
       itemCount: input.items.reduce((total, item) => total + item.quantity, 0),
       total: input.total,
-      deliveryMethod: input.deliveryMethod,
+      deliveryMethod: "PICKUP",
     };
   }
 }
