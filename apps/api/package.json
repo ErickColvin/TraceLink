@@ -16,6 +16,7 @@
     "db:verify": "node --env-file-if-exists=../../.env ./node_modules/prisma/dist/prisma.js db verify",
     "db:migration:check": "node --env-file-if-exists=../../.env ./node_modules/prisma/dist/prisma.js migration check",
     "db:seed": "node --env-file-if-exists=../../.env --import tsx prisma/seed.ts",
+    "reservations:expire": "node --env-file-if-exists=../../.env --import tsx src/jobs/expire-reservations.ts",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
     "test": "pnpm test:unit && pnpm test:api && pnpm test:integration",

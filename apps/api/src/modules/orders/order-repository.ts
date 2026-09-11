@@ -10,6 +10,10 @@ import type {
   StaffOrderListParams,
   StaffOrderPage,
   OrderPage,
+  Payment,
+  PaymentAttempt,
+  PaymentDetails,
+  Refund,
 } from "@tracelink/contracts";
 import {
   orderItemSchema,
@@ -18,6 +22,9 @@ import {
   orderStatusEventSchema,
   staffOrderPageSchema,
   staffOrderSchema,
+  paymentSchema,
+  paymentAttemptSchema,
+  refundSchema,
 } from "@tracelink/contracts";
 
 import type { PostgresDatabase, SqlExecutor } from "../../database/index.js";
@@ -31,6 +38,10 @@ import {
   canCancelOrder,
   canTransitionOrder,
 } from "./order-workflow.js";
+import {
+  consumeCommittedOrderReservations,
+  releaseOrderReservations,
+} from "../inventory/order-reservations.js";
 
 type OrderRow = Readonly<{
   id: string;
@@ -86,6 +97,56 @@ type OrderRelations = Readonly<{
   itemsByOrder: ReadonlyMap<string, readonly OrderItem[]>;
   eventsByOrder: ReadonlyMap<string, readonly OrderStatusEvent[]>;
   packageIdsByOrder: ReadonlyMap<string, readonly string[]>;
+  paymentDetailsByOrder: ReadonlyMap<string, PaymentDetails>;
+}>;
+
+type PaymentRow = Readonly<{
+  orderId: string;
+  id: string;
+  provider: Payment["provider"];
+  status: Payment["status"];
+  amount: number;
+  currency: string;
+  providerExternalReference: string;
+  providerPaymentId: string | null;
+  providerStatus: string | null;
+  providerStatusDetail: string | null;
+  approvedAt: Date | null;
+  cancelledAt: Date | null;
+  refundedAt: Date | null;
+  lastReconciledAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}>;
+
+type PaymentAttemptRow = Readonly<{
+  paymentId: string;
+  id: string;
+  attemptNumber: number;
+  status: PaymentAttempt["status"];
+  providerOrderId: string | null;
+  providerPreferenceId: string | null;
+  checkoutUrl: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  startedAt: Date;
+  completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}>;
+
+type RefundRow = Readonly<{
+  paymentId: string;
+  id: string;
+  status: Refund["status"];
+  amount: number;
+  reason: string;
+  requestedByUserId: string | null;
+  providerRefundId: string | null;
+  requestedAt: Date;
+  completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }>;
 
 const ORDER_COLUMNS = `
@@ -189,6 +250,61 @@ function toStatusEvent(row: OrderStatusEventRow): OrderStatusEvent {
   });
 }
 
+function toPayment(row: PaymentRow): Payment {
+  return paymentSchema.parse({
+    id: row.id,
+    orderId: row.orderId,
+    provider: row.provider,
+    status: row.status,
+    amount: row.amount,
+    currency: row.currency,
+    providerExternalReference: row.providerExternalReference,
+    ...(row.providerPaymentId === null ? {} : { providerPaymentId: row.providerPaymentId }),
+    ...(row.providerStatus === null ? {} : { providerStatus: row.providerStatus }),
+    ...(row.providerStatusDetail === null ? {} : { providerStatusDetail: row.providerStatusDetail }),
+    ...(row.approvedAt === null ? {} : { approvedAt: row.approvedAt.toISOString() }),
+    ...(row.cancelledAt === null ? {} : { cancelledAt: row.cancelledAt.toISOString() }),
+    ...(row.refundedAt === null ? {} : { refundedAt: row.refundedAt.toISOString() }),
+    ...(row.lastReconciledAt === null ? {} : { lastReconciledAt: row.lastReconciledAt.toISOString() }),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  });
+}
+
+function toPaymentAttempt(row: PaymentAttemptRow): PaymentAttempt {
+  return paymentAttemptSchema.parse({
+    id: row.id,
+    paymentId: row.paymentId,
+    attemptNumber: row.attemptNumber,
+    status: row.status,
+    ...(row.providerOrderId === null ? {} : { providerOrderId: row.providerOrderId }),
+    ...(row.providerPreferenceId === null ? {} : { providerPreferenceId: row.providerPreferenceId }),
+    ...(row.checkoutUrl === null ? {} : { checkoutUrl: row.checkoutUrl }),
+    ...(row.errorCode === null ? {} : { errorCode: row.errorCode }),
+    ...(row.errorMessage === null ? {} : { errorMessage: row.errorMessage }),
+    startedAt: row.startedAt.toISOString(),
+    ...(row.completedAt === null ? {} : { completedAt: row.completedAt.toISOString() }),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  });
+}
+
+function toRefund(row: RefundRow): Refund {
+  return refundSchema.parse({
+    id: row.id,
+    paymentId: row.paymentId,
+    status: row.status,
+    amount: row.amount,
+    reason: row.reason,
+    ...(row.requestedByUserId === null ? {} : { requestedByUserId: row.requestedByUserId }),
+    ...(row.providerRefundId === null ? {} : { providerRefundId: row.providerRefundId }),
+    requestedAt: row.requestedAt.toISOString(),
+    ...(row.completedAt === null ? {} : { completedAt: row.completedAt.toISOString() }),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  });
+}
+
 function baseOrder(row: OrderRow, relations: OrderRelations): Order {
   return orderSchema.parse({
     id: row.id,
@@ -215,6 +331,9 @@ function baseOrder(row: OrderRow, relations: OrderRelations): Order {
       : { pickupLocation: row.pickupLocation }),
     ...(row.notes === null ? {} : { notes: row.notes }),
     packageIds: relations.packageIdsByOrder.get(row.id) ?? [],
+    ...(relations.paymentDetailsByOrder.get(row.id) === undefined
+      ? {}
+      : { paymentDetails: relations.paymentDetailsByOrder.get(row.id) }),
   });
 }
 
@@ -434,6 +553,14 @@ export class PostgresOrderRepository {
       options.organizationId,
       options.orderId,
     );
+    if (options.input.toStatus === "COMPLETED") {
+      await consumeCommittedOrderReservations(executor, {
+        organizationId: options.organizationId,
+        orderId: options.orderId,
+        actorUserId: options.actorUserId,
+        requestId: options.requestId,
+      });
+    }
     await executor.query(
       `UPDATE orders
           SET status = $3,
@@ -506,6 +633,27 @@ export class PostgresOrderRepository {
       executor,
       options.organizationId,
       options.orderId,
+    );
+    await releaseOrderReservations(executor, {
+      organizationId: options.organizationId,
+      orderId: options.orderId,
+      requestId: options.requestId,
+      reason: "cancelled",
+    });
+    await executor.query(
+      `UPDATE payments SET status = 'CANCELLED', cancelled_at = now(), updated_at = now()
+        WHERE organization_id = $1 AND order_id = $2
+          AND status NOT IN ('APPROVED', 'REFUNDED')`,
+      [options.organizationId, options.orderId],
+    );
+    await executor.query(
+      `UPDATE payment_attempts attempt SET status = 'CANCELLED', completed_at = now(), updated_at = now()
+        FROM payments payment
+       WHERE attempt.organization_id = $1
+         AND payment.organization_id = attempt.organization_id
+         AND payment.id = attempt.payment_id AND payment.order_id = $2
+         AND attempt.status NOT IN ('APPROVED', 'REFUNDED')`,
+      [options.organizationId, options.orderId],
     );
     await executor.query(
       `UPDATE orders SET status = 'CANCELLED', updated_at = now()
@@ -605,6 +753,7 @@ export class PostgresOrderRepository {
         itemsByOrder: new Map(),
         eventsByOrder: new Map(),
         packageIdsByOrder: new Map(),
+        paymentDetailsByOrder: new Map(),
       };
     }
     const items = await executor.query<OrderItemRow>(
@@ -647,6 +796,66 @@ export class PostgresOrderRepository {
           [organizationId, orderIds],
         )
       : { rows: [] as OrderStatusEventRow[] };
+    const payments = await executor.query<PaymentRow>(
+      `SELECT order_id AS "orderId", id, provider, status, amount, currency,
+              provider_external_reference AS "providerExternalReference",
+              provider_payment_id AS "providerPaymentId",
+              provider_status AS "providerStatus",
+              provider_status_detail AS "providerStatusDetail",
+              approved_at AS "approvedAt", cancelled_at AS "cancelledAt",
+              refunded_at AS "refundedAt", last_reconciled_at AS "lastReconciledAt",
+              created_at AS "createdAt", updated_at AS "updatedAt"
+         FROM payments
+        WHERE organization_id = $1 AND order_id = ANY($2::uuid[])`,
+      [organizationId, orderIds],
+    );
+    const paymentIds = payments.rows.map((payment) => payment.id);
+    const attempts = paymentIds.length === 0
+      ? { rows: [] as PaymentAttemptRow[] }
+      : await executor.query<PaymentAttemptRow>(
+          `SELECT payment_id AS "paymentId", id,
+                  attempt_number AS "attemptNumber", status,
+                  provider_order_id AS "providerOrderId",
+                  provider_preference_id AS "providerPreferenceId",
+                  checkout_url AS "checkoutUrl", error_code AS "errorCode",
+                  error_message AS "errorMessage", started_at AS "startedAt",
+                  completed_at AS "completedAt", created_at AS "createdAt",
+                  updated_at AS "updatedAt"
+             FROM payment_attempts
+            WHERE organization_id = $1 AND payment_id = ANY($2::uuid[])
+            ORDER BY payment_id ASC, attempt_number ASC`,
+          [organizationId, paymentIds],
+        );
+    const refunds = paymentIds.length === 0
+      ? { rows: [] as RefundRow[] }
+      : await executor.query<RefundRow>(
+          `SELECT payment_id AS "paymentId", id, status, amount, reason,
+                  actor_user_id AS "requestedByUserId",
+                  provider_refund_id AS "providerRefundId",
+                  requested_at AS "requestedAt", completed_at AS "completedAt",
+                  created_at AS "createdAt", updated_at AS "updatedAt"
+             FROM refunds
+            WHERE organization_id = $1 AND payment_id = ANY($2::uuid[])`,
+          [organizationId, paymentIds],
+        );
+    const attemptsByPayment = groupRows(
+      attempts.rows,
+      (row) => row.paymentId,
+      toPaymentAttempt,
+    );
+    const refundByPayment = new Map(
+      refunds.rows.map((row) => [row.paymentId, toRefund(row)] as const),
+    );
+    const paymentDetailsByOrder = new Map<string, PaymentDetails>();
+    for (const payment of payments.rows) {
+      paymentDetailsByOrder.set(payment.orderId, {
+        payment: toPayment(payment),
+        attempts: [...(attemptsByPayment.get(payment.id) ?? [])],
+        ...(refundByPayment.get(payment.id) === undefined
+          ? {}
+          : { refund: refundByPayment.get(payment.id) }),
+      });
+    }
     return {
       itemsByOrder: groupRows(items.rows, (row) => row.orderId, toOrderItem),
       eventsByOrder: groupRows(
@@ -659,6 +868,7 @@ export class PostgresOrderRepository {
         (row) => row.orderId,
         (row) => row.packageId,
       ),
+      paymentDetailsByOrder,
     };
   }
 }

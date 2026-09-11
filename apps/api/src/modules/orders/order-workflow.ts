@@ -1,18 +1,12 @@
 import type { OrderStatus, OrderTransitionTarget } from "@tracelink/contracts";
 
 const NEXT_ORDER_STATUS = {
-  PENDING_PAYMENT: "PAID",
   PAID: "PREPARING",
   PREPARING: "READY",
   READY: "COMPLETED",
 } as const satisfies Readonly<Partial<Record<OrderStatus, OrderTransitionTarget>>>;
 
-const CANCELLABLE_ORDER_STATUSES = new Set<OrderStatus>([
-  "PENDING_PAYMENT",
-  "PAID",
-  "PREPARING",
-  "READY",
-]);
+const CANCELLABLE_ORDER_STATUSES = new Set<OrderStatus>(["PENDING_PAYMENT"]);
 
 export function getNextOrderStatus(
   status: OrderStatus,

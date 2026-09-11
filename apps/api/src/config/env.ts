@@ -42,6 +42,14 @@ const databaseUrlSchema = z.string().trim().refine((value) => {
   }
 }, "DATABASE_URL debe ser una URL PostgreSQL válida.");
 
+const paymentUrlSchema = z
+  .string()
+  .trim()
+  .url()
+  .refine((value) => /^https?:\/\//iu.test(value), {
+    message: "La URL de pagos debe usar HTTP(S).",
+  });
+
 export type TrustProxyConfig = false | number | readonly string[];
 
 function isIpOrCidr(value: string): boolean {
@@ -116,6 +124,19 @@ const rawEnvironmentSchema = z.object({
   IDEMPOTENCY_SECRET: z.string().min(32),
   RATE_LIMIT_SECRET: z.string().min(32),
   PICKUP_CODE_SECRET: z.string().min(32),
+  PAYMENT_PROVIDER: z.enum(["fake", "mercadopago"]).optional(),
+  MERCADOPAGO_ACCESS_TOKEN: z.string().trim().min(1).max(2_048).optional(),
+  MERCADOPAGO_WEBHOOK_SECRET: z.string().trim().min(1).max(512).optional(),
+  PAYMENT_SUCCESS_URL: paymentUrlSchema.optional(),
+  PAYMENT_FAILURE_URL: paymentUrlSchema.optional(),
+  PAYMENT_PENDING_URL: paymentUrlSchema.optional(),
+  PAYMENT_WEBHOOK_URL: paymentUrlSchema.optional(),
+  CHECKOUT_RESERVATION_MINUTES: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(60)
+    .default(15),
   LOG_LEVEL: z.enum(LOG_LEVELS).default("info"),
   JSON_BODY_LIMIT_BYTES: z.coerce
     .number()
@@ -139,6 +160,32 @@ const rawEnvironmentSchema = z.object({
       message: "SESSION_IDLE_TTL_SECONDS no puede superar SESSION_TTL_SECONDS.",
     });
   }
+  if (value.NODE_ENV === "production" && value.PAYMENT_PROVIDER === undefined) {
+    context.addIssue({
+      code: "custom",
+      path: ["PAYMENT_PROVIDER"],
+      message: "PAYMENT_PROVIDER debe configurarse explÃ­citamente en producciÃ³n.",
+    });
+  }
+  if (value.PAYMENT_PROVIDER === "mercadopago") {
+    const requiredFields = [
+      "MERCADOPAGO_ACCESS_TOKEN",
+      "MERCADOPAGO_WEBHOOK_SECRET",
+      "PAYMENT_SUCCESS_URL",
+      "PAYMENT_FAILURE_URL",
+      "PAYMENT_PENDING_URL",
+      "PAYMENT_WEBHOOK_URL",
+    ] as const;
+    for (const field of requiredFields) {
+      if (value[field] === undefined) {
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: `${field} es obligatorio con Mercado Pago.`,
+        });
+      }
+    }
+  }
 });
 
 export type AppConfig = Readonly<{
@@ -156,6 +203,14 @@ export type AppConfig = Readonly<{
   idempotencySecret: string;
   rateLimitSecret: string;
   pickupCodeSecret: string;
+  paymentProvider: "fake" | "mercadopago";
+  mercadoPagoAccessToken?: string;
+  mercadoPagoWebhookSecret?: string;
+  paymentSuccessUrl: string;
+  paymentFailureUrl: string;
+  paymentPendingUrl: string;
+  paymentWebhookUrl: string;
+  checkoutReservationMinutes: number;
   logLevel: (typeof LOG_LEVELS)[number];
   jsonBodyLimitBytes: number;
   shutdownTimeoutMs: number;
@@ -188,6 +243,8 @@ export function parseEnvironment(
   }
 
   const value = result.data;
+  const fallbackPaymentUrl = (path: string): string =>
+    new URL(path, value.WEB_ORIGIN).toString();
   return Object.freeze({
     nodeEnv: value.NODE_ENV,
     host: value.HOST,
@@ -203,6 +260,23 @@ export function parseEnvironment(
     idempotencySecret: value.IDEMPOTENCY_SECRET,
     rateLimitSecret: value.RATE_LIMIT_SECRET,
     pickupCodeSecret: value.PICKUP_CODE_SECRET,
+    paymentProvider: value.PAYMENT_PROVIDER ?? "fake",
+    ...(value.MERCADOPAGO_ACCESS_TOKEN === undefined
+      ? {}
+      : { mercadoPagoAccessToken: value.MERCADOPAGO_ACCESS_TOKEN }),
+    ...(value.MERCADOPAGO_WEBHOOK_SECRET === undefined
+      ? {}
+      : { mercadoPagoWebhookSecret: value.MERCADOPAGO_WEBHOOK_SECRET }),
+    paymentSuccessUrl:
+      value.PAYMENT_SUCCESS_URL ?? fallbackPaymentUrl("/checkout/resultado"),
+    paymentFailureUrl:
+      value.PAYMENT_FAILURE_URL ?? fallbackPaymentUrl("/checkout/resultado"),
+    paymentPendingUrl:
+      value.PAYMENT_PENDING_URL ?? fallbackPaymentUrl("/checkout/resultado"),
+    paymentWebhookUrl:
+      value.PAYMENT_WEBHOOK_URL ??
+      fallbackPaymentUrl("/api/v1/webhooks/mercadopago"),
+    checkoutReservationMinutes: value.CHECKOUT_RESERVATION_MINUTES,
     logLevel: value.LOG_LEVEL,
     jsonBodyLimitBytes: value.JSON_BODY_LIMIT_BYTES,
     shutdownTimeoutMs: value.SHUTDOWN_TIMEOUT_MS,

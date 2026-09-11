@@ -4,6 +4,7 @@ import { AppError } from "../../shared/errors/app-error.js";
 
 export const INVENTORY_RESERVATION_STATUSES = [
   "ACTIVE",
+  "COMMITTED",
   "CONSUMED",
   "RELEASED",
   "EXPIRED",
@@ -187,10 +188,10 @@ export class PostgresInventoryReservationRepository {
         options.organizationId,
         options.reservationId,
       );
-      if (reservation.status !== "ACTIVE") {
+      if (reservation.status !== "ACTIVE" && reservation.status !== "COMMITTED") {
         throw invalidReservationState(reservation.status);
       }
-      if (reservation.expiresAt.getTime() <= Date.now()) {
+      if (reservation.status === "ACTIVE" && reservation.expiresAt.getTime() <= Date.now()) {
         throw new AppError({
           statusCode: 409,
           code: "INVENTORY_RESERVATION_EXPIRED",
@@ -310,6 +311,7 @@ export class PostgresInventoryReservationRepository {
         [options.organizationId, options.limit ?? 100],
       );
       const expired: InventoryReservationRecord[] = [];
+      const affectedOrderIds = new Set<string>();
       for (const reservation of due.rows) {
         await this.#releaseQuantity(executor, reservation);
         const updated = await this.#setStatus(
@@ -328,6 +330,36 @@ export class PostgresInventoryReservationRepository {
           requestId: options.requestId,
         });
         expired.push(updated);
+        if (reservation.orderId !== null) affectedOrderIds.add(reservation.orderId);
+      }
+      for (const orderId of affectedOrderIds) {
+        await executor.query(
+          `UPDATE payment_attempts attempt
+              SET status = 'CANCELLED', completed_at = now(), updated_at = now()
+             FROM payments payment
+            WHERE attempt.organization_id = $1
+              AND payment.organization_id = attempt.organization_id
+              AND payment.id = attempt.payment_id
+              AND payment.order_id = $2
+              AND attempt.status IN ('CREATED', 'PENDING', 'ERROR')
+              AND NOT EXISTS (
+                SELECT 1 FROM inventory_reservations active
+                 WHERE active.organization_id = $1 AND active.order_id = $2
+                   AND active.status = 'ACTIVE'
+              )`,
+          [options.organizationId, orderId],
+        );
+        await executor.query(
+          `UPDATE payments SET status = 'CANCELLED', cancelled_at = now(), updated_at = now()
+            WHERE organization_id = $1 AND order_id = $2
+              AND status IN ('CREATED', 'PENDING', 'ERROR')
+              AND NOT EXISTS (
+                SELECT 1 FROM inventory_reservations active
+                 WHERE active.organization_id = $1 AND active.order_id = $2
+                   AND active.status = 'ACTIVE'
+              )`,
+          [options.organizationId, orderId],
+        );
       }
       return expired;
     });
@@ -407,7 +439,7 @@ export class PostgresInventoryReservationRepository {
     executor: SqlExecutor,
     organizationId: string,
     reservationId: string,
-    status: Exclude<InventoryReservationStatus, "ACTIVE">,
+    status: Exclude<InventoryReservationStatus, "ACTIVE" | "COMMITTED">,
   ): Promise<InventoryReservationRecord> {
     const result = await executor.query<ReservationRow>(
       `UPDATE inventory_reservations SET status = $3, updated_at = now()

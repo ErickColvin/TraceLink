@@ -15,10 +15,13 @@ import { createSettingsRouter } from "./settings/settings-routes.js";
 import { createUserRouter } from "./users/user-routes.js";
 import { createProductRouter } from "./products/product-routes.js";
 import { createReportRouter } from "./reports/report-routes.js";
+import { createCheckoutRouter } from "./checkout/checkout-routes.js";
+import type { PaymentProvider } from "./payments/payment-provider.js";
 
 export function createApiRouter(options: Readonly<{
   database: PostgresDatabase;
   config: AppConfig;
+  paymentProvider: PaymentProvider;
 }>): Router {
   const router = Router();
   const authRepository = new PostgresAuthRepository(options.database);
@@ -29,6 +32,16 @@ export function createApiRouter(options: Readonly<{
     nodeEnv: options.config.nodeEnv,
   });
   const csrf = requireCsrf(options.config.csrfSecret);
+
+  router.use(
+    createCheckoutRouter({
+      database: options.database,
+      config: options.config,
+      provider: options.paymentProvider,
+      authenticate,
+      csrf,
+    }),
+  );
 
   router.use(
     createProductRouter({
@@ -53,6 +66,7 @@ export function createApiRouter(options: Readonly<{
     createOrderRouter({
       database: options.database,
       config: options.config,
+      paymentProvider: options.paymentProvider,
       authenticate,
       csrf,
     }),

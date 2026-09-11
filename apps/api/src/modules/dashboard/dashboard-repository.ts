@@ -357,11 +357,8 @@ export class PostgresDashboardRepository {
   ): Promise<TrendRow[]> {
     const result = await executor.query<TrendRow>(
       `WITH days AS (
-         SELECT generate_series(
-                  $3::date - 6,
-                  $3::date,
-                  interval '1 day'
-                )::date AS day
+         SELECT ($3::date - day_offset)::date AS day
+           FROM generate_series(6, 0, -1) AS day_offset
        )
        SELECT days.day::text AS date,
               COALESCE(

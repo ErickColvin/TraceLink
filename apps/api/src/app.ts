@@ -18,12 +18,16 @@ import {
   enforceMutationOrigin,
   isAllowedOrigin,
 } from "./shared/security/origin.js";
+import type { PaymentProvider } from "./modules/payments/payment-provider.js";
+import { createPaymentProvider } from "./modules/payments/payment-provider-factory.js";
+import { createPaymentWebhookRouter } from "./modules/payments/payment-webhook-routes.js";
 
 export type CreateAppOptions = Readonly<{
   config: AppConfig;
   logger?: Logger;
   readinessCheck?: ReadinessCheck;
   database?: PostgresDatabase;
+  paymentProvider?: PaymentProvider;
 }>;
 
 const unavailableReadinessCheck: ReadinessCheck = async () => {
@@ -36,6 +40,11 @@ export function createApp(options: CreateAppOptions): Express {
   const readinessCheck =
     options.readinessCheck ?? unavailableReadinessCheck;
   const app = express();
+  const jsonParser = express.json({
+    limit: `${config.jsonBodyLimitBytes}b`,
+    strict: true,
+    type: ["application/json", "application/*+json"],
+  });
 
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxy);
@@ -74,14 +83,19 @@ export function createApp(options: CreateAppOptions): Express {
       optionsSuccessStatus: 204,
     }),
   );
+  const paymentProvider = options.paymentProvider ?? createPaymentProvider(config);
+  if (options.database !== undefined) {
+    app.use(
+      "/api/v1/webhooks",
+      jsonParser,
+      createPaymentWebhookRouter({
+        database: options.database,
+        provider: paymentProvider,
+      }),
+    );
+  }
   app.use(enforceMutationOrigin(config.webOrigin));
-  app.use(
-    express.json({
-      limit: `${config.jsonBodyLimitBytes}b`,
-      strict: true,
-      type: ["application/json", "application/*+json"],
-    }),
-  );
+  app.use(jsonParser);
 
   app.use("/api/v1/health", createHealthRouter(readinessCheck));
   if (options.database !== undefined) {
@@ -91,7 +105,11 @@ export function createApp(options: CreateAppOptions): Express {
     );
     app.use(
       "/api/v1",
-      createApiRouter({ database: options.database, config }),
+      createApiRouter({
+        database: options.database,
+        config,
+        paymentProvider,
+      }),
     );
   }
   app.use(notFoundHandler());
