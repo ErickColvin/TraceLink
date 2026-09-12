@@ -8,6 +8,7 @@ import {
   ErrorState,
   LoadingSkeleton,
   PageHeader,
+  RequestIdReference,
 } from "@/components";
 import {
   Alert,
@@ -23,6 +24,7 @@ import {
   Label,
 } from "@/components/ui";
 import { buttonStyles } from "@/components/ui/button-styles";
+import { toOperationalError } from "@/lib/http/operational-error";
 
 import { InventoryMovementForm } from "../components/inventory-movement-form";
 import { InventoryMovementPreviewCard } from "../components/inventory-movement-preview";
@@ -85,6 +87,12 @@ export function AdminInventoryMovementsPage() {
   const candidateItem = candidate
     ? inventoryItems.find((item) => item.id === candidate.inventoryItemId)
     : undefined;
+  const createError = createMovement.isError
+    ? toOperationalError(
+        createMovement.error,
+        "No pudimos registrar el movimiento. Intenta nuevamente.",
+      )
+    : null;
 
   function prepareMovement(values: InventoryMovementFormValues) {
     setSuccessMessage(undefined);
@@ -177,12 +185,13 @@ export function AdminInventoryMovementsPage() {
           <AlertDescription>{previewError}</AlertDescription>
         </Alert>
       ) : null}
-      {createMovement.isError ? (
+      {createError ? (
         <Alert tone="danger">
           <AlertTitle>No pudimos registrar el movimiento</AlertTitle>
           <AlertDescription>
-            {getErrorMessage(createMovement.error)}
+            {createError.message}
           </AlertDescription>
+          <RequestIdReference requestId={createError.requestId} />
         </Alert>
       ) : null}
 

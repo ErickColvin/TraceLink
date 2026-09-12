@@ -14,6 +14,7 @@ import {
   ErrorState,
   LoadingSkeleton,
   PageHeader,
+  RequestIdReference,
 } from "../../../components";
 import {
   Alert,
@@ -41,16 +42,20 @@ import {
 } from "../workflow/order-workflow";
 import { getOrderStatusMeta } from "../presentation/order-status";
 import { formatClp, formatDateTime } from "../../../lib/formatters";
+import {
+  toOperationalError,
+  type OperationalError,
+} from "../../../lib/http/operational-error";
+import { PaymentTimeline } from "../components/payment-timeline";
 
 type MutationFeedback =
-  | Readonly<{ tone: "success" | "danger"; title: string; description: string }>
+  | Readonly<{
+      tone: "success" | "danger";
+      title: string;
+      description: string;
+      requestId?: string;
+    }>
   | null;
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error
-    ? error.message
-    : "Ocurrió un error inesperado. Intenta nuevamente.";
-}
 
 export function AdminOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -68,8 +73,8 @@ export function AdminOrderDetailPage() {
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [refundReason, setRefundReason] = useState("");
-  const [cancelReasonError, setCancelReasonError] = useState<string | null>(null);
-  const [refundReasonError, setRefundReasonError] = useState<string | null>(null);
+  const [cancelReasonError, setCancelReasonError] = useState<OperationalError | null>(null);
+  const [refundReasonError, setRefundReasonError] = useState<OperationalError | null>(null);
 
   if (!canView) {
     return (
@@ -145,10 +150,17 @@ export function AdminOrderDetailPage() {
         description: `${updated.orderNumber} avanzó a ${getOrderStatusMeta(updated.status).label}.`,
       });
     } catch (error: unknown) {
+      const operationalError = toOperationalError(
+        error,
+        "Ocurrió un error inesperado. Intenta nuevamente.",
+      );
       setFeedback({
         tone: "danger",
         title: "No pudimos actualizar el pedido",
-        description: getErrorMessage(error),
+        description: operationalError.message,
+        ...(operationalError.requestId === undefined
+          ? {}
+          : { requestId: operationalError.requestId }),
       });
     }
   };
@@ -158,7 +170,7 @@ export function AdminOrderDetailPage() {
     const normalizedReason = cancelReason.trim();
 
     if (normalizedReason.length < 5) {
-      setCancelReasonError("Escribe un motivo de al menos 5 caracteres.");
+      setCancelReasonError({ message: "Escribe un motivo de al menos 5 caracteres." });
       return;
     }
 
@@ -178,7 +190,10 @@ export function AdminOrderDetailPage() {
         description: `La cancelación de ${updated.orderNumber} quedó registrada en la auditoría.`,
       });
     } catch (error: unknown) {
-      setCancelReasonError(getErrorMessage(error));
+      setCancelReasonError(toOperationalError(
+        error,
+        "No pudimos cancelar el pedido.",
+      ));
     }
   };
 
@@ -187,7 +202,7 @@ export function AdminOrderDetailPage() {
     const normalizedReason = refundReason.trim();
 
     if (normalizedReason.length < 3) {
-      setRefundReasonError("Escribe un motivo de al menos 3 caracteres.");
+      setRefundReasonError({ message: "Escribe un motivo de al menos 3 caracteres." });
       return;
     }
 
@@ -207,7 +222,10 @@ export function AdminOrderDetailPage() {
       });
       await orderQuery.refetch();
     } catch (error: unknown) {
-      setRefundReasonError(getErrorMessage(error));
+      setRefundReasonError(toOperationalError(
+        error,
+        "No pudimos registrar el reembolso.",
+      ));
     }
   };
 
@@ -239,6 +257,7 @@ export function AdminOrderDetailPage() {
           ) : null}
           <AlertTitle>{feedback.title}</AlertTitle>
           <AlertDescription>{feedback.description}</AlertDescription>
+          <RequestIdReference requestId={feedback.requestId} />
         </Alert>
       ) : null}
 
@@ -392,6 +411,15 @@ export function AdminOrderDetailPage() {
               </ol>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Línea de tiempo del pago</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PaymentTimeline details={order.paymentDetails} />
+            </CardContent>
+          </Card>
         </div>
 
         <aside className="space-y-5 xl:sticky xl:top-24">
@@ -492,9 +520,12 @@ export function AdminOrderDetailPage() {
           }}
         />
         {cancelReasonError ? (
-          <p id="order-cancellation-error" className="mt-2 text-sm font-semibold text-coral-700" role="alert">
-            {cancelReasonError}
-          </p>
+          <>
+            <p id="order-cancellation-error" className="mt-2 text-sm font-semibold text-coral-700" role="alert">
+              {cancelReasonError.message}
+            </p>
+            <RequestIdReference requestId={cancelReasonError.requestId} />
+          </>
         ) : null}
       </ConfirmationDialog>
       <ConfirmationDialog
@@ -531,9 +562,12 @@ export function AdminOrderDetailPage() {
           }}
         />
         {refundReasonError ? (
-          <p id="order-refund-error" className="mt-2 text-sm font-semibold text-coral-700" role="alert">
-            {refundReasonError}
-          </p>
+          <>
+            <p id="order-refund-error" className="mt-2 text-sm font-semibold text-coral-700" role="alert">
+              {refundReasonError.message}
+            </p>
+            <RequestIdReference requestId={refundReasonError.requestId} />
+          </>
         ) : null}
       </ConfirmationDialog>
     </div>

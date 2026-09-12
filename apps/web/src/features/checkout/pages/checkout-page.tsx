@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 
-import { EmptyState, PageHeader } from "@/components";
+import { EmptyState, PageHeader, RequestIdReference } from "@/components";
 import {
   Alert,
   Button,
@@ -18,20 +18,19 @@ import {
 import { useAuth } from "@/features/auth";
 import { useCart } from "@/features/cart/use-cart";
 import { formatClp, formatDateTime } from "@/lib/formatters";
+import {
+  toOperationalError,
+  type OperationalError,
+} from "@/lib/http/operational-error";
 
 import { checkoutSchema, type CheckoutFormValues } from "../checkout-schema";
+import { rememberPendingCheckout } from "../pending-checkout";
 import { checkoutService } from "../services";
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error
-    ? error.message
-    : "No pudimos iniciar el pago. Intenta nuevamente.";
-}
 
 export function CheckoutPage() {
   const { session } = useAuth();
   const { clearCart, items, total } = useCart();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<OperationalError | null>(null);
   const [redirecting, setRedirecting] = useState(false);
   const [reservationPreviewAt] = useState(() =>
     formatDateTime(new Date(Date.now() + 15 * 60_000).toISOString()),
@@ -67,6 +66,7 @@ export function CheckoutPage() {
       });
 
       clearCart();
+      if ("checkoutUrl" in result) rememberPendingCheckout(result);
       globalThis.location.assign(
         "checkoutUrl" in result
           ? result.checkoutUrl
@@ -74,7 +74,10 @@ export function CheckoutPage() {
       );
     } catch (caught: unknown) {
       setRedirecting(false);
-      setError(getErrorMessage(caught));
+      setError(toOperationalError(
+        caught,
+        "No pudimos iniciar el pago. Intenta nuevamente.",
+      ));
     }
   });
 
@@ -100,7 +103,8 @@ export function CheckoutPage() {
             <div className="space-y-6">
               {error ? (
                 <Alert tone="danger" role="alert">
-                  <p>{error}</p>
+                  <p>{error.message}</p>
+                  <RequestIdReference requestId={error.requestId} />
                 </Alert>
               ) : null}
 

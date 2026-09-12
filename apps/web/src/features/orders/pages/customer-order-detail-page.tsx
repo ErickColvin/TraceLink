@@ -1,7 +1,13 @@
 import { ArrowLeft, CreditCard, MapPin, XCircle } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ConfirmationDialog, ErrorState, LoadingSkeleton, PageHeader } from "@/components";
+import {
+  ConfirmationDialog,
+  ErrorState,
+  LoadingSkeleton,
+  PageHeader,
+  RequestIdReference,
+} from "@/components";
 import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle, Label, buttonStyles } from "@/components/ui";
 import {
   useCancelCurrentCustomerOrder,
@@ -9,7 +15,13 @@ import {
   useRetryCurrentCustomerPayment,
 } from "@/features/orders";
 import { getOrderStatusMeta } from "@/features/orders/presentation/order-status";
+import { rememberPendingCheckout } from "@/features/checkout/pending-checkout";
 import { formatClp, formatDateTime } from "@/lib/formatters";
+import {
+  toOperationalError,
+  type OperationalError,
+} from "@/lib/http/operational-error";
+import { PaymentTimeline } from "../components/payment-timeline";
 
 export function CustomerOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -19,7 +31,7 @@ export function CustomerOrderDetailPage() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [mutationError, setMutationError] = useState<OperationalError | null>(null);
 
   if (orderQuery.isPending) return <div className="space-y-5"><LoadingSkeleton className="h-28 rounded-2xl" /><LoadingSkeleton className="h-72 rounded-2xl" /></div>;
   if (orderQuery.isError || !orderQuery.data) return <ErrorState title="No encontramos este pedido" description="Solo puedes consultar pedidos asociados a tu cuenta." action={<Link to="/mi-cuenta/pedidos" className={buttonStyles()}><ArrowLeft aria-hidden="true" /> Mis pedidos</Link>} />;
@@ -38,9 +50,13 @@ export function CustomerOrderDetailPage() {
     setMutationError(null);
     try {
       const result = await retryPayment.mutateAsync(id);
+      rememberPendingCheckout(result);
       globalThis.location.assign(result.checkoutUrl);
     } catch (error: unknown) {
-      setMutationError(error instanceof Error ? error.message : "No pudimos crear un nuevo intento de pago.");
+      setMutationError(toOperationalError(
+        error,
+        "No pudimos crear un nuevo intento de pago.",
+      ));
     }
   };
 
@@ -48,7 +64,7 @@ export function CustomerOrderDetailPage() {
     if (!id || mutationPending) return;
     const reason = cancelReason.trim();
     if (reason.length < 3) {
-      setMutationError("Ingresa un motivo de al menos 3 caracteres.");
+      setMutationError({ message: "Ingresa un motivo de al menos 3 caracteres." });
       return;
     }
     setMutationError(null);
@@ -59,7 +75,7 @@ export function CustomerOrderDetailPage() {
       setFeedback("Pedido cancelado. La reserva fue liberada si seguia activa.");
       await orderQuery.refetch();
     } catch (error: unknown) {
-      setMutationError(error instanceof Error ? error.message : "No pudimos cancelar el pedido.");
+      setMutationError(toOperationalError(error, "No pudimos cancelar el pedido."));
     }
   };
 
@@ -68,7 +84,7 @@ export function CustomerOrderDetailPage() {
       <Link to="/mi-cuenta/pedidos" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink-600 hover:text-brand-700"><ArrowLeft aria-hidden="true" className="size-4" /> Mis pedidos</Link>
       <PageHeader eyebrow="Detalle de pedido" title={order.orderNumber} description={`Creado el ${formatDateTime(order.createdAt)}`} actions={<Badge tone={meta.tone}>{meta.label}</Badge>} />
       {feedback ? <Alert className="mt-5" tone="success" role="status"><p>{feedback}</p></Alert> : null}
-      {mutationError ? <Alert className="mt-5" tone="danger" role="alert"><p>{mutationError}</p></Alert> : null}
+      {mutationError ? <Alert className="mt-5" tone="danger" role="alert"><p>{mutationError.message}</p><RequestIdReference requestId={mutationError.requestId} /></Alert> : null}
       <div className="mt-7 grid gap-6 xl:grid-cols-[1fr_320px] xl:items-start">
         <Card>
           <CardHeader><CardTitle>Productos</CardTitle></CardHeader>
@@ -121,6 +137,12 @@ export function CustomerOrderDetailPage() {
           {order.pickupLocation ? <Card><CardContent className="flex gap-3 pt-5 sm:pt-6"><MapPin aria-hidden="true" className="mt-0.5 size-5 text-brand-700" /><div><p className="font-bold">Punto de retiro</p><p className="mt-1 text-sm text-ink-600">{order.pickupLocation}</p></div></CardContent></Card> : null}
         </div>
       </div>
+      <Card className="mt-6">
+        <CardHeader><CardTitle>Línea de tiempo del pago</CardTitle></CardHeader>
+        <CardContent>
+          <PaymentTimeline details={order.paymentDetails} />
+        </CardContent>
+      </Card>
       <ConfirmationDialog
         open={cancelOpen}
         title={`Cancelar ${order.orderNumber}`}
