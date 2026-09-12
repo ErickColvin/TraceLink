@@ -1,0 +1,703 @@
+TRACELINK V2 / CH MARKET
+INFORME DE CIERRE DE FASE 5
+Fecha de corte: 12 de septiembre de 2026
+
+======================================================================
+1. FASE 5 STATUS
+======================================================================
+
+Estado global real: 78% COMPLETADO.
+
+La ingeniería que se puede completar y verificar dentro del repositorio está
+terminada: configuración de despliegue, CI/CD, jobs, reconciliación, outbox,
+adaptador de correo, observabilidad, seguridad, rendimiento, documentación y
+pruebas locales.
+
+La Fase 5 no se declara al 100% porque faltan tareas externas que requieren
+cuentas, credenciales, URLs, DNS y decisiones del owner:
+
+- desplegar frontend, API y PostgreSQL de staging por HTTPS;
+- ejecutar smoke tests contra URLs reales;
+- validar Mercado Pago con credenciales TEST y webhook HTTPS real;
+- validar entregas reales de Resend;
+- activar y observar los tres cron en Railway;
+- configurar backups gestionados y copia offsite;
+- ejecutar y medir un restore drill aislado;
+- activar monitoreo/alertas con las URLs definitivas;
+- aprobar textos legales, dominio, datos reales y procedimiento de go-live.
+
+Estado de preparación productiva: PARTIALLY READY.
+Estado de pagos LIVE: NOT ACTIVATED.
+
+No se añadieron valores secretos a este archivo ni al repositorio.
+
+======================================================================
+2. FASE 4 CLOSURE
+======================================================================
+
+Estado real de Fase 4: 95%.
+
+Fase 4 quedó implementada y validada localmente con FakePaymentProvider,
+PostgreSQL 18 embebido y E2E HTTP real. Sus commits están publicados en
+origin/feature/phase-4-ecommerce-payments.
+
+No llegó a 100% porque no se proporcionaron credenciales Mercado Pago TEST ni
+un endpoint HTTPS de staging. Por ello no se atribuye falsamente una validación
+real de sandbox/webhook externo.
+
+======================================================================
+3. GIT
+======================================================================
+
+Repositorio remoto: ErickColvin/TraceLink
+Branch de trabajo: feature/phase-5-production
+Base de Fase 5: 391da62 (cierre de Fase 4)
+Branch remota creada y publicada: sí, hasta f4dcd23 antes de incorporar este
+informe. El commit de este archivo se publica como último paso del cierre.
+
+Commits de Fase 5:
+
+- b515bfa chore(deploy): prepare production environments
+- 7fff365 chore(ci): add quality and deployment gates
+- 2cd3a44 feat(payments): add bounded reconciliation job
+- 7639250 feat(notifications): add transactional email outbox
+- 526fd89 chore(observability): add production logging and monitoring hooks
+- 494a4d3 perf(web): split routes and prepare legal placeholders
+- 0354dff feat(web): harden pending payment and operational error UX
+- c15ff20 feat(orders): add payment provider filtering
+- 2805c15 chore(security): harden cross-site sessions and HTTPS headers
+- 3de9270 chore(db): add guarded production bootstrap
+- 77c46de docs: add deployment recovery and operations runbooks
+- f8cab6b docs: add production and payment go-live checklists
+- d06f45b docs: document phase five production architecture
+- f4dcd23 test(release): verify database and protected payment return
+- commit final: docs: close phase five preparation
+
+No se hizo reset, force-push ni reescritura de historia.
+
+======================================================================
+4. ARQUITECTURA DE DEPLOYMENT
+======================================================================
+
+Arquitectura preparada:
+
+GitHub pull request / main
+  -> GitHub Actions CI
+  -> Railway Config plan/apply
+     -> PostgreSQL gestionado
+     -> tracelink-api
+     -> reservation-expiry (cron)
+     -> payment-reconciliation (cron)
+     -> notification-outbox (cron)
+  -> Cloudflare Pages
+     -> React SPA
+
+Se modelaron environments separados para staging y production. No deben
+compartir base, tokens, secretos de sesión, secretos de webhook ni remitentes.
+
+La API ejecuta migrations como pre-deploy y usa /api/v1/health/ready como
+readiness. Production conserva PAYMENT_PROVIDER=fake y EMAIL_PROVIDER=fake
+hasta que los gates manuales se aprueben.
+
+======================================================================
+5. STAGING, CLOUDFLARE Y RAILWAY
+======================================================================
+
+Staging frontend URL: POR DEFINIR.
+Staging API URL: POR DEFINIR.
+Staging PostgreSQL: POR CREAR EN RAILWAY.
+Resultado del despliegue externo: NOT EXECUTED - MANUAL OWNER ACTION REQUIRED.
+
+Cloudflare Pages:
+
+- build reproducible del workspace web;
+- output apps/web/dist;
+- VITE_DATA_MODE=http;
+- VITE_API_BASE_URL configurable;
+- fallback SPA mediante apps/web/public/_redirects;
+- headers de seguridad mediante apps/web/public/_headers;
+- staging como preview branch y production como main;
+- deploy productivo manual y protegido mediante GitHub Environment.
+
+Railway:
+
+- configuración como código en .railway/railway.ts;
+- environments staging y production;
+- PostgreSQL gestionado;
+- servicio tracelink-api;
+- pre-deploy de migrations;
+- readiness y política de reinicio;
+- jobs reservation-expiry, payment-reconciliation y notification-outbox;
+- pool principal de 10 conexiones y pools de jobs de 2 conexiones;
+- producción queda con proveedores fake hasta aprobación explícita.
+
+El plan Railway no se validó contra una cuenta real porque la CLI no estaba
+autenticada. La sintaxis del repositorio y los workflows fueron revisados y
+todos los YAML se pudieron parsear, pero el plan/apply remoto sigue pendiente.
+
+======================================================================
+6. CI/CD
+======================================================================
+
+Workflows añadidos:
+
+- .github/workflows/ci.yml
+  PR y push a main: lint, typecheck, migration check, build, unit/API,
+  integración en PostgreSQL 18 embebido y E2E.
+
+- .github/workflows/railway-config.yml
+  Plan revisable para staging/production y apply controlado. Production no
+  confirma cambios destructivos automáticamente.
+
+- .github/workflows/deploy-staging.yml
+  Se ejecuta después de CI verde en main, despliega Pages staging y realiza
+  smoke externo.
+
+- .github/workflows/deploy-production.yml
+  Solo workflow_dispatch sobre main, protegido por environment production;
+  repite gates, despliega API/jobs/web y ejecuta smoke.
+
+- .github/workflows/monitor-availability.yml
+  Cada 15 minutos comprueba frontend, liveness y readiness cuando las URLs
+  productivas están configuradas.
+
+Smoke reusable: tools/smoke-deployment.mjs.
+
+Estado CI/CD remoto: configuración versionada; ejecuciones remotas, approvals y
+protecciones de branch pendientes de configurar/verificar por el owner.
+
+======================================================================
+7. POSTGRESQL, MIGRATIONS Y BOOTSTRAP
+======================================================================
+
+Nueva persistencia:
+
+- modelo OutboxEvent multi-tenant;
+- estados de entrega y contador de intentos;
+- event key única por organización;
+- lease para workers concurrentes;
+- next_attempt_at y error operacional acotado;
+- índices para entrega y consulta por tenant/tipo;
+- foreign key a Organization.
+
+Migration nueva:
+20260911T0128_phase_5_outbox
+
+La migration es aditiva. El gate migration check pasó. En PostgreSQL 18
+embebido se aplicaron las 9 migrations del proyecto, 277 operaciones en total.
+Después se ejecutó db verify y el resultado fue:
+
+Database marker and schema match contract.
+Database schema satisfies contract.
+Warnings de schema: ninguno.
+
+El runner de integración ahora ejecuta db verify después de migrar, de modo que
+esta comprobación queda repetible en CI.
+
+Bootstrap productivo añadido:
+
+- exige NODE_ENV=production y APP_ENV=production;
+- exige confirmación literal controlada;
+- valida contraseña fuerte y datos mínimos;
+- usa transacción y advisory lock;
+- falla si la organización ch-market ya existe;
+- crea únicamente Organization, OrganizationSettings, 20 permisos, 6 roles,
+  relaciones role/permission, primer User y Membership SUPER_ADMIN;
+- no carga clientes, productos, inventario ni pedidos demo;
+- no contiene contraseña hard-coded.
+
+Production nunca debe ejecutar db:seed. Las variables BOOTSTRAP_* deben existir
+solo durante el one-off y retirarse inmediatamente después.
+
+Managed PostgreSQL real: pendiente de provisionar y validar en Railway.
+
+======================================================================
+8. RESERVAS, CRON Y RECONCILIACIÓN DE PAGOS
+======================================================================
+
+Jobs configurados con cron */5 * * * *:
+
+1. reservation-expiry
+   Expira reservas vencidas mediante lógica autoritativa de backend, escribe
+   resultado estructurado y termina al completar.
+
+2. payment-reconciliation
+   Protege contra webhooks perdidos. Solo consulta pagos no terminales recientes,
+   espera un umbral de antigüedad, limita cada lote a 50, usa ventana de 72 horas,
+   aplica la misma reconciliación idempotente y auditada del webhook y termina.
+
+3. notification-outbox
+   Reclama lotes mediante FOR UPDATE SKIP LOCKED, leases y reintentos con backoff;
+   entrega por provider desacoplado y marca DEAD al agotar intentos.
+
+Los servicios, comandos y pruebas locales están implementados. La ejecución
+calendarizada real, duración, alertas y logs en Railway siguen pendientes.
+
+======================================================================
+9. MERCADO PAGO SANDBOX Y WEBHOOK
+======================================================================
+
+Mercado Pago LIVE: NOT ACTIVATED.
+Mercado Pago TEST real: NOT EXECUTED - faltan credenciales y staging HTTPS.
+Webhook HTTPS real: NOT EXECUTED.
+
+La implementación preserva estas garantías:
+
+- la URL de retorno nunca cambia Payment u Order;
+- solo webhook/reconciliation autoritativos reconcilian el pago;
+- firma, timestamp, deduplicación e idempotencia permanecen en backend;
+- eventos duplicados o fuera de orden no deben revertir estados terminales;
+- retry usa la misma Order y un PaymentAttempt nuevo;
+- refund completo requiere permiso y queda auditado;
+- reconciliation cubre el caso de webhook perdido.
+
+Casos aún obligatorios en Mercado Pago TEST real:
+
+- approved, pending y rejected;
+- cancelación pending;
+- retry sobre la misma order;
+- full refund;
+- firma válida e inválida;
+- webhook duplicado/fuera de orden;
+- webhook perdido recuperado por reconciliation;
+- retorno success/failure/pending sin mutación directa.
+
+El gate exacto está en docs/go-live-payments.md. Nadie debe colocar tokens LIVE
+ni procesar dinero real sin aprobación explícita del owner.
+
+======================================================================
+10. EMAIL Y OUTBOX
+======================================================================
+
+Se implementó NotificationProvider desacoplado con:
+
+- FakeNotificationProvider para local/tests;
+- ResendNotificationProvider para staging/producción aprobada;
+- timeout, validación de respuesta e idempotency header;
+- factory por configuración validada.
+
+Templates implementados con escape HTML:
+
+- bienvenida;
+- pedido creado;
+- pago aprobado;
+- listo para retiro;
+- cancelado;
+- reembolso.
+
+Los eventos se crean dentro de las transacciones de negocio de registro, pedido,
+pago aprobado, ready, cancelación y refund. Un fallo del proveedor de email no
+revierte el estado de pago/pedido. El outbox persiste el trabajo, lo reclama con
+lease, reintenta con backoff y evita duplicados por event key.
+
+Pruebas con fake provider/outbox: aprobadas.
+Entrega real Resend y verificación de dominio/remitente: pendientes.
+Webhook de entrega de Resend: no implementado; es mejora opcional, no requisito
+para que el outbox de envío funcione.
+
+======================================================================
+11. OBSERVABILIDAD, MONITORING Y LOGS
+======================================================================
+
+Se separaron:
+
+- GET /api/v1/health: liveness del proceso, sin consultar DB;
+- GET /api/v1/health/ready: readiness con comprobación PostgreSQL.
+
+Se agregaron logs JSON correlacionables para checkout, intentos de proveedor,
+webhook recibido/validado, reconciliation, refund y jobs. Los errores UI muestran
+request ID copiable cuando existe.
+
+Pino mantiene redaction de authorization, cookies, set-cookie, tokens, password,
+CSRF, firmas y campos sensibles. No se añadieron logs de secretos ni payloads de
+pago completos.
+
+Monitoreo preparado:
+
+- smoke manual/reusable;
+- GitHub availability monitor cada 15 minutos;
+- señales y severidades SEV1/SEV2/SEV3;
+- procedimientos para API down, DB down, webhook, reservas, reconciliation,
+  outbox/email, outage de Mercado Pago, rollback, restore y rotación.
+
+Monitoreo continuo y alertas reales: pendientes de URLs/canales/proveedor.
+
+======================================================================
+12. FRONTEND, UX Y PERFORMANCE
+======================================================================
+
+Checkout waiting UX:
+
+- /checkout/resultado exige sesión customer;
+- conserva localmente solo orderId y reservationExpiresAt validados;
+- consulta el pedido propio al backend cada 4 segundos;
+- polling limitado a 2 minutos;
+- permite actualización manual y acceso a Mis pedidos;
+- un estado autoritativo del backend prevalece sobre el parámetro URL;
+- countdown de reserva es solo informativo;
+- al llegar a cero vuelve a consultar al backend;
+- el navegador nunca libera inventario;
+- muestra loading, error y request ID operacional.
+
+Order Detail:
+
+- timeline de Payment, PaymentAttempt y Refund para customer y staff;
+- filtro staff por payment provider FAKE/MERCADOPAGO;
+- feedback operacional mejorado en pagos, cancelaciones, refunds e inventario.
+
+Autenticación frontend:
+
+- un 401 global emite expiración de sesión;
+- AuthProvider limpia cache customer y pasa a anonymous;
+- los guards preservan returnTo seguro.
+
+Performance:
+
+- before: chunk principal 531.74 kB y warning superior a 500 kB;
+- after: entry principal 34.86 kB;
+- mayor chunk actual: vendor-react 402.13 kB;
+- rutas y layouts usan lazy loading;
+- dependencias se separan en chunks react/query/forms/icons/services;
+- build final sin warning de chunk superior a 500 kB.
+
+Legal/UI:
+
+- rutas /terminos, /privacidad y /cambios-y-devoluciones;
+- footer enlazado;
+- cada vista indica claramente PENDIENTE DE APROBACIÓN;
+- no se inventó política legal.
+
+Mejoras UI aún recomendadas:
+
+- reemplazar placeholders por textos legales aprobados;
+- hacer revisión visual en staging con contenido y catálogo reales;
+- validar checkout/pago en móviles reales y navegadores Safari/Chrome/Edge;
+- añadir visual regression remota cuando exista una URL estable;
+- medir Core Web Vitals reales antes de optimizar más vendor-react.
+
+======================================================================
+13. SECURITY
+======================================================================
+
+Controles implementados y probados localmente:
+
+- cookie de producción con prefijo __Host-;
+- HttpOnly, Secure, Path=/ y sin Domain;
+- SameSite configurable: lax local, none fuera de local por defecto;
+- rechazo de SameSite=None si Secure no está activo;
+- CORS con Origin exacto y credentials, sin wildcard;
+- CSRF ligado a la sesión y obligatorio en mutations;
+- HSTS solo fuera de local;
+- headers de seguridad API y Cloudflare;
+- rate limiting persistente en PostgreSQL, no en memoria de proceso;
+- secretos separados e independientes;
+- logs redactados;
+- errores con request ID sin revelar internals;
+- session expiration y returnTo seguro cubiertos por tests;
+- multi-tenant/customer ownership preservados en queries autoritativas.
+
+Pendiente sobre HTTPS real:
+
+- aceptación/envío de cookie cross-site;
+- Origin válido/inválido/ausente;
+- CSRF ausente/inválido;
+- expiración y relogin completos;
+- HSTS/CSP/CORS vistos desde el edge;
+- revisión de secretos y permisos mínimos de proveedor.
+
+======================================================================
+14. BACKUPS Y RESTORE
+======================================================================
+
+Política documentada, todavía no activada:
+
+- backup Railway diario, retención objetivo 14 días o límite del plan;
+- backup Railway semanal, retención objetivo 8 semanas o límite del plan;
+- pg_dump cifrado offsite semanal, retención objetivo 8 semanas;
+- checksum SHA-256, registro de responsable/fecha/tamaño y storage separado.
+
+Restore drill real: NOT EXECUTED - MANUAL OWNER ACTION REQUIRED.
+RPO observado: NO MEDIDO.
+RTO observado: NO MEDIDO.
+
+El runbook exige restaurar primero en una DB aislada, ejecutar db verify,
+migration check, consultas de integridad, health/readiness, login y lectura de
+pedidos/inventario. Nunca ensayar sobre production.
+
+======================================================================
+15. TESTING FINAL
+======================================================================
+
+Todos los controles finales locales pasaron el 12 de septiembre de 2026:
+
+- lint: PASS
+  corepack pnpm lint
+
+- typecheck estricto: PASS
+  corepack pnpm typecheck
+
+- contracts/unit: PASS
+  1 archivo, 15 tests.
+
+- API unit: PASS
+  20 archivos, 124 tests.
+
+- API foundation/security HTTP: PASS
+  1 archivo, 14 tests.
+
+- frontend unit/component: PASS
+  48 archivos, 145 tests.
+
+- integration PostgreSQL 18: PASS
+  9 archivos, 37 tests.
+
+- database: PASS
+  9 migrations, 277 operaciones; marker y schema coinciden con contract.
+
+- payment/reconciliation/outbox/security: PASS dentro de las suites anteriores.
+
+- E2E HTTP real + PostgreSQL 18 + Playwright: PASS
+  11 recorridos: guard de checkout result, registro, login/restauración,
+  retorno informativo, recursos customer, logout, producto staff, inventario,
+  transición de pedido, transición/tracking de paquete y observación customer.
+
+- build production: PASS
+  contracts, API y web.
+
+- migration check: PASS
+  All checks passed.
+
+- parsing de los 5 workflows YAML: PASS.
+
+- staging smoke: NOT EXECUTED; faltan URLs externas.
+- Mercado Pago TEST: NOT EXECUTED; faltan credenciales/HTTPS.
+- Resend staging: NOT EXECUTED; faltan credenciales/dominio.
+- backup/restore real: NOT EXECUTED; falta infraestructura.
+
+Durante el cierre, el primer E2E detectó que la prueba antigua intentaba abrir
+checkout result sin sesión. Se actualizó el recorrido para verificar primero el
+guard customer y después el retorno informativo autenticado. El E2E completo se
+repitió y pasó. No se ocultó ni se ignoró el fallo.
+
+Aviso no bloqueante: Prisma indicó que sus agent skills no estaban sincronizadas.
+El CLI y todos los gates de migration/db verify funcionaron correctamente.
+
+======================================================================
+16. VARIABLES DE ENTORNO NUEVAS O FORMALIZADAS
+======================================================================
+
+Solo nombres; no se incluyen valores:
+
+Runtime/API/DB:
+APP_ENV
+HOST
+API_PUBLIC_URL
+DATABASE_POOL_MAX
+DATABASE_CONNECTION_TIMEOUT_MS
+DATABASE_IDLE_TIMEOUT_MS
+SESSION_COOKIE_SAME_SITE
+
+Email:
+EMAIL_PROVIDER
+EMAIL_FROM
+EMAIL_REPLY_TO
+RESEND_API_KEY
+STAFF_NOTIFICATION_EMAIL
+
+Bootstrap one-off:
+BOOTSTRAP_CONFIRM
+BOOTSTRAP_ADMIN_EMAIL
+BOOTSTRAP_ADMIN_PASSWORD
+BOOTSTRAP_ADMIN_FIRST_NAME
+BOOTSTRAP_ADMIN_LAST_NAME
+BOOTSTRAP_CONTACT_EMAIL
+BOOTSTRAP_CONTACT_PHONE
+BOOTSTRAP_PICKUP_ADDRESS
+BOOTSTRAP_PICKUP_INSTRUCTIONS
+BOOTSTRAP_LOW_STOCK_THRESHOLD
+BOOTSTRAP_PACKAGE_ALERT_DAYS
+BOOTSTRAP_EXPIRATION_WARNING_DAYS
+
+GitHub/Cloudflare/Railway deployment:
+CLOUDFLARE_API_TOKEN
+CLOUDFLARE_ACCOUNT_ID
+CLOUDFLARE_PAGES_PROJECT
+RAILWAY_PROJECT_ID
+RAILWAY_STAGING_TOKEN
+RAILWAY_PRODUCTION_TOKEN
+STAGING_API_BASE_URL
+STAGING_WEB_URL
+STAGING_API_URL
+PRODUCTION_API_BASE_URL
+PRODUCTION_WEB_URL
+PRODUCTION_API_URL
+
+Smoke:
+SMOKE_WEB_URL
+SMOKE_API_URL
+
+Las variables de pagos ya existentes siguen siendo obligatorias por ambiente:
+PAYMENT_PROVIDER, MERCADOPAGO_ACCESS_TOKEN, MERCADOPAGO_WEBHOOK_SECRET,
+PAYMENT_SUCCESS_URL, PAYMENT_FAILURE_URL, PAYMENT_PENDING_URL y
+PAYMENT_WEBHOOK_URL.
+
+======================================================================
+17. COMANDOS DE USO Y OPERACIÓN
+======================================================================
+
+Preparación local:
+
+corepack pnpm install --frozen-lockfile
+Copy-Item .env.example .env
+corepack pnpm db:up
+corepack pnpm db:migrate
+corepack pnpm db:seed
+corepack pnpm dev
+
+La web local usa normalmente http://127.0.0.1:5173 y la API el puerto definido
+por PORT. Docker no estaba disponible en el equipo durante este cierre; los
+runners integration/E2E usaron PostgreSQL 18 embebido y no requieren Docker.
+
+Controles:
+
+corepack pnpm lint
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm test:integration
+corepack pnpm test:e2e
+corepack pnpm db:migration:check
+corepack pnpm db:verify
+corepack pnpm build
+
+Jobs one-off controlados:
+
+corepack pnpm reservations:expire
+corepack pnpm payments:reconcile
+corepack pnpm outbox:process
+
+Bootstrap productivo, solo después de configurar la base vacía y las variables
+temporales requeridas:
+
+corepack pnpm production:bootstrap
+
+Smoke externo cuando existan URLs:
+
+$env:SMOKE_WEB_URL="https://<staging-web>"
+$env:SMOKE_API_URL="https://<staging-api>"
+node tools/smoke-deployment.mjs
+
+Railway desde sesión autenticada:
+
+corepack pnpm exec railway login
+corepack pnpm exec railway config plan --environment staging
+corepack pnpm exec railway config apply --environment staging
+
+La ruta recomendada de producción es GitHub Actions con environment protegido,
+no comandos manuales improvisados.
+
+======================================================================
+18. MANUAL ACTIONS REQUIRED
+======================================================================
+
+Orden recomendado para el owner:
+
+1. Crear/proteger GitHub Environments staging y production; production debe
+   requerir approval. Proteger main y exigir CI verde.
+2. Crear proyecto Cloudflare Pages y tokens de mínimo privilegio.
+3. Crear proyecto Railway, environments staging/production y tokens separados.
+4. Configurar todas las variables por ambiente en GitHub/Railway, sin copiar
+   secretos a archivos, issues o logs.
+5. Ejecutar Railway config plan staging, revisar, aplicar y provisionar DB/API/jobs.
+6. Desplegar Cloudflare staging, registrar las URLs en docs/staging-validation.md
+   y ejecutar smoke HTTPS.
+7. Aplicar migrations en managed PostgreSQL y ejecutar db verify/readiness.
+8. Ejecutar bootstrap productivo solo en la base productiva vacía; retirar de
+   inmediato BOOTSTRAP_ADMIN_PASSWORD y BOOTSTRAP_CONFIRM.
+9. Configurar exclusivamente credenciales Mercado Pago TEST en staging y probar
+   todos los casos del checklist, incluyendo webhook perdido/reconciliation.
+10. Configurar Resend staging, verificar dominio/remitente y probar los seis emails.
+11. Confirmar que los tres cron corren cada 5 minutos, terminan y alertan al fallar.
+12. Habilitar backups diarios/semanales, seleccionar storage offsite cifrado y
+    ejecutar restore drill en DB aislada; registrar RPO/RTO.
+13. Configurar monitor de disponibilidad y alertas reales de 5xx, readiness, jobs,
+    webhook, reconciliation y outbox DEAD/backlog.
+14. Definir dominio/DNS/certificados y repetir CORS, CSRF, cookies, CSP y HSTS.
+15. Aprobar textos legales, dirección/punto de retiro, catálogo e inventario reales.
+16. Capacitar staff, revisar runbook y completar docs/production-checklist.md.
+17. Solo con toda la evidencia aprobada, seguir docs/go-live-payments.md y pedir
+    explícitamente la activación LIVE. Hasta entonces mantener provider fake en
+    producción y no procesar dinero real.
+
+======================================================================
+19. DOCUMENTACIÓN CREADA O ACTUALIZADA
+======================================================================
+
+Creada:
+
+- docs/deployment.md
+- docs/disaster-recovery.md
+- docs/operations-runbook.md
+- docs/production-checklist.md
+- docs/go-live-payments.md
+- docs/staging-validation.md
+- este archivo FinFase 5.txt
+
+Actualizada:
+
+- README.md
+- ARCHITECTURE.md
+- docs/api.md
+- docs/database-model.md
+- docs/ecommerce.md
+- docs/payments.md
+- docs/security.md
+
+La documentación distingue siempre lo implementado localmente de lo validado en
+proveedores externos.
+
+======================================================================
+20. TECHNICAL DEBT REAL
+======================================================================
+
+1. Prisma 8 sigue fijado a versiones release candidate
+   (@prisma/orm-postgres 8.0.0-rc.8 y prisma 8.0.0-rc.12). Debe planificarse la
+   migración a una versión estable compatible, repitiendo migrations y db verify.
+
+2. No existe confirmación de delivery mediante webhooks de Resend. El outbox
+   confirma aceptación por el proveedor, no entrega final al buzón. Implementarlo
+   solo si el negocio necesita esa trazabilidad.
+
+3. El monitor GitHub está preparado, pero no constituye monitoreo continuo real
+   hasta configurar URLs, verificar ejecuciones y definir un canal de escalamiento.
+
+4. Los textos legales siguen siendo placeholders explícitos y requieren aprobación.
+
+5. No hay métricas de Core Web Vitals reales; solo medición de bundle de build.
+
+No se registra como deuda de código la falta de credenciales, cuentas o DNS; son
+acciones externas del owner, aunque sí bloquean readiness completo.
+
+======================================================================
+21. PRODUCTION READINESS Y DECISIÓN FINAL
+======================================================================
+
+PRODUCTION READINESS: PARTIALLY READY.
+
+Motivo: código, automatización y controles locales están listos, pero los gates
+externos obligatorios de staging HTTPS, managed PostgreSQL, sandbox/webhook,
+correo, cron observado, backups, restore, monitoring y legales no se ejecutaron.
+
+LIVE PAYMENTS: NOT ACTIVATED.
+
+No se colocaron credenciales LIVE, no se procesó dinero real y no se autorizó un
+go-live automático.
+
+======================================================================
+22. FINFASE 5
+======================================================================
+
+Archivo creado: FinFase 5.txt
+
+La preparación de código de Fase 5 queda cerrada dentro del alcance disponible.
+El siguiente trabajo no es inventar más implementación local, sino ejecutar y
+documentar los gates externos enumerados con cuentas y credenciales del owner.
