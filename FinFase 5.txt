@@ -71,7 +71,9 @@ Commits de Fase 5:
 - f8cab6b docs: add production and payment go-live checklists
 - d06f45b docs: document phase five production architecture
 - f4dcd23 test(release): verify database and protected payment return
-- commit final: docs: close phase five preparation
+- 5bbd744 docs: close phase five preparation
+- 72e0971 test(db): validate production bootstrap lifecycle
+- commit final de continuación: docs: record integrated bootstrap verification
 
 No se hizo reset, force-push ni reescritura de historia.
 
@@ -208,6 +210,19 @@ Bootstrap productivo añadido:
 
 Production nunca debe ejecutar db:seed. Las variables BOOTSTRAP_* deben existir
 solo durante el one-off y retirarse inmediatamente después.
+
+Validación integrada adicional completada:
+
+- se creó una segunda base PostgreSQL 18 aislada y completamente vacía;
+- se aplicaron las 9 migrations antes del bootstrap;
+- se ejecutó el comando productivo con configuración efímera de prueba;
+- se verificó una Organization, un OrganizationSettings, 20 permisos, 6 roles,
+  todas las relaciones role/permission, un User y una Membership SUPER_ADMIN;
+- se verificó que la contraseña almacenada es un hash válido;
+- se verificaron cero productos, clientes, pedidos, pagos, paquetes, inventario y
+  eventos outbox;
+- una segunda ejecución fue rechazada con la regla de un solo uso;
+- se repitió la comprobación y los conteos permanecieron sin cambios.
 
 Managed PostgreSQL real: pendiente de provisionar y validar en Railway.
 
@@ -453,6 +468,10 @@ Todos los controles finales locales pasaron el 12 de septiembre de 2026:
 
 - database: PASS
   9 migrations, 277 operaciones; marker y schema coinciden con contract.
+
+- production bootstrap integrado: PASS
+  Base aislada vacía, dataset mínimo CH Market/RBAC, credenciales con hash válido,
+  cero datos demo y segunda ejecución rechazada sin alterar conteos.
 
 - payment/reconciliation/outbox/security: PASS dentro de las suites anteriores.
 
