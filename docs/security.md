@@ -123,6 +123,14 @@ La entrega de paquetes tiene un scope adicional por tenant, actor, package e IP.
 
 `.env` no se versiona. Producción debe usar el secret manager de la plataforma y rotación planificada; rotar el secreto de Session invalida cookies existentes.
 
+## Cookies y HTTPS de Fase 5
+
+Local usa `tl_session_dev`, sin Secure y `SameSite=Lax`. Staging/production usan `__Host-tl_session`, HttpOnly, Secure, Path=/ y sin Domain. Para los dominios técnicos cross-site de Cloudflare/Railway se configura `SESSION_COOKIE_SAME_SITE=none`; la configuración rechaza `none` sin Secure. Si los custom domains quedan bajo el mismo site, se puede evaluar `lax` después de probar login, checkout y expiración.
+
+Helmet habilita HSTS solo fuera de local. Cloudflare sirve CSP, `X-Content-Type-Options`, `Referrer-Policy` y `Permissions-Policy`. El frontend escucha respuestas 401, elimina su estado autenticado/cache privada y los guards producen un `returnTo` interno saneado.
+
+La suite local prueba primitives, headers, Origin/CORS y CSRF. El comportamiento de cookies/CSRF sobre HTTPS real continúa pendiente y se registra en `docs/staging-validation.md`.
+
 ## Cobertura de seguridad
 
 Las pruebas explícitas cubren:
@@ -143,7 +151,7 @@ La matriz mantenida por la suite está en `apps/api/tests/SECURITY-COVERAGE.md`.
 
 ## Checklist antes de producción
 
-1. Servir frontend/API sobre HTTPS y verificar cookie `__Host-`.
+1. Servir frontend/API sobre HTTPS y verificar cookie `__Host-` y SameSite según topología.
 2. Inyectar secretos distintos desde un secret manager.
 3. Restringir red del origin API al proxy autorizado.
 4. Configurar `WEB_ORIGIN` exacto y `TRUST_PROXY` según topología real.

@@ -8,6 +8,7 @@
 - El único fulfillment habilitado es `PICKUP`.
 - La order nace `PENDING_PAYMENT` antes de redirigir al proveedor.
 - La URL de retorno `/checkout/resultado` es solo experiencia visual; no cambia estados.
+- La pantalla de retorno consulta el pedido de la sesión con polling limitado y muestra el TTL solo como referencia.
 
 ## Flujo principal
 
@@ -47,6 +48,10 @@ PAID -> PREPARING -> READY -> COMPLETED
 
 En `COMPLETED` el backend consume reservas comprometidas y crea movimientos `SALE` de forma idempotente. Staff con `orders.refund` puede ejecutar full refund con motivo y confirmación; el refund no devuelve stock automáticamente.
 
+## Notificaciones
+
+Bienvenida, pedido creado, pago aprobado, listo para retiro, cancelación y refund producen `OutboxEvent` dentro de la transacción principal. Un cron entrega mediante provider fake o Resend. El email no bloquea ni revierte el flujo comercial.
+
 ## Límites
 
-No incluye pagos productivos, promociones, despacho, facturación, devoluciones físicas, notificaciones, couriers ni uploads de imágenes.
+No incluye pagos productivos, promociones, despacho, facturación, devoluciones físicas, WhatsApp/SMS, couriers ni uploads de imágenes.

@@ -1,10 +1,10 @@
 # TraceLink V2 · CH Market
 
-TraceLink V2 es la plataforma de comercio, inventario, pedidos y trazabilidad de Colvin Solutions. Esta entrega integra la UI completa de CH Market con una API autoritativa, sesiones server-side, PostgreSQL, checkout real con reservas y una abstracción de pagos, manteniendo un modo mock local.
+TraceLink V2 es la plataforma de comercio, inventario, pedidos y trazabilidad de Colvin Solutions. Esta entrega integra la UI completa de CH Market con una API autoritativa, sesiones server-side, PostgreSQL, checkout real con reservas y una abstracción de pagos. La Fase 5 agrega configuración de producción, CI/CD, jobs, outbox de notificaciones, observabilidad y recuperación, manteniendo un modo mock local.
 
 ## Estado
 
-Fase 4 incluye:
+Fase 5 preparada en código incluye:
 
 - storefront responsive, carrito y checkout autenticado;
 - portales customer y staff con la UX de Fase 2 intacta;
@@ -24,6 +24,17 @@ Fase 4 incluye:
 - dashboard/reportes derivados de PostgreSQL;
 - adapters HTTP con validación Zod y modo mock intercambiable;
 - tests unitarios, API, integración PostgreSQL, seguridad y E2E browser real.
+- Cloudflare Pages con fallback SPA y security headers;
+- Railway IaC para API, PostgreSQL y tres cron jobs;
+- CI de Pull Request, CD de staging y deploy productivo manual protegido;
+- reconciliación bounded de pagos pendientes ante webhooks perdidos;
+- `NotificationProvider` fake/Resend y transactional outbox idempotente;
+- liveness/readiness separados, logs JSON redactados y uptime workflow;
+- route-level splitting, polling limitado de pago, countdown informativo y payment timeline;
+- bootstrap productivo de un solo uso, sin datos demo;
+- runbook, política de backup/restore y checklists de staging/go-live.
+
+El repositorio está preparado, pero staging, backups, restore real, Resend y Mercado Pago TEST requieren credenciales/infraestructura del owner. Pagos LIVE: **NOT ACTIVATED**.
 
 ## Requisitos
 
@@ -71,6 +82,10 @@ corepack pnpm db:seed
 
 # Expirar reservas de checkout vencidas de forma idempotente
 corepack pnpm reservations:expire
+
+# Conciliar pagos no terminales recientes y procesar emails pendientes
+corepack pnpm payments:reconcile
+corepack pnpm outbox:process
 ```
 
 El seed es idempotente. Usa las variables `SEED_ADMIN_*`, `SEED_STAFF_*`, `SEED_CUSTOMER_*` y `SEED_PACKAGE_PICKUP_CODE`; no contiene una contraseña productiva en el código. Requiere `NODE_ENV=development|test`, rechaza producción y los placeholders de `.env.example` antes de abrir una conexión.
@@ -197,6 +212,9 @@ La selección ocurre en `apps/web/src/features/service-composition.ts`; no hay c
 /productos/:slug
 /nosotros
 /contacto
+/terminos
+/privacidad
+/cambios-y-devoluciones
 /carrito
 /checkout
 /checkout/resultado
@@ -265,7 +283,7 @@ React page
 
 - Nunca subas `.env`, credenciales, cookies ni tokens.
 - El tenant, actor y ownership se derivan de Session; no se aceptan como autoridad desde el navegador.
-- La cookie de producción es `__Host-`, HttpOnly, Secure, SameSite=Lax, Path=/ y sin Domain.
+- La cookie fuera de local es `__Host-`, HttpOnly, Secure, Path=/ y sin Domain. `SameSite` es configurable: `none` para los dominios técnicos separados Cloudflare/Railway y `lax` en local/same-site; CSRF y Origin exacto siguen siendo obligatorios.
 - CSRF y Origin exacto protegen mutaciones autenticadas.
 - Passwords usan Argon2id; tokens/códigos se guardan únicamente como hashes.
 - Rate limits protegen auth y entrega; AuditLog omite secretos.
@@ -288,10 +306,17 @@ Consulta [docs/security.md](docs/security.md) antes de desplegar.
 - [docs/inventory-reservations.md](docs/inventory-reservations.md): ciclo de vida de reservas y consumo.
 - [docs/payments.md](docs/payments.md): arquitectura de pagos y Mercado Pago Orders API.
 - [docs/payment-webhooks.md](docs/payment-webhooks.md): firma, deduplicación y reconciliación.
+- [docs/deployment.md](docs/deployment.md): Cloudflare, Railway, environments, migrations y bootstrap.
+- [docs/disaster-recovery.md](docs/disaster-recovery.md): backups, restore aislado y medición RPO/RTO.
+- [docs/operations-runbook.md](docs/operations-runbook.md): incidentes, rollback y recuperación operativa.
+- [docs/production-checklist.md](docs/production-checklist.md): gates previos a producción.
+- [docs/staging-validation.md](docs/staging-validation.md): matriz de pruebas externas pendiente.
+- [docs/go-live-payments.md](docs/go-live-payments.md): gate manual de Mercado Pago LIVE.
 - [docs/frontend-design.md](docs/frontend-design.md): sistema visual y patrones UX.
 - [docs/frontend-roadmap.md](docs/frontend-roadmap.md): fases terminadas y siguientes.
 - [docs/ui-review-phase-3.md](docs/ui-review-phase-3.md): revisión visual y mejoras posibles.
 - [FinFase 2.txt](FinFase%202.txt): informe de cierre anterior.
 - `FinFase 3.txt`: informe integral generado al cerrar esta fase.
 - [FinFase 4.txt](FinFase%204.txt): informe integral generado al cerrar Fase 4.
+- [FinFase 5.txt](FinFase%205.txt): informe honesto de preparación productiva y pendientes externos.
 - [QUE HACER.txt](QUE%20HACER.txt): pasos locales y datos necesarios para preparar la siguiente fase.

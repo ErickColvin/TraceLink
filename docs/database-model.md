@@ -123,6 +123,10 @@ Registra HMAC de clave y request, operación, estado, respuesta reproducible, re
 
 Contador persistente por scope y HMAC de clave, con ventana, bloqueo y expiración. La expiración está indexada para su poda oportunista.
 
+### OutboxEvent
+
+Registro tenant-scoped de notificaciones transaccionales con event key única, tipo, destinatario, payload validado, estado, contador de intentos, lease, próximo intento, último error e identificador del provider. Se inserta en la misma transacción que Order/Payment y se procesa en lotes con `FOR UPDATE SKIP LOCKED`. Los estados terminales permiten distinguir entrega de agotamiento de reintentos.
+
 ## Índices principales
 
 Las consultas reales están cubiertas por índices que comienzan por `organization_id` y combinan, según el caso:
@@ -147,7 +151,7 @@ Session, Category, Product, InventoryLocation, InventoryLot, InventoryBalance,
 InventoryMovement, InventoryReservation, Order, OrderItem, OrderStatusEvent,
 Payment, PaymentAttempt, PaymentProviderEvent, Refund, Package, TrackingEvent,
 PackagePickupReceipt, OrganizationSettings, AuditLog, IdempotencyRecord,
-RateLimitBucket.
+RateLimitBucket, OutboxEvent.
 ```
 
 También contiene enums para estado de identidad/membership/customer, audiencia, movimiento/reserva, pedido/pago/fulfillment, paquete e idempotencia.
@@ -164,5 +168,6 @@ Las migraciones son incrementales; no se reescribe una migración aplicada:
 6. `20260904T0252_tracking_event_description_length`: longitud contractual de eventos.
 7. `20260904T0255_settings_contract_lengths`: longitudes del agregado settings.
 8. `20260907T0011_phase_4_payments`: pagos, intentos, eventos de provider, reembolsos, estado `COMMITTED` de reservas, vínculo reserva-movimiento y constraints/índices de Fase 4.
+9. `20260911T0128_phase_5_outbox`: outbox transaccional, lease, reintentos e índices de entrega.
 
 `pnpm db:migration:check`, `pnpm db:verify` y las suites contra PostgreSQL comprueban la cadena sin ejecutar resets destructivos.

@@ -1,6 +1,6 @@
 # Pagos de Fase 4
 
-Estado: implementado con `PaymentProvider` fake para CI y adapter Mercado Pago Orders API para sandbox. La validación real con Mercado Pago queda pendiente hasta cargar credenciales de prueba. Corte: 8 de septiembre de 2026.
+Estado: implementado con `PaymentProvider` fake para CI y adapter Mercado Pago Orders API para sandbox. La validación real con Mercado Pago queda pendiente hasta cargar credenciales TEST y desplegar staging HTTPS. Corte: 12 de septiembre de 2026. LIVE no está activado.
 
 ## Decisión
 
@@ -89,6 +89,10 @@ El frontend redirige al `checkoutUrl` recibido. No construye URLs del proveedor.
 
 La URL de retorno `/checkout/resultado` es solo UX. Un query param como `status=approved` no cambia `Payment` ni `Order`.
 
+El comando `pnpm payments:reconcile` protege ante webhooks perdidos. Solo selecciona pagos no terminales recientes, con umbral de antigüedad y lote máximo; consulta el provider y usa la misma reconciliación idempotente/auditada que el webhook. Railway lo programa cada cinco minutos.
+
+El frontend conserva temporalmente en `sessionStorage` únicamente el ID de su order y `reservationExpiresAt`; consulta el endpoint customer con polling cada cuatro segundos por un máximo de dos minutos. El reloj es informativo: al llegar a cero se vuelve a consultar backend y nunca se libera stock desde React.
+
 ## Refunds
 
 Staff con `orders.refund` puede ejecutar full refund desde detalle de pedido. La acción requiere motivo, confirmación, CSRF e idempotencia.
@@ -109,3 +113,5 @@ Antes de producción se debe validar manualmente con una aplicación Mercado Pag
 - URLs HTTPS públicas.
 
 No se incluyen cobros productivos ni credenciales reales en el repositorio.
+
+La evidencia de staging debe registrarse en `docs/staging-validation.md` y el gate LIVE está en `docs/go-live-payments.md`.

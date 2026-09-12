@@ -20,7 +20,7 @@ Los schemas citados viven en `@tracelink/contracts`. El mapa método-a-método c
 | --- | --- | --- | --- | --- |
 | `GET /health/live` | Público | Sin entrada | Estado application `up`, `200` | — |
 | `GET /health/ready` | Público | Sin entrada | Estado application/database, `200` o `503` | `503` con estado `not_ready` si DB no responde |
-| `GET /health` | Público | Sin entrada | Estado combinado `ok`/`degraded` | `503` si DB no responde |
+| `GET /health` | Público | Sin entrada | Liveness application `up`, `200` | — |
 | `POST /auth/login` | Anónimo + Origin + rate limit | `SignInRequest` | `AuthSessionEnvelope`, cookie, `200` | `400`, `401 INVALID_CREDENTIALS`, `403 ACCOUNT_DISABLED`, `429` |
 | `POST /auth/register` | Anónimo + Origin + rate limit | `RegisterRequest` customer | `AuthSessionEnvelope`, cookie, `201` | `400`, `409`, `429` |
 | `GET /auth/me` | Sesión | Sin entrada | `AuthSessionEnvelope`, `200` | `401`, `SESSION_EXPIRED` |
@@ -93,6 +93,8 @@ La URL de retorno `/checkout/resultado` pertenece al frontend y no es un endpoin
 | `POST /staff/orders/:id/transitions` | Staff / `orders.update` + CSRF + idempotencia | `{ toStatus }` | `StaffOrder` | `400`, `401`, `403`, `404`, `409 INVALID_STATE_TRANSITION/IDEMPOTENCY_CONFLICT` |
 | `POST /staff/orders/:id/cancellation` | Staff / `orders.cancel` + CSRF + idempotencia | `{ reason }` | `StaffOrder` | `400`, `401`, `403`, `404`, `409` |
 | `POST /staff/orders/:id/refunds` | Staff / `orders.refund` + CSRF + idempotencia | `{ reason }` | `FullRefundResponse` | `400`, `401`, `403`, `404`, `409` |
+
+`StaffOrderListParams` permite filtrar por estado de order, estado de pago, `paymentProviders` (`MERCADOPAGO`/`FAKE`), fulfillment y rango de fechas. El filtro se aplica en PostgreSQL con tenant obligatorio.
 
 `CANCELLED` solo se alcanza por cancellation; customer solo puede cancelar `PENDING_PAYMENT`. El pago aprobado habilita `PAID -> PREPARING -> READY -> COMPLETED`; `COMPLETED` consume stock reservado. El reembolso actual es total; no genera devolución física de stock.
 

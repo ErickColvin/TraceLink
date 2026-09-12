@@ -10,7 +10,7 @@ La entrega incluye tres experiencias React:
 2. portal autenticado de cliente;
 3. portal autenticado de personal/administración.
 
-Fase 2 cerró la experiencia frontend. Fase 3 incorporó API autoritativa, PostgreSQL, autenticación real, RBAC e integración HTTP sin reconstruir la UI. Fase 4 conecta ecommerce real: checkout autenticado, reservas de inventario, pagos, webhooks, reintentos, cancelación pendiente y reembolso total. El modo mock sigue disponible para desarrollo y tests aislados.
+Fase 2 cerró la experiencia frontend. Fase 3 incorporó API autoritativa, PostgreSQL, autenticación real, RBAC e integración HTTP sin reconstruir la UI. Fase 4 conecta ecommerce real: checkout autenticado, reservas de inventario, pagos, webhooks, reintentos, cancelación pendiente y reembolso total. Fase 5 prepara Cloudflare Pages, Railway, CI/CD, jobs, outbox de email, observabilidad, recuperación y hardening productivo. El modo mock sigue disponible para desarrollo y tests aislados.
 
 ## 2. Principios
 
@@ -163,7 +163,7 @@ Se distinguen:
 - `Membership`: acceso staff a una Organization;
 - `Role`/`Permission`: autorización de la Membership.
 
-La sesión es server-side. El navegador recibe un token opaco aleatorio en cookie HttpOnly; PostgreSQL conserva solo su HMAC. En producción la cookie usa prefijo `__Host-`, `Secure`, `SameSite=Lax`, `Path=/` y sin Domain.
+La sesión es server-side. El navegador recibe un token opaco aleatorio en cookie HttpOnly; PostgreSQL conserva solo su HMAC. Fuera de local la cookie usa prefijo `__Host-`, `Secure`, `Path=/` y sin Domain. `SameSite=None` soporta los dominios técnicos separados de Cloudflare/Railway; puede configurarse `Lax` cuando web/API compartan site. El doble control CSRF + Origin exacto permanece obligatorio.
 
 Las mutaciones autenticadas necesitan token CSRF ligado a sesión y Origin exacto. La API reconstruye permisos en cada request y revoca sesiones al deshabilitar acceso.
 
@@ -190,6 +190,12 @@ Order conserva montos CLP e items snapshot. Checkout crea `PENDING_PAYMENT`; el 
 ### Pagos
 
 Payment, PaymentAttempt, PaymentProviderEvent y Refund modelan el ciclo de pago separado de Order. El dominio usa estados internos `CREATED`, `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED`, `REFUNDED` y `ERROR`. Mercado Pago Orders API y el provider fake quedan detrás de `PaymentProvider`; el frontend nunca recibe secretos ni construye URLs del proveedor.
+
+Un cron consulta de forma bounded solo pagos recientes no terminales. Webhook y polling convergen en la misma reconciliación idempotente y auditada.
+
+### Notificaciones
+
+`OutboxEvent` se inserta dentro de la transacción de negocio. El cron `notification-outbox` reclama lotes con lease/`SKIP LOCKED`, entrega mediante `NotificationProvider` fake o Resend, registra intentos y programa backoff. Un fallo de email no revierte Order/Payment.
 
 ### Paquetes
 
@@ -235,7 +241,7 @@ Las suites cubren:
 
 Los gates de cierre son `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` y `pnpm test:e2e`.
 
-## 14. Fuera de Fase 4
+## 14. Fuera del alcance vigente
 
 - credenciales productivas Mercado Pago y cobros reales;
 - deploy productivo, dominio, SSL, Cloudflare/reverse proxy y CI/CD;
@@ -244,4 +250,19 @@ Los gates de cierre son `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`
 - recuperación de contraseña;
 - Redis, colas, microservicios, Kubernetes, GraphQL, BI avanzado, IA o apps nativas.
 
-Estas capacidades requieren contratos de producto y seguridad propios; no se simulan silenciosamente.
+Estas capacidades requieren contratos de producto y seguridad propios; no se simulan silenciosamente. La infraestructura Fase 5 está versionada pero no se considera desplegada hasta completar `docs/production-checklist.md`.
+
+## 15. Deployment Fase 5
+
+```text
+Cloudflare Pages (React SPA)
+  -> Railway API (Express)
+     -> Railway PostgreSQL
+     -> reservation-expiry cron
+     -> payment-reconciliation cron
+     -> notification-outbox cron
+```
+
+GitHub Actions ejecuta quality gates con PostgreSQL descartable. Staging se despliega primero; production requiere workflow manual y GitHub Environment approval. Las migrations son pre-deploy y versionadas. El seed demo rechaza production; un bootstrap guardado crea solo la organización, RBAC, settings y primer SUPER_ADMIN.
+
+Liveness no depende de DB; readiness comprueba PostgreSQL. Pino conserva request ID y redacción. Un monitor programado consulta frontend, health y readiness. La política y procedimientos operativos viven en `docs/deployment.md`, `docs/disaster-recovery.md` y `docs/operations-runbook.md`.
