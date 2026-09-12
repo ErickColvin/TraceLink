@@ -1,23 +1,74 @@
 import { lazy, Suspense, type PropsWithChildren } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { CustomerRoute, LoginPage, RegisterPage, StaffRoute } from "@/features/auth";
-import { CartPage } from "@/features/cart/cart-page";
-import { AboutPage } from "@/features/content/pages/about-page";
-import { ContactPage } from "@/features/content/pages/contact-page";
-import { NotFoundPage } from "@/features/content/pages/not-found-page";
-import { CustomerHomePage } from "@/features/customers/pages/customer-home-page";
-import { CustomerProfilePage } from "@/features/customers/pages/customer-profile-page";
-import { AdminComingSoonPage } from "@/features/dashboard/pages/admin-coming-soon-page";
-import { CustomerOrderDetailPage } from "@/features/orders/pages/customer-order-detail-page";
-import { CustomerOrdersPage } from "@/features/orders/pages/customer-orders-page";
-import { CustomerPackageDetailPage } from "@/features/packages/pages/customer-package-detail-page";
-import { CustomerPackagesPage } from "@/features/packages/pages/customer-packages-page";
-import { CatalogPage } from "@/features/products/pages/catalog-page";
-import { HomePage } from "@/features/products/pages/home-page";
-import { ProductDetailPage } from "@/features/products/pages/product-detail-page";
-import { AdminLayout } from "@/layouts/admin-layout";
-import { CustomerLayout } from "@/layouts/customer-layout";
-import { PublicLayout } from "@/layouts/public-layout";
+import { CustomerRoute } from "@/features/auth/routes/customer-route";
+import { StaffRoute } from "@/features/auth/routes/staff-route";
+
+const PublicLayout = lazy(() =>
+  import("@/layouts/public-layout").then((module) => ({ default: module.PublicLayout })),
+);
+const CustomerLayout = lazy(() =>
+  import("@/layouts/customer-layout").then((module) => ({ default: module.CustomerLayout })),
+);
+const AdminLayout = lazy(() =>
+  import("@/layouts/admin-layout").then((module) => ({ default: module.AdminLayout })),
+);
+const HomePage = lazy(() =>
+  import("@/features/products/pages/home-page").then((module) => ({ default: module.HomePage })),
+);
+const CatalogPage = lazy(() =>
+  import("@/features/products/pages/catalog-page").then((module) => ({ default: module.CatalogPage })),
+);
+const ProductDetailPage = lazy(() =>
+  import("@/features/products/pages/product-detail-page").then((module) => ({ default: module.ProductDetailPage })),
+);
+const CartPage = lazy(() =>
+  import("@/features/cart/cart-page").then((module) => ({ default: module.CartPage })),
+);
+const AboutPage = lazy(() =>
+  import("@/features/content/pages/about-page").then((module) => ({ default: module.AboutPage })),
+);
+const ContactPage = lazy(() =>
+  import("@/features/content/pages/contact-page").then((module) => ({ default: module.ContactPage })),
+);
+const NotFoundPage = lazy(() =>
+  import("@/features/content/pages/not-found-page").then((module) => ({ default: module.NotFoundPage })),
+);
+const TermsPage = lazy(() =>
+  import("@/features/content/pages/legal-placeholder-pages").then((module) => ({ default: module.TermsPage })),
+);
+const PrivacyPage = lazy(() =>
+  import("@/features/content/pages/legal-placeholder-pages").then((module) => ({ default: module.PrivacyPage })),
+);
+const ReturnsPage = lazy(() =>
+  import("@/features/content/pages/legal-placeholder-pages").then((module) => ({ default: module.ReturnsPage })),
+);
+const LoginPage = lazy(() =>
+  import("@/features/auth/pages/login-page").then((module) => ({ default: module.LoginPage })),
+);
+const RegisterPage = lazy(() =>
+  import("@/features/auth/pages/register-page").then((module) => ({ default: module.RegisterPage })),
+);
+const CustomerHomePage = lazy(() =>
+  import("@/features/customers/pages/customer-home-page").then((module) => ({ default: module.CustomerHomePage })),
+);
+const CustomerProfilePage = lazy(() =>
+  import("@/features/customers/pages/customer-profile-page").then((module) => ({ default: module.CustomerProfilePage })),
+);
+const CustomerOrdersPage = lazy(() =>
+  import("@/features/orders/pages/customer-orders-page").then((module) => ({ default: module.CustomerOrdersPage })),
+);
+const CustomerOrderDetailPage = lazy(() =>
+  import("@/features/orders/pages/customer-order-detail-page").then((module) => ({ default: module.CustomerOrderDetailPage })),
+);
+const CustomerPackagesPage = lazy(() =>
+  import("@/features/packages/pages/customer-packages-page").then((module) => ({ default: module.CustomerPackagesPage })),
+);
+const CustomerPackageDetailPage = lazy(() =>
+  import("@/features/packages/pages/customer-package-detail-page").then((module) => ({ default: module.CustomerPackageDetailPage })),
+);
+const AdminComingSoonPage = lazy(() =>
+  import("@/features/dashboard/pages/admin-coming-soon-page").then((module) => ({ default: module.AdminComingSoonPage })),
+);
 
 const CheckoutPage = lazy(() =>
   import("@/features/checkout/pages/checkout-page").then((module) => ({ default: module.CheckoutPage })),
@@ -100,34 +151,37 @@ function DeferredRoute({ children }: PropsWithChildren) {
 export function AppRouter() {
   return (
     <Routes>
-      <Route element={<PublicLayout />}>
-        <Route index element={<HomePage />} />
-        <Route path="productos" element={<CatalogPage />} />
-        <Route path="productos/:slug" element={<ProductDetailPage />} />
-        <Route path="nosotros" element={<AboutPage />} />
-        <Route path="contacto" element={<ContactPage />} />
-        <Route path="carrito" element={<CartPage />} />
+      <Route element={<DeferredRoute><PublicLayout /></DeferredRoute>}>
+        <Route index element={<DeferredRoute><HomePage /></DeferredRoute>} />
+        <Route path="productos" element={<DeferredRoute><CatalogPage /></DeferredRoute>} />
+        <Route path="productos/:slug" element={<DeferredRoute><ProductDetailPage /></DeferredRoute>} />
+        <Route path="nosotros" element={<DeferredRoute><AboutPage /></DeferredRoute>} />
+        <Route path="contacto" element={<DeferredRoute><ContactPage /></DeferredRoute>} />
+        <Route path="terminos" element={<DeferredRoute><TermsPage /></DeferredRoute>} />
+        <Route path="privacidad" element={<DeferredRoute><PrivacyPage /></DeferredRoute>} />
+        <Route path="cambios-y-devoluciones" element={<DeferredRoute><ReturnsPage /></DeferredRoute>} />
+        <Route path="carrito" element={<DeferredRoute><CartPage /></DeferredRoute>} />
         <Route path="checkout" element={<CustomerRoute><DeferredRoute><CheckoutPage /></DeferredRoute></CustomerRoute>} />
-        <Route path="checkout/resultado" element={<DeferredRoute><CheckoutResultPage /></DeferredRoute>} />
-        <Route path="registro" element={<RegisterPage />} />
-        <Route path="*" element={<NotFoundPage />} />
+        <Route path="checkout/resultado" element={<CustomerRoute><DeferredRoute><CheckoutResultPage /></DeferredRoute></CustomerRoute>} />
+        <Route path="registro" element={<DeferredRoute><RegisterPage /></DeferredRoute>} />
+        <Route path="*" element={<DeferredRoute><NotFoundPage /></DeferredRoute>} />
       </Route>
 
-      <Route path="login" element={<LoginPage />} />
+      <Route path="login" element={<DeferredRoute><LoginPage /></DeferredRoute>} />
 
       <Route element={<CustomerRoute />}>
-        <Route path="mi-cuenta" element={<CustomerLayout />}>
-          <Route index element={<CustomerHomePage />} />
-          <Route path="pedidos" element={<CustomerOrdersPage />} />
-          <Route path="pedidos/:id" element={<CustomerOrderDetailPage />} />
-          <Route path="paquetes" element={<CustomerPackagesPage />} />
-          <Route path="paquetes/:id" element={<CustomerPackageDetailPage />} />
-          <Route path="perfil" element={<CustomerProfilePage />} />
+        <Route path="mi-cuenta" element={<DeferredRoute><CustomerLayout /></DeferredRoute>}>
+          <Route index element={<DeferredRoute><CustomerHomePage /></DeferredRoute>} />
+          <Route path="pedidos" element={<DeferredRoute><CustomerOrdersPage /></DeferredRoute>} />
+          <Route path="pedidos/:id" element={<DeferredRoute><CustomerOrderDetailPage /></DeferredRoute>} />
+          <Route path="paquetes" element={<DeferredRoute><CustomerPackagesPage /></DeferredRoute>} />
+          <Route path="paquetes/:id" element={<DeferredRoute><CustomerPackageDetailPage /></DeferredRoute>} />
+          <Route path="perfil" element={<DeferredRoute><CustomerProfilePage /></DeferredRoute>} />
         </Route>
       </Route>
 
       <Route element={<StaffRoute />}>
-        <Route path="app" element={<AdminLayout />}>
+        <Route path="app" element={<DeferredRoute><AdminLayout /></DeferredRoute>}>
           <Route index element={<Navigate replace to="dashboard" />} />
           <Route path="dashboard" element={<DeferredRoute><AdminDashboardPage /></DeferredRoute>} />
           <Route element={<StaffRoute permission="products.view" />}>

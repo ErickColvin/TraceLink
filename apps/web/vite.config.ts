@@ -30,6 +30,34 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes("node_modules")) {
+              if (id.includes("react-router") || id.includes("react-dom") || id.includes("/react/")) {
+                return "vendor-react";
+              }
+              if (id.includes("@tanstack")) return "vendor-query";
+              if (id.includes("react-hook-form") || id.includes("@hookform") || id.includes("/zod/")) {
+                return "vendor-forms";
+              }
+              if (id.includes("lucide-react")) return "vendor-icons";
+              return "vendor";
+            }
+            if (
+              id.includes("/features/service-composition") ||
+              id.includes("/features/mock-context") ||
+              id.includes("/features/") && id.includes("/data/mock-") ||
+              id.includes("/features/") && id.includes("/services/mock-")
+            ) {
+              return "application-services";
+            }
+            return undefined;
+          },
+        },
+      },
+    },
     test: {
       environment: "jsdom",
       globals: true,
