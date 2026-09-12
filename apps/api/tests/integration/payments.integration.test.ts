@@ -336,7 +336,7 @@ describe("checkout payments against PostgreSQL", () => {
     });
 
     await database.query(
-      `UPDATE outbox_events SET next_attempt_at = now()
+      `UPDATE outbox_events SET next_attempt_at = now() - interval '1 second'
         WHERE organization_id = $1 AND event_key = $2`,
       [organizationId, eventKey],
     );
