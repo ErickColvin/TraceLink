@@ -50,6 +50,7 @@ export default defineRailway((context) => {
       WEB_ORIGIN: preserve(),
       API_PUBLIC_URL: preserve(),
       SESSION_SECRET: preserve(),
+      SESSION_COOKIE_SAME_SITE: "none",
       CSRF_SECRET: preserve(),
       IDEMPOTENCY_SECRET: preserve(),
       RATE_LIMIT_SECRET: preserve(),

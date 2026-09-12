@@ -5,6 +5,7 @@ import {
   buildRequestUrl,
   HttpClient,
   HttpClientError,
+  SESSION_EXPIRED_EVENT,
   resolveIdempotencyKey,
 } from "./http-client";
 
@@ -82,6 +83,24 @@ describe("HttpClient", () => {
       status: 400,
       fieldErrors: { email: ["Correo inválido"] },
     });
+  });
+
+  it("signals an expired browser session after a 401 response", async () => {
+    const listener = vi.fn();
+    globalThis.addEventListener(SESSION_EXPIRED_EVENT, listener);
+    const client = new HttpClient(
+      "https://api.test/api/v1",
+      vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({
+        error: { code: "SESSION_EXPIRED", message: "Sesión expirada." },
+        requestId: "req-expired",
+      }, { status: 401 })),
+    );
+
+    await expect(client.request("/auth/me", {
+      responseSchema: z.object({ ok: z.boolean() }),
+    })).rejects.toMatchObject({ status: 401 });
+    expect(listener).toHaveBeenCalledOnce();
+    globalThis.removeEventListener(SESSION_EXPIRED_EVENT, listener);
   });
 
   it("rechaza respuestas que no cumplen Zod", async () => {

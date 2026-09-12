@@ -59,6 +59,22 @@ describe("security primitives", () => {
     expect(value).not.toContain("Domain=");
     expect(readSessionCookie(value, PRODUCTION_SESSION_COOKIE)).toMatch(/^v1\./);
     expect(serializeExpiredSessionCookie({ name: PRODUCTION_SESSION_COOKIE, secure: true })).toContain("Max-Age=0");
+
+    const crossSiteValue = serializeSessionCookie({
+      name: PRODUCTION_SESSION_COOKIE,
+      token: generateSessionToken(),
+      maxAgeSeconds: 3_600,
+      secure: true,
+      sameSite: "none",
+    });
+    expect(crossSiteValue).toContain("SameSite=None");
+    expect(() => serializeSessionCookie({
+      name: DEVELOPMENT_SESSION_COOKIE,
+      token: generateSessionToken(),
+      maxAgeSeconds: 3_600,
+      secure: false,
+      sameSite: "none",
+    })).toThrow(/Secure/u);
   });
 
   it("canonicalizes JSON before request fingerprinting", () => {

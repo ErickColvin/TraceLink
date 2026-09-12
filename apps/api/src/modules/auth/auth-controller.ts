@@ -32,8 +32,8 @@ export function createAuthController(
   me: RequestHandler;
   logout: RequestHandler;
 }> {
-  const cookieName = getSessionCookieName(config.nodeEnv);
-  const secure = config.nodeEnv === "production";
+  const secure = config.appEnv !== "local";
+  const cookieName = getSessionCookieName(secure ? "production" : "development");
 
   return {
     login: async (request, response) => {
@@ -48,6 +48,7 @@ export function createAuthController(
           token: result.sessionToken,
           maxAgeSeconds: config.sessionTtlSeconds,
           secure,
+          sameSite: config.sessionCookieSameSite,
         }),
       );
       response.status(200).json(result.envelope);
@@ -64,6 +65,7 @@ export function createAuthController(
           token: result.sessionToken,
           maxAgeSeconds: config.sessionTtlSeconds,
           secure,
+          sameSite: config.sessionCookieSameSite,
         }),
       );
       response.status(201).json(result.envelope);
@@ -77,7 +79,11 @@ export function createAuthController(
       setPrivateResponseHeaders(response);
       response.setHeader(
         "Set-Cookie",
-        serializeExpiredSessionCookie({ name: cookieName, secure }),
+        serializeExpiredSessionCookie({
+          name: cookieName,
+          secure,
+          sameSite: config.sessionCookieSameSite,
+        }),
       );
       response.status(204).end();
     },

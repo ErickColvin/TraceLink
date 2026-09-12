@@ -26,13 +26,17 @@ export function serializeSessionCookie(options: Readonly<{
   token: string;
   maxAgeSeconds: number;
   secure: boolean;
+  sameSite?: "lax" | "strict" | "none";
 }>): string {
+  if (options.sameSite === "none" && !options.secure) {
+    throw new Error("SameSite=None requires a Secure session cookie.");
+  }
   return stringifySetCookie({
     name: options.name,
     value: options.token,
     httpOnly: true,
     secure: options.secure,
-    sameSite: "lax",
+    sameSite: options.sameSite ?? "lax",
     path: "/",
     maxAge: options.maxAgeSeconds,
     priority: "high",
@@ -42,13 +46,17 @@ export function serializeSessionCookie(options: Readonly<{
 export function serializeExpiredSessionCookie(options: Readonly<{
   name: string;
   secure: boolean;
+  sameSite?: "lax" | "strict" | "none";
 }>): string {
+  if (options.sameSite === "none" && !options.secure) {
+    throw new Error("SameSite=None requires a Secure session cookie.");
+  }
   return stringifySetCookie({
     name: options.name,
     value: "",
     httpOnly: true,
     secure: options.secure,
-    sameSite: "lax",
+    sameSite: options.sameSite ?? "lax",
     path: "/",
     expires: new Date(0),
     maxAge: 0,

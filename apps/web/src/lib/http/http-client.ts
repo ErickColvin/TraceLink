@@ -26,6 +26,8 @@ export type HttpClientErrorCode =
   | "INVALID_RESPONSE"
   | "NETWORK_ERROR";
 
+export const SESSION_EXPIRED_EVENT = "tracelink:session-expired";
+
 export class HttpClientError extends Error {
   readonly code: HttpClientErrorCode;
   readonly fieldErrors: Readonly<Record<string, readonly string[]>> | undefined;
@@ -227,7 +229,13 @@ export class HttpClient {
     }
 
     this.#lastRequestId = response.headers.get("x-request-id");
-    if (!response.ok) throw normalizeApiError(response, await readJson(response));
+    if (!response.ok) {
+      const error = normalizeApiError(response, await readJson(response));
+      if (response.status === 401 && typeof globalThis.dispatchEvent === "function") {
+        globalThis.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+      }
+      throw error;
+    }
 
     return response;
   }

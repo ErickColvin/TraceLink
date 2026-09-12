@@ -17,6 +17,7 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     sessionSecret: "session-secret-for-tests-only-32-chars",
     sessionTtlSeconds: 28_800,
     sessionIdleTtlSeconds: 1_800,
+    sessionCookieSameSite: "lax",
     csrfSecret: "csrf-secret-for-tests-only-32-chars---",
     idempotencySecret: "idempotency-secret-for-tests-only-32",
     rateLimitSecret: "rate-limit-secret-for-tests-only-32--",

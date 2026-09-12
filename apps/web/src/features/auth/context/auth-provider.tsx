@@ -24,6 +24,7 @@ import {
 } from "../services/auth-service";
 import { applicationServices } from "../../service-composition";
 import { clearCustomerPrivateQueries } from "../query-scope";
+import { SESSION_EXPIRED_EVENT } from "@/lib/http/http-client";
 import {
   AuthContext,
   type AuthContextValue,
@@ -78,6 +79,18 @@ export function AuthProvider({ children, service }: AuthProviderProps) {
       isActive = false;
     };
   }, [authService, clearPrivateCache]);
+
+  useEffect(() => {
+    const handleExpiredSession = () => {
+      void clearPrivateCache();
+      setSession(ANONYMOUS_SESSION);
+      setStatus("ready");
+    };
+    globalThis.addEventListener(SESSION_EXPIRED_EVENT, handleExpiredSession);
+    return () => {
+      globalThis.removeEventListener(SESSION_EXPIRED_EVENT, handleExpiredSession);
+    };
+  }, [clearPrivateCache]);
 
   const runSessionOperation = useCallback(
     async (

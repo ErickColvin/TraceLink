@@ -157,6 +157,7 @@ const rawEnvironmentSchema = z.object({
     .min(300)
     .max(86_400)
     .default(1_800),
+  SESSION_COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).optional(),
   CSRF_SECRET: z.string().min(32),
   IDEMPOTENCY_SECRET: z.string().min(32),
   RATE_LIMIT_SECRET: z.string().min(32),
@@ -234,6 +235,13 @@ const rawEnvironmentSchema = z.object({
       message: "SESSION_IDLE_TTL_SECONDS no puede superar SESSION_TTL_SECONDS.",
     });
   }
+  if (appEnv === "local" && value.SESSION_COOKIE_SAME_SITE === "none") {
+    context.addIssue({
+      code: "custom",
+      path: ["SESSION_COOKIE_SAME_SITE"],
+      message: "SameSite=None requiere una cookie Secure fuera del entorno local.",
+    });
+  }
   if (value.NODE_ENV === "production" && value.PAYMENT_PROVIDER === undefined) {
     context.addIssue({
       code: "custom",
@@ -289,6 +297,7 @@ export type AppConfig = Readonly<{
   sessionSecret: string;
   sessionTtlSeconds: number;
   sessionIdleTtlSeconds: number;
+  sessionCookieSameSite: "lax" | "strict" | "none";
   csrfSecret: string;
   idempotencySecret: string;
   rateLimitSecret: string;
@@ -364,6 +373,8 @@ export function parseEnvironment(
     sessionSecret: value.SESSION_SECRET,
     sessionTtlSeconds: value.SESSION_TTL_SECONDS,
     sessionIdleTtlSeconds: value.SESSION_IDLE_TTL_SECONDS,
+    sessionCookieSameSite: value.SESSION_COOKIE_SAME_SITE ??
+      (appEnv === "local" ? "lax" : "none"),
     csrfSecret: value.CSRF_SECRET,
     idempotencySecret: value.IDEMPOTENCY_SECRET,
     rateLimitSecret: value.RATE_LIMIT_SECRET,

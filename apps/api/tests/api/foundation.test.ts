@@ -41,6 +41,28 @@ describe("API foundation", () => {
     });
   });
 
+  it("enables HSTS outside local and keeps it disabled on localhost", async () => {
+    const local = await request(createTestApp()).get("/api/v1/health");
+    const staging = await request(createApp({
+      config: createTestConfig({
+        nodeEnv: "production",
+        appEnv: "staging",
+        webOrigin: "https://staging-web.example.invalid",
+        apiPublicUrl: "https://staging-api.example.invalid",
+        sessionCookieSameSite: "none",
+      }),
+      logger,
+      readinessCheck: async () => {},
+    })).get("/api/v1/health");
+
+    expect(local.headers["strict-transport-security"]).toBeUndefined();
+    expect(staging.headers["strict-transport-security"]).toContain(
+      "max-age=31536000",
+    );
+    expect(staging.headers["x-content-type-options"]).toBe("nosniff");
+    expect(staging.headers["referrer-policy"]).toBe("no-referrer");
+  });
+
   it("keeps liveness healthy when the database probe fails", async () => {
     const response = await request(
       createTestApp(async () => {

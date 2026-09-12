@@ -33,6 +33,7 @@ describe("parseEnvironment", () => {
     expect(config.jsonBodyLimitBytes).toBe(102_400);
     expect(config.shutdownTimeoutMs).toBe(10_000);
     expect(config.paymentProvider).toBe("fake");
+    expect(config.sessionCookieSameSite).toBe("lax");
     expect(config.checkoutReservationMinutes).toBe(15);
     expect(config.paymentSuccessUrl).toBe(
       "http://127.0.0.1:5173/checkout/resultado",
@@ -66,6 +67,16 @@ describe("parseEnvironment", () => {
     expect(config.apiPublicUrl).toBe(
       "https://staging.api.example.invalid",
     );
+    expect(config.sessionCookieSameSite).toBe("none");
+  });
+
+  it("rejects SameSite=None when local cookies are not Secure", () => {
+    expect(() =>
+      parseEnvironment({
+        ...validEnvironment,
+        SESSION_COOKIE_SAME_SITE: "none",
+      }),
+    ).toThrow(EnvironmentValidationError);
   });
 
   it("rejects insecure public URLs outside local development", () => {
