@@ -31,6 +31,7 @@
     "reservations:expire": "pnpm --filter @tracelink/api reservations:expire",
     "payments:reconcile": "pnpm --filter @tracelink/api payments:reconcile",
     "outbox:process": "pnpm --filter @tracelink/api outbox:process",
+    "production:bootstrap": "pnpm --filter @tracelink/api production:bootstrap",
     "preview": "pnpm --filter @tracelink/web preview",
     "review:visual": "node tools/visual-review.mjs"
   },

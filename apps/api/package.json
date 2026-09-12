@@ -19,6 +19,7 @@
     "reservations:expire": "node --env-file-if-exists=../../.env --import tsx src/jobs/expire-reservations.ts",
     "payments:reconcile": "node --env-file-if-exists=../../.env --import tsx src/jobs/reconcile-payments.ts",
     "outbox:process": "node --env-file-if-exists=../../.env --import tsx src/jobs/process-notification-outbox.ts",
+    "production:bootstrap": "node --env-file-if-exists=../../.env --import tsx src/jobs/bootstrap-production.ts",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
     "test": "pnpm test:unit && pnpm test:api && pnpm test:integration",
