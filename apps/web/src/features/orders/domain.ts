@@ -2,6 +2,7 @@ import type {
   CustomerOrderCancellationResponse,
   FullRefundResponse,
   PaymentDetails,
+  PaymentProvider,
   RetryPaymentResponse,
 } from "@tracelink/contracts";
 
@@ -112,6 +113,7 @@ export interface StaffOrderListParams {
   query?: string;
   statuses?: OrderStatus[];
   paymentStatuses?: PaymentStatus[];
+  paymentProviders?: PaymentProvider[];
   fulfillmentMethods?: FulfillmentMethod[];
   dateFrom?: string;
   dateTo?: string;

@@ -12,7 +12,10 @@ import {
   pageSchema,
   pageSizeSchema,
 } from "../pagination/index.js";
-import { paymentDetailsSchema } from "../payments/payment.js";
+import {
+  paymentDetailsSchema,
+  paymentProviderSchema,
+} from "../payments/payment.js";
 
 export const ORDER_STATUSES = [
   "PENDING_PAYMENT",
@@ -133,6 +136,7 @@ export const staffOrderListParamsSchema = z
     query: z.string().trim().max(200).optional(),
     statuses: z.array(orderStatusSchema).optional(),
     paymentStatuses: z.array(paymentStatusSchema).optional(),
+    paymentProviders: z.array(paymentProviderSchema).optional(),
     fulfillmentMethods: z.array(fulfillmentMethodSchema).optional(),
     dateFrom: isoDateSchema.optional(),
     dateTo: isoDateSchema.optional(),

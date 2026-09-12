@@ -101,6 +101,9 @@ export class MockStaffOrderService implements StaffOrderService {
     const paymentStatuses = params.paymentStatuses
       ? new Set(params.paymentStatuses)
       : undefined;
+    const paymentProviders = params.paymentProviders
+      ? new Set(params.paymentProviders)
+      : undefined;
     const fulfillmentMethods = params.fulfillmentMethods
       ? new Set(params.fulfillmentMethods)
       : undefined;
@@ -128,6 +131,12 @@ export class MockStaffOrderService implements StaffOrderService {
       .filter(
         (order) =>
           !paymentStatuses || paymentStatuses.has(order.paymentStatus),
+      )
+      .filter(
+        (order) =>
+          !paymentProviders ||
+          (order.paymentDetails !== undefined &&
+            paymentProviders.has(order.paymentDetails.payment.provider)),
       )
       .filter(
         (order) =>

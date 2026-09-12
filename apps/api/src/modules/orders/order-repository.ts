@@ -470,6 +470,19 @@ export class PostgresOrderRepository {
       );
     }
     if (
+      params.paymentProviders !== undefined &&
+      params.paymentProviders.length > 0
+    ) {
+      conditions.push(
+        `EXISTS (
+           SELECT 1 FROM payments filter_payment
+            WHERE filter_payment.organization_id = o.organization_id
+              AND filter_payment.order_id = o.id
+              AND filter_payment.provider = ANY(${addValue(values, params.paymentProviders)}::text[])
+         )`,
+      );
+    }
+    if (
       params.fulfillmentMethods !== undefined &&
       params.fulfillmentMethods.length > 0
     ) {

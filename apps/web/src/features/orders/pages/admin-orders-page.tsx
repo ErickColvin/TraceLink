@@ -1,6 +1,7 @@
 import { ClipboardList, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import type { PaymentProvider } from "@tracelink/contracts";
 
 import {
   EmptyState,
@@ -109,6 +110,9 @@ export function AdminOrdersPage() {
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | "ALL">(
     "ALL",
   );
+  const [paymentProvider, setPaymentProvider] = useState<PaymentProvider | "ALL">(
+    "ALL",
+  );
   const [fulfillmentMethod, setFulfillmentMethod] = useState<
     FulfillmentMethod | "ALL"
   >("ALL");
@@ -123,6 +127,8 @@ export function AdminOrdersPage() {
       statuses: status === "ALL" ? undefined : [status],
       paymentStatuses:
         paymentStatus === "ALL" ? undefined : [paymentStatus],
+      paymentProviders:
+        paymentProvider === "ALL" ? undefined : [paymentProvider],
       fulfillmentMethods:
         fulfillmentMethod === "ALL" ? undefined : [fulfillmentMethod],
       dateFrom: dateFrom || undefined,
@@ -131,7 +137,7 @@ export function AdminOrdersPage() {
       page,
       pageSize: 8,
     }),
-    [dateFrom, dateTo, fulfillmentMethod, page, paymentStatus, query, sort, status],
+    [dateFrom, dateTo, fulfillmentMethod, page, paymentProvider, paymentStatus, query, sort, status],
   );
   const ordersQuery = useStaffOrders(listParams);
 
@@ -139,6 +145,7 @@ export function AdminOrdersPage() {
     setQuery("");
     setStatus("ALL");
     setPaymentStatus("ALL");
+    setPaymentProvider("ALL");
     setFulfillmentMethod("ALL");
     setDateFrom("");
     setDateTo("");
@@ -169,7 +176,7 @@ export function AdminOrdersPage() {
       />
 
       <Card className="mt-6">
-        <CardContent className="grid gap-4 pt-5 sm:grid-cols-2 sm:pt-6 2xl:grid-cols-7">
+        <CardContent className="grid gap-4 pt-5 sm:grid-cols-2 sm:pt-6 2xl:grid-cols-8">
           <div className="sm:col-span-2 xl:col-span-1">
             <Label htmlFor="staff-order-search">Buscar</Label>
             <div className="relative mt-1.5">
@@ -245,6 +252,25 @@ export function AdminOrdersPage() {
               <option value="ALL">Todos</option>
               <option value="PICKUP">Retiro</option>
               <option value="DELIVERY">Despacho</option>
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="staff-order-provider">Proveedor</Label>
+            <select
+              id="staff-order-provider"
+              className={`${selectStyles} mt-1.5`}
+              value={paymentProvider}
+              onChange={(event) => {
+                const next = (["MERCADOPAGO", "FAKE"] as const).find(
+                  (option) => option === event.target.value,
+                );
+                setPaymentProvider(next ?? "ALL");
+                setPage(1);
+              }}
+            >
+              <option value="ALL">Todos</option>
+              <option value="MERCADOPAGO">Mercado Pago</option>
+              <option value="FAKE">Fake / pruebas</option>
             </select>
           </div>
           <div>

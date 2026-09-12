@@ -22,6 +22,7 @@ import {
   receivePackageRequestSchema,
   roleCodeSchema,
   settingsSchemaForTest,
+  staffOrderListParamsSchema,
   staffPackageListParamsSchema,
 } from "./test-exports.js";
 
@@ -223,6 +224,19 @@ describe("integridad de DTO", () => {
     );
     expect(
       staffPackageListParamsSchema.parse({ coldStorage: "false" }).coldStorage,
+    ).toBe(false);
+  });
+
+  it("valida filtros operacionales por proveedor de pago", () => {
+    expect(
+      staffOrderListParamsSchema.safeParse({
+        paymentProviders: ["MERCADOPAGO", "FAKE"],
+      }).success,
+    ).toBe(true);
+    expect(
+      staffOrderListParamsSchema.safeParse({
+        paymentProviders: ["UNKNOWN"],
+      }).success,
     ).toBe(false);
   });
 

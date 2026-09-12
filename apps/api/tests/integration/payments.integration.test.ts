@@ -4,6 +4,7 @@ import {
   authSessionEnvelopeSchema,
   checkoutResponseSchema,
   orderSchema,
+  staffOrderPageSchema,
 } from "@tracelink/contracts";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -136,6 +137,24 @@ describe("checkout payments against PostgreSQL", () => {
     expect(checkout.order.status).toBe("PENDING_PAYMENT");
     expect(checkout.payment.status).toBe("PENDING");
     expect(checkout.attempt.checkoutUrl).toContain("provider_order_id=");
+
+    const staffAgent = request.agent(app);
+    const staffLogin = await staffAgent
+      .post("/api/v1/auth/login")
+      .set("Origin", config.webOrigin)
+      .send({
+        audience: "staff",
+        email: "admin@chmarket.test",
+        password: "Admin-Test-Password-123!",
+      });
+    expect(staffLogin.status).toBe(200);
+    const providerFiltered = await staffAgent.get(
+      "/api/v1/staff/orders?paymentProviders=FAKE&pageSize=100",
+    );
+    expect(providerFiltered.status, JSON.stringify(providerFiltered.body)).toBe(200);
+    expect(
+      staffOrderPageSchema.parse(providerFiltered.body).items.map((order) => order.id),
+    ).toContain(checkout.order.id);
 
     const replay = await createCheckout();
     expect(replay.status).toBe(201);

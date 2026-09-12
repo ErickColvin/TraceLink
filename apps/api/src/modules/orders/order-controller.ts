@@ -78,6 +78,7 @@ export function createOrderController(service: OrderService): Readonly<{
         normalizeArrayQuery(request.query, [
           "statuses",
           "paymentStatuses",
+          "paymentProviders",
           "fulfillmentMethods",
         ]),
         "query",
