@@ -99,6 +99,11 @@ async function main(): Promise<void> {
         environment,
       );
       await runNode(
+        packageEntrypoint("prisma", "dist/prisma.js"),
+        ["db", "verify"],
+        environment,
+      );
+      await runNode(
         packageEntrypoint("tsx", "dist/cli.mjs"),
         ["prisma/seed.ts"],
         environment,

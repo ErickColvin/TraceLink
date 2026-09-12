@@ -176,13 +176,15 @@ await runWithCleanup(async () => {
   const publicPage = await publicContext.newPage();
   publicPage.on("pageerror", (error) => browserErrors.push(error.message));
 
-  await step("checkout resultado: retorno visual no autoritativo", async () => {
+  await step("checkout resultado: la ruta exige una sesion customer", async () => {
     await publicPage.goto(`${baseUrl}/checkout/resultado?status=approved`, {
       waitUntil: "domcontentloaded",
     });
-    await publicPage.getByRole("heading", { name: "Pago recibido" }).waitFor();
-    await publicPage.getByText(/solo muestra el retorno del proveedor/i).waitFor();
-    await publicPage.getByRole("link", { name: "Ver mis pedidos" }).waitFor();
+    await publicPage.waitForURL((url) =>
+      url.pathname === "/login" &&
+      url.searchParams.get("returnTo") === "/checkout/resultado?status=approved",
+    );
+    await publicPage.getByRole("heading", { name: "Inicia sesión" }).waitFor();
   });
 
   await step("registro customer: alta real y sesiÃ³n inicial", async () => {
@@ -224,6 +226,17 @@ await runWithCleanup(async () => {
     await signIn(customerPage, credentials.customer, "/mi-cuenta/pedidos");
     await customerPage.getByRole("heading", { name: "Mis pedidos" }).waitFor();
     await verifyRestoredSession(customerPage, "customer");
+    await customerPage.getByRole("heading", { name: "Mis pedidos" }).waitFor();
+  });
+
+  await step("checkout resultado: retorno visual no autoritativo", async () => {
+    await customerPage.goto(`${baseUrl}/checkout/resultado?status=approved`, {
+      waitUntil: "domcontentloaded",
+    });
+    await customerPage.getByRole("heading", { name: "Pago recibido" }).waitFor();
+    await customerPage.getByText(/retorno del proveedor es informativo/i).waitFor();
+    await customerPage.getByText(/no encontramos el contexto local del checkout/i).waitFor();
+    await customerPage.getByRole("link", { name: "Ver mis pedidos" }).click();
     await customerPage.getByRole("heading", { name: "Mis pedidos" }).waitFor();
   });
 
