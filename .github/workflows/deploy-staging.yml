@@ -51,6 +51,7 @@ jobs:
   smoke:
     name: Staging smoke
     needs: web
+    environment: staging
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

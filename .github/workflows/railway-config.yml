@@ -15,6 +15,7 @@ jobs:
   plan-staging:
     name: Plan staging infrastructure
     if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    environment: staging
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +31,7 @@ jobs:
   plan-production:
     name: Plan production infrastructure
     if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,6 +48,7 @@ jobs:
   apply-staging:
     name: Apply reviewed staging infrastructure
     if: github.event.action == 'closed' && github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository
+    environment: staging
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
