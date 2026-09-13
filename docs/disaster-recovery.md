@@ -2,7 +2,7 @@
 
 ## Estado
 
-La política y el procedimiento están definidos, pero no hay una instancia Railway ni acceso a backups en este workspace. Backup gestionado y restore drill real: **BLOCKED — MANUAL OWNER ACTION REQUIRED**.
+La política y el procedimiento están definidos. La ejecución Fase 5C del 12 de septiembre de 2026 confirmó que todavía no hay una instancia Railway ni acceso a backups en este workspace. Backup gestionado y restore drill real: **BLOCKED — MANUAL OWNER ACTION REQUIRED**.
 
 No se declara un RPO/RTO garantizado hasta medir un restore aislado.
 

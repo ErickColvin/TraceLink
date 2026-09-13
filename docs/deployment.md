@@ -2,7 +2,7 @@
 
 ## Estado verificable
 
-La configuración del repositorio está preparada para Cloudflare Pages, Railway y GitHub Actions. La auditoría Fase 5B del 12 de septiembre de 2026 confirmó mediante la API pública de GitHub: 0 environments, 0 Actions runs y 0 PR abiertas. Tampoco existen URLs ni credenciales de proveedor disponibles en este proceso, por lo que el despliegue externo permanece **BLOCKED — MANUAL OWNER ACTION REQUIRED**.
+La configuración del repositorio está preparada para Cloudflare Pages, Railway y GitHub Actions. La ejecución Fase 5C del 12 de septiembre de 2026 creó y verificó los environments `staging`/`production`, abrió el PR [#1](https://github.com/ErickColvin/TraceLink/pull/1), protegió `main` y obtuvo CI verde en el run `34734131841` para `d9c2f8d`. Los environments siguen con 0 secretos y 0 variables; Railway plan `34734131839` falló en staging por token no configurado y quedó esperando approval en production. No existen URLs externas ni credenciales de proveedor disponibles en este proceso, por lo que el despliegue permanece **BLOCKED — MANUAL OWNER ACTION REQUIRED**.
 
 No se han activado credenciales LIVE de Mercado Pago.
 
@@ -92,9 +92,9 @@ corepack pnpm exec railway config plan --environment staging
 corepack pnpm exec railway config apply --environment staging
 ```
 
-Los nombres exactos de opciones deben confirmarse con `corepack pnpm exec railway config --help` de la versión fijada. El workflow `.github/workflows/railway-config.yml` es la ruta preferida porque conserva plan revisable y approval productivo.
+Los nombres exactos de opciones deben confirmarse con `corepack pnpm exec railway config --help` de la versión fijada. El workflow `.github/workflows/railway-config.yml` es la ruta preferida porque conserva plan revisable y approval productivo. `main` exige los cuatro jobs universales de CI. Los planes Railway son un gate operativo para PR con cambios de infraestructura; no son checks globales porque el workflow usa filtros de ruta y bloquearía PR no relacionadas cuando el check no exista.
 
-En el equipo Windows usado para Fase 5B, una política de Control de aplicaciones bloqueó el ejecutable local `railway.exe`. No se intentó eludir la política. Usar el workflow revisado o una estación autorizada/WSL, siempre con tokens introducidos directamente en el proveedor.
+En Fase 5B una política de Control de aplicaciones bloqueó una invocación del ejecutable local. En Fase 5C `corepack pnpm exec railway --version` y `railway config --help` funcionaron, pero `whoami`/`status` confirmaron `Unauthorized`; no existe token ni proyecto enlazado. La ruta sigue siendo el workflow revisado o una estación autenticada, siempre con tokens introducidos directamente en el proveedor.
 
 Secrets Railway, solo nombres:
 

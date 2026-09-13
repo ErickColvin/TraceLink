@@ -1092,3 +1092,391 @@ Próximo paso recomendado, no ejecutado:
 crear/proteger los dos GitHub Environments, abrir la PR y desplegar staging base
 con PAYMENT_PROVIDER=fake y EMAIL_PROVIDER=fake. Volver a Codex después del primer
 run con las dos URLs públicas, sin compartir secretos.
+
+======================================================================
+33. FASE 5C EXTERNAL EXECUTION
+======================================================================
+
+Fecha local: 12 de septiembre de 2026, America/Santiago.
+Timestamps de GitHub: 13 de septiembre de 2026 UTC.
+
+Estado anterior:
+
+Fase 4: 95%
+Fase 5: 80%
+Fase 5B: 10%
+
+Estado actual:
+
+Fase 4: 95%
+Fase 5: 83%
+Fase 5C: 16%
+Production readiness: NOT READY
+Live payments: NOT ACTIVATED
+
+El porcentaje F5C usa los 19 blockers enumerados por el prompt como denominador.
+Quedaron resueltos con evidencia real GitHub Environments, CI remota y Pull Request:
+3 / 19 = 15,79%, reportado como 16%. La protección de main/production soporta esos
+gates y no se cuenta dos veces. Fase 5 total se obtiene aplicando esa fracción al
+20% que estaba pendiente: 80 + (20 x 3 / 19) = 83,16%, reportado como 83%.
+
+No se atribuyó avance por YAML, adapters fake ni documentación sin ejecución.
+
+======================================================================
+34. GIT, ENVIRONMENTS, PROTECTIONS Y PULL REQUEST
+======================================================================
+
+Auditoría inicial:
+
+- worktree limpio;
+- branch feature/phase-5-production;
+- branch sincronizada con origin;
+- remote https://github.com/ErickColvin/TraceLink.git;
+- autenticación GitHub recuperada de Git Credential Manager sin imprimir token;
+- repositorio público;
+- identidad autenticada con permiso admin.
+
+Recursos externos creados y verificados:
+
+- GitHub Environment staging;
+- GitHub Environment production;
+- production con un required reviewer;
+- 0 secrets y 0 variables en ambos environments;
+- main protegido con PR obligatorio;
+- status checks strict y aplicados también a admins;
+- resolución de conversaciones obligatoria;
+- force-push y delete desactivados;
+- PR #1 abierto desde feature/phase-5-production hacia main;
+- PR no mergeado.
+
+Solo existe un colaborador en el repositorio. Por eso production usa un reviewer
+y prevent_self_review=false: mantiene una aprobación owner deliberada sin crear un
+gate imposible. La documentación GitHub vigente confirma que required reviewers
+está disponible porque el repositorio es público.
+
+Checks requeridos en main:
+
+1. Lint, types, build and migrations
+2. Unit and API tests
+3. Integration (isolated PostgreSQL)
+4. Critical E2E (isolated PostgreSQL)
+
+Los planes Railway no se hicieron checks globales: el workflow usa filtros de
+ruta y bloquearía PR sin cambios de infraestructura donde el check no se crea.
+Para este PR siguen siendo un gate operativo y no se autoriza merge sin plan.
+
+Pull Request:
+
+https://github.com/ErickColvin/TraceLink/pull/1
+
+No se ejecutó merge.
+
+======================================================================
+35. CI REMOTA Y FIX DESCUBIERTO
+======================================================================
+
+Primer run real:
+
+run ID: 34733343241
+commit: 66015ba79e3f8db161e2982e1efca8e0ed7d26df
+result: FAILURE
+failed jobs: 4
+artifacts: 0
+
+Causa real: los cuatro jobs partían de un checkout Linux limpio. El paquete
+@tracelink/contracts exporta desde dist, pero dist es generado/ignorado y cada job
+intentaba typecheck o tests antes de compilarlo. El workspace local conservaba el
+dist de builds anteriores y había ocultado el defecto de preparación CI.
+
+Fix mínimo:
+
+cf071a8 fix(ci): build shared contracts in clean jobs
+
+Se agregó el paso Build shared contracts después de pnpm install en quality,
+unit/API, integration y E2E. No se eliminó, silenció ni debilitó ningún gate.
+
+Segundo run real:
+
+run ID: 34733471422
+commit: cf071a80f161c527398fe544a91077f44b59efd8
+created: 2026-09-13T02:36:38Z
+completed: 2026-09-13T02:37:48Z
+result: SUCCESS
+failed jobs: 0
+artifacts: 0, el workflow CI no define artifacts
+
+Jobs:
+
+- Unit and API tests: PASS;
+- Lint, types, build and migrations: PASS;
+- Critical E2E (isolated PostgreSQL): PASS;
+- Integration (isolated PostgreSQL): PASS.
+
+Durante los gates locales posteriores, la suite web completa reprodujo un timeout
+de un segundo al esperar el lazy route /registro. El archivo aislado pasó 3/3, lo
+que confirmó una espera demasiado estrecha bajo concurrencia. El commit siguiente
+aumentó solo esa espera de test a cinco segundos:
+
+d9c2f8d test(web): allow lazy auth route under concurrent load
+
+Después pasaron web 145/145, el workspace agregado y una nueva CI remota:
+
+run ID: 34734131841
+commit: d9c2f8dd965c5ffde08d3776177886158788b7a3
+completed: 2026-09-13T02:54:08Z
+result: SUCCESS
+failed jobs: 0
+
+Los warnings de runtime Node 20 proceden de acciones de terceros todavía fijadas
+a runtimes antiguos; GitHub las forzó a Node 24 y no afectaron el resultado. No se
+hizo una actualización transversal de actions durante staging.
+
+======================================================================
+36. RAILWAY PLAN Y ESTADO DE STAGING
+======================================================================
+
+Railway CLI:
+
+- corepack pnpm exec railway --version: railway 5.52.0;
+- railway config --help: plan/apply soportados;
+- railway whoami: Unauthorized;
+- railway status: Unauthorized;
+- no existe proyecto enlazado localmente;
+- RAILWAY_TOKEN y RAILWAY_API_TOKEN ausentes del proceso.
+
+Run Railway config vigente:
+
+run ID: 34734131839
+commit: d9c2f8dd965c5ffde08d3776177886158788b7a3
+Plan staging infrastructure: FAILURE
+causa: RAILWAY_STAGING_TOKEN no configurado
+Plan production infrastructure: WAITING por approval
+artifacts: 0
+
+Production no fue aprobada porque no existe token, proyecto ni plan revisable.
+El PR no debe mergearse mientras ambos planes carezcan de evidencia y artefacto.
+
+Estado Railway:
+
+api: BLOCKED
+postgres: BLOCKED
+reservation cron: BLOCKED
+reconciliation cron: BLOCKED
+outbox cron: BLOCKED
+
+PAYMENT_PROVIDER y EMAIL_PROVIDER permanecen en fake. No se ejecutaron db push,
+seed, migrations o bootstrap contra ningún recurso externo.
+
+======================================================================
+37. CLOUDFLARE, DATABASE Y HTTPS SECURITY
+======================================================================
+
+Cloudflare:
+
+- CLOUDFLARE_API_TOKEN ausente;
+- CLOUDFLARE_ACCOUNT_ID ausente;
+- proyecto Pages no configurado;
+- STAGING_WEB_URL ausente;
+- deploy/preview HTTPS: BLOCKED;
+- DNS: no modificado.
+
+Database staging:
+
+- managed PostgreSQL: BLOCKED;
+- migrations reales: BLOCKED;
+- db verify real: BLOCKED;
+- health/ready reales: BLOCKED.
+
+HTTPS security:
+
+cookies: BLOCKED
+CORS: BLOCKED
+CSRF: BLOCKED
+CSP: BLOCKED
+HSTS: BLOCKED
+
+El PASS local F5B se conserva, pero no sustituye observación real sobre HTTPS.
+
+======================================================================
+38. PROVEEDORES, JOBS Y RECUPERACIÓN
+======================================================================
+
+Mercado Pago TEST:
+
+approved: BLOCKED
+pending: BLOCKED
+rejected: BLOCKED
+refund: BLOCKED
+return manipulation: BLOCKED externo, PASS local
+webhook HTTPS: BLOCKED
+duplicate webhook: BLOCKED
+reconciliation: BLOCKED
+
+MERCADOPAGO_ACCESS_TOKEN y MERCADOPAGO_WEBHOOK_SECRET no estaban disponibles.
+Fase 4 permanece en 95%. Mercado Pago LIVE no se configuró ni activó.
+
+Resend:
+
+domain: BLOCKED
+welcome: BLOCKED
+order created: BLOCKED
+payment approved: BLOCKED
+ready: BLOCKED
+cancelled: BLOCKED
+refund: BLOCKED
+
+Cron reales:
+
+reservation-expiry: BLOCKED
+payment-reconciliation: BLOCKED
+notification-outbox: BLOCKED
+
+Backups: BLOCKED
+
+Restore:
+
+RPO: NOT MEASURED
+RTO: NOT MEASURED
+result: BLOCKED
+
+Monitoring: BLOCKED
+Alerts: BLOCKED
+Logs Railway/redaction externa: BLOCKED
+
+Ninguno de estos gates se ejecutó porque staging base no existe. No se alteró el
+orden del prompt ni se usaron providers fake como evidencia externa.
+
+======================================================================
+39. BROWSERS, MOBILE, LEGAL Y DATA
+======================================================================
+
+Browsers staging:
+
+Chrome: BLOCKED
+Edge: BLOCKED
+Safari: NOT EXECUTED
+
+Se conservan Chrome/Edge local PASS de F5B, pero no cuentan como F5C externo.
+
+Mobile staging:
+
+375: BLOCKED
+768: BLOCKED
+physical device: NOT EXECUTED
+
+Legal:
+
+- /terminos: PENDIENTE DE APROBACIÓN;
+- /privacidad: PENDIENTE DE APROBACIÓN;
+- /cambios-y-devoluciones: PENDIENTE DE APROBACIÓN;
+- estado: GO-LIVE BLOCKER.
+
+Production data permanece BLOCKED. No se migraron mocks ni fixtures. No se ejecutó
+production:bootstrap.
+
+======================================================================
+40. PRISMA TECHNICAL DEBT
+======================================================================
+
+No se actualizó Prisma durante F5C porque no bloqueó CI ni existe staging donde
+demostrar un bloqueo de deployment.
+
+Se creó una tarea separada:
+
+https://github.com/ErickColvin/TraceLink/issues/2
+
+Título: chore: migrate Prisma 8 RC packages to stable
+
+La tarea exige una migración controlada y repetición de migrations, db verify,
+integridad, tests y bootstrap aislado. No se mezcló con F5C.
+
+======================================================================
+41. OWNER ACTION REQUIRED
+======================================================================
+
+No enviar valores al chat. Configurarlos directamente en GitHub.
+
+GitHub Environment staging:
+
+RAILWAY_STAGING_TOKEN=[CONFIGURAR EN GITHUB ENVIRONMENT STAGING]
+CLOUDFLARE_API_TOKEN=[CONFIGURAR EN GITHUB ENVIRONMENT STAGING]
+CLOUDFLARE_ACCOUNT_ID=[CONFIGURAR EN GITHUB ENVIRONMENT STAGING]
+CLOUDFLARE_PAGES_PROJECT=[CONFIGURAR COMO VARIABLE EN STAGING]
+STAGING_API_BASE_URL=[CONFIGURAR COMO VARIABLE EN STAGING]
+STAGING_WEB_URL=[CONFIGURAR COMO VARIABLE EN STAGING]
+STAGING_API_URL=[CONFIGURAR COMO VARIABLE EN STAGING]
+
+Después:
+
+1. Re-run del workflow Railway config en PR #1.
+2. Revisar el plan staging y el plan production; production solo se aprueba para
+   inspeccionar y no se aplica/mergea si falta artifact, hay drift o es destructivo.
+3. Desplegar staging inicial con PAYMENT_PROVIDER=fake y EMAIL_PROVIDER=fake.
+4. Registrar web/API/DB públicas y ejecutar migrations versionadas + db verify.
+5. Ejecutar smoke, auth, cookies, CORS, CSRF y headers HTTPS.
+6. Solo tras ese gate, configurar Mercado Pago TEST y Resend en Railway staging.
+7. Validar pagos, webhook, emails, cron, backup, restore, monitoring y alerts.
+8. Aprobar legales/datos y ejecutar rehearsal.
+
+No ejecutar production:bootstrap sin mostrar environment, host redactado y
+organization y obtener una acción deliberada del owner. No activar LIVE.
+
+======================================================================
+42. DECISIÓN F5C
+======================================================================
+
+FASE 5C STATUS: 16%
+FASE 5 TOTAL: 83%
+FASE 4: 95%
+GITHUB ENVIRONMENTS: PASS
+PULL REQUEST: PASS, OPEN, NOT MERGED
+REMOTE CI: PASS
+RAILWAY PLAN: BLOCKED
+REAL STAGING: BLOCKED
+PRODUCTION READINESS: NOT READY
+LIVE PAYMENTS: NOT ACTIVATED
+
+Fase 5C logró transformar governance y CI desde BLOCKED a evidencia real, incluida
+la corrección de un fallo que solo aparecía en checkout Linux limpio. Todavía no
+transformó READY IN CODE en VERIFIED IN REAL STAGING porque falta configurar la
+infraestructura externa del environment staging.
+
+======================================================================
+43. FINAL QUALITY GATES F5C
+======================================================================
+
+Resultado final después de los dos fixes:
+
+corepack pnpm lint
+PASS
+
+corepack pnpm typecheck
+PASS
+
+corepack pnpm test
+PASS
+
+- contracts: 15 tests;
+- API unit: 124 tests;
+- API HTTP/foundation: 14 tests;
+- web: 145 tests;
+- integration incluido: 37 tests.
+
+corepack pnpm test:integration
+PASS — 9 archivos / 37 tests, PostgreSQL 18 aislado, 9 migrations, 277
+operaciones, db verify y dataset idempotente verificados.
+
+corepack pnpm test:e2e
+PASS — 11 recorridos HTTP reales con API, web y PostgreSQL aislados.
+
+corepack pnpm db:migration:check
+PASS — All checks passed.
+
+corepack pnpm build
+PASS — contracts, API y web.
+
+La primera ejecución agregada posterior a documentación falló 1/145 en web por
+el timeout lazy descrito en la sección 35. El fallo no se ocultó: se reprodujo,
+se corrigió con un timeout acotado al test, se repitió web y se repitió el
+workspace agregado hasta obtener PASS. CI remota d9c2f8d confirmó los cuatro
+jobs en verde.

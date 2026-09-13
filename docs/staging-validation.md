@@ -1,17 +1,20 @@
-# Validación de staging — Fase 5B
+# Validación de staging — Fase 5C
 
 ## Resultado ejecutivo
 
-Auditoría realizada el 12 de septiembre de 2026.
+Ejecución realizada el 12 de septiembre de 2026 (timestamps de GitHub registrados en UTC del 13 de septiembre).
 
 | Campo | Resultado |
 | --- | --- |
 | branch candidata | `feature/phase-5-production` |
-| último SHA de código/config auditado | `dc370ad30148080dd616b4e307a4134cde1f76c1` |
-| branch publicada | PASS — igual a `origin/feature/phase-5-production` al cerrar cada commit |
-| PR hacia `main` | BLOCKED — GitHub API pública informó 0 PR abiertas |
-| GitHub Environments | BLOCKED — GitHub API pública informó 0 environments |
-| ejecuciones de GitHub Actions | BLOCKED — GitHub API pública informó 0 runs |
+| último SHA de código/test validado en CI | `d9c2f8dd965c5ffde08d3776177886158788b7a3` |
+| branch publicada | PASS — igual a `origin/feature/phase-5-production` después del fix CI |
+| PR hacia `main` | PASS — [#1](https://github.com/ErickColvin/TraceLink/pull/1), abierta, no mergeada |
+| GitHub Environments | PASS — `staging` y `production` creados |
+| protección `production` | PASS — un required reviewer; approval manual pendiente cuando corra el plan |
+| protección `main` | PASS — PR obligatorio, 4 checks CI strict, admins incluidos, sin force-push/delete |
+| GitHub CI | PASS — run `34734131841`, cuatro jobs verdes para `d9c2f8d` |
+| Railway plan | BLOCKED — run `34734131839`: staging sin token, production waiting, 0 artifacts |
 | frontend URL | BLOCKED — no configurada |
 | API URL | BLOCKED — no configurada |
 | Railway staging | BLOCKED — no existe evidencia accesible del proyecto desplegado |
@@ -21,6 +24,10 @@ Auditoría realizada el 12 de septiembre de 2026.
 | Resend | BLOCKED — cuenta/dominio/API key no configurados |
 
 `PASS` significa prueba ejecutada con evidencia. `BLOCKED` significa que la prueba no puede ejecutarse hasta que el owner configure el recurso o acceso indicado. `NOT APPLICABLE` significa fuera del alcance deliberado de esta ejecución. No se usan checks implícitos ni se considera aprobado un proveedor por existir configuración local.
+
+La sección F5B posterior se conserva como historial. Esta cabecera y la sección “F5C external execution” contienen el estado vigente.
+
+Porcentaje F5C: 3 de los 19 blockers enumerados originalmente en el prompt quedaron resueltos (`GitHub Environments`, `GitHub CI remote` y `Pull Request`), es decir, `3 / 19 = 15,79 %`, reportado como **16 %**. La protección de `main`/`production` es evidencia de soporte y no se cuenta otra vez. Fase 5 total se calcula como `80 + (20 × 3 / 19) = 83,16 %`, reportado como **83 %**. Fase 4 permanece en **95 %**.
 
 No se imprimieron tokens, passwords, cookies, claves API ni valores de `.env` durante la auditoría.
 
@@ -287,3 +294,120 @@ RESEND_API_KEY=[CONFIGURAR EN RAILWAY STAGING]
 ```
 
 Completar también las variables de routing/remitente ya enumeradas en `docs/deployment.md`, sin reutilizar secretos entre ambientes. Después: ejecutar todos los gates de este archivo en orden y adjuntar únicamente IDs, URLs, timestamps, status HTTP y request IDs no sensibles.
+
+## F5C external execution — evidencia vigente
+
+### GitHub
+
+| Evidencia | Resultado |
+| --- | --- |
+| autenticación API | PASS — Git Credential Manager, token nunca impreso |
+| repositorio | público; identidad autenticada con permisos admin |
+| environment `staging` | PASS — creado, 0 secrets, 0 variables |
+| environment `production` | PASS — creado, un required reviewer, 0 secrets, 0 variables |
+| capacidad del plan | PASS — environments/protection rules disponibles en repos públicos de planes actuales |
+| colaboradores | uno; `prevent_self_review=false` evita un gate imposible, pero conserva approval manual |
+| protección `main` | PASS — PR obligatorio; checks strict; admins incluidos; conversaciones resueltas; force-push/delete desactivados |
+| checks obligatorios | 4 jobs CI universales; Railway plan se mantiene como gate operativo del PR de infraestructura |
+| PR | PASS — [#1](https://github.com/ErickColvin/TraceLink/pull/1), `feature/phase-5-production` -> `main`, no mergeado |
+
+CI inicial:
+
+```text
+run: 34733343241
+commit: 66015ba79e3f8db161e2982e1efca8e0ed7d26df
+result: FAILURE
+failed jobs: 4
+artifacts: 0
+cause: @tracelink/contracts apuntaba a dist ausente en checkout limpio
+```
+
+Fix mínimo: commit `cf071a8` agrega `Build shared contracts` tras la instalación en cada job; no se cambiaron gates ni tests.
+
+CI corregida:
+
+```text
+run: 34733471422
+commit: cf071a80f161c527398fe544a91077f44b59efd8
+created: 2026-09-13T02:36:38Z
+completed: 2026-09-13T02:37:48Z
+result: SUCCESS
+failed jobs: 0
+artifacts: 0 (CI no define artifacts)
+jobs: quality, unit/API, integration PostgreSQL, critical E2E
+```
+
+El agregado local reveló después un timeout de un segundo al cargar `/registro` mediante lazy import bajo concurrencia de Vitest. El archivo aislado pasó 3/3; se aumentó solo la espera de esa aserción a cinco segundos en `d9c2f8d`, la suite web pasó 145/145 y el workspace agregado pasó. La CI remota final de código/test también fue verde:
+
+```text
+run: 34734131841
+commit: d9c2f8dd965c5ffde08d3776177886158788b7a3
+completed: 2026-09-13T02:54:08Z
+result: SUCCESS
+failed jobs: 0
+jobs: quality, unit/API, integration PostgreSQL, critical E2E
+```
+
+### Railway plan y acceso
+
+La CLI fijada respondió `railway 5.52.0`; `railway config --help` confirmó `plan/apply`. `railway whoami` y `railway status` devolvieron `Unauthorized`. No existe configuración local enlazada ni `RAILWAY_TOKEN`/`RAILWAY_API_TOKEN` en el proceso.
+
+```text
+run: 34734131839
+commit: d9c2f8dd965c5ffde08d3776177886158788b7a3
+Plan staging infrastructure: FAILURE — RAILWAY_STAGING_TOKEN no configurado
+Plan production infrastructure: WAITING — approval requerido
+artifacts: 0
+```
+
+No se aprobó production porque no hay token, proyecto ni plan revisable. El PR no debe mergearse: ambos planes Railway carecen de evidencia/artefacto. No se hicieron checks globales porque su filtro `.railway/**` bloquearía PR no relacionadas donde esos checks no se crean.
+
+### Matriz externa F5C
+
+| Gate original | Resultado actual |
+| --- | --- |
+| GitHub Environments | PASS |
+| GitHub CI remote | PASS |
+| Pull Request | PASS |
+| Railway staging | BLOCKED |
+| Managed PostgreSQL | BLOCKED |
+| Cloudflare staging | BLOCKED |
+| HTTPS smoke | BLOCKED |
+| Mercado Pago TEST | BLOCKED |
+| Webhook real | BLOCKED |
+| Resend | BLOCKED |
+| Cron reservation | BLOCKED |
+| Cron reconciliation | BLOCKED |
+| Cron outbox | BLOCKED |
+| Backup | BLOCKED |
+| Restore | BLOCKED — RPO/RTO no medidos |
+| Monitoring | BLOCKED |
+| Alerts | BLOCKED |
+| HTTPS security validation | BLOCKED |
+| Legal | BLOCKED |
+
+No se ejecutaron migrations, seed, bootstrap, provider externo, DNS, backup ni restore sobre recursos remotos. Mercado Pago LIVE permanece **NOT ACTIVATED**.
+
+### Referencias vigentes verificadas
+
+- GitHub environments y required reviewers en repositorios públicos: <https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments>.
+- GitHub REST environments: <https://docs.github.com/en/rest/deployments/environments>.
+- Railway Infrastructure as Code: <https://docs.railway.com/infrastructure-as-code>.
+- Railway cron jobs deben terminar: <https://docs.railway.com/cron-jobs>.
+- Cloudflare Pages preview deployments: <https://developers.cloudflare.com/pages/configuration/preview-deployments/>.
+
+### Siguiente acción del owner
+
+Configurar directamente en GitHub Environment `staging`, sin enviar valores al chat:
+
+```text
+RAILWAY_STAGING_TOKEN=[CONFIGURAR EN GITHUB ENVIRONMENT STAGING]
+CLOUDFLARE_API_TOKEN=[CONFIGURAR EN GITHUB ENVIRONMENT STAGING]
+CLOUDFLARE_ACCOUNT_ID=[CONFIGURAR EN GITHUB ENVIRONMENT STAGING]
+CLOUDFLARE_PAGES_PROJECT=[CONFIGURAR COMO VARIABLE EN STAGING]
+STAGING_API_BASE_URL=[CONFIGURAR COMO VARIABLE EN STAGING]
+STAGING_WEB_URL=[CONFIGURAR COMO VARIABLE EN STAGING]
+STAGING_API_URL=[CONFIGURAR COMO VARIABLE EN STAGING]
+```
+
+Después, reejecutar el run Railway del PR, aprobar únicamente el plan production para inspeccionarlo y no aplicar/mergear si falta artefacto, existe drift o aparece un cambio destructivo.

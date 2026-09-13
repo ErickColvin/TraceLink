@@ -1,6 +1,6 @@
 # Pre-production checklist
 
-Estado auditado el 12 de septiembre de 2026.
+Estado actualizado por la ejecución Fase 5C del 12 de septiembre de 2026.
 
 Leyenda:
 
@@ -18,20 +18,21 @@ No se autoriza production ni LIVE mientras existan blockers críticos de staging
 | Fase 4 committed/pushed | PASS | historial remoto disponible |
 | Fase 5 en `feature/phase-5-production` | PASS | branch sincronizada con origin |
 | instalación congelada | PASS | pnpm lockfile reproducible |
-| lint/typecheck/tests/build/migrations | PASS | baseline F5B renovado |
+| lint/typecheck/tests/build/migrations | PASS | baseline local F5B y CI remota F5C run `34734131841` |
 | E2E PostgreSQL aislado | PASS | 11 recorridos HTTP reales |
 | Chrome/Edge local y responsive | PASS | 375/768/1024/1440 sin overflow/page errors |
-| PR revisada y CI remota verde | BLOCKED | GitHub informó 0 PR y 0 Actions runs |
-| merge a `main` protegido | BLOCKED | confirmar branch protection con acceso owner |
+| PR abierta y CI remota verde | PASS | PR [#1](https://github.com/ErickColvin/TraceLink/pull/1); run `34734131841` verde para `d9c2f8d` |
+| protección de `main` | PASS | PR obligatorio, checks strict, admins incluidos, conversaciones resueltas, sin force-push/delete |
+| merge a `main` | BLOCKED | gate operativo: no mergear este PR hasta obtener/revisar ambos planes Railway y sus artifacts |
 
 ## GitHub y despliegue
 
 | Gate | Estado | Evidencia/acción |
 | --- | --- | --- |
 | workflows revisados | PASS | triggers, permisos, Node/pnpm, cache, environments y failure behavior auditados |
-| environment `staging` | BLOCKED | GitHub informó 0 environments |
-| environment `production` con reviewer | BLOCKED | crear/proteger en Settings > Environments |
-| Railway IaC plan revisado | BLOCKED | requiere PR y token del environment |
+| environment `staging` | PASS | creado; 0 secrets y 0 variables, configuración pendiente |
+| environment `production` con reviewer | PASS | creado con un reviewer; `prevent_self_review=false` porque solo existe un colaborador |
+| Railway IaC plan revisado | BLOCKED | run `34734131839`: staging falló por token ausente; production espera approval; 0 artifacts |
 | deploy production manual | PASS | solo `workflow_dispatch` sobre `main`; no ejecutado |
 
 ## Staging

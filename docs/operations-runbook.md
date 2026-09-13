@@ -10,7 +10,7 @@ Para todo incidente: registrar inicio, ambiente, deployment SHA, request IDs, se
 
 ## Propiedad y canal de alerta
 
-Estado Fase 5B: **BLOCKED — MANUAL OWNER ACTION REQUIRED**.
+Estado Fase 5C (12 de septiembre de 2026): **BLOCKED — MANUAL OWNER ACTION REQUIRED**.
 
 - responsable primario nominal: por asignar;
 - suplente nominal: por asignar;
