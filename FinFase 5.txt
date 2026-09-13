@@ -760,7 +760,7 @@ Commits funcionales creados en Fase 5B:
 - 441bd26 test(notifications): make outbox retry timing deterministic
 - f901411 ci(deploy): scope jobs to protected environments
 - ab1efcb fix(web): align demo and production checkout UX
-- dc370ad chore(staging): keep providers fake before external gates
+- dc370ad chore(staging): gate external providers behind base validation
 
 La API pública de GitHub devolvió:
 
@@ -811,7 +811,15 @@ en el fixture del retry de outbox: next_attempt_at se movía a now() y el claim
 inmediato podía evaluarse antes. Se cambió únicamente el test a now() - 1 segundo.
 El backoff de producción se conservó y el rerun fue 37/37.
 
-Los gates se repetirán una vez más después de cerrar estos documentos.
+Los gates se repitieron después de cerrar la documentación:
+
+- lint: PASS;
+- typecheck: PASS;
+- test agregado: PASS;
+- integration explícito: PASS;
+- E2E: PASS;
+- migration check: PASS;
+- build: PASS.
 
 ======================================================================
 26. WORKFLOWS E INFRAESTRUCTURA CORREGIDOS
