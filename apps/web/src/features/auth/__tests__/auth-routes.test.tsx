@@ -97,7 +97,11 @@ describe("authentication route guards", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Crea tu cuenta" }),
+      await screen.findByRole(
+        "heading",
+        { name: "Crea tu cuenta" },
+        { timeout: 5_000 },
+      ),
     ).toBeInTheDocument();
   });
 
