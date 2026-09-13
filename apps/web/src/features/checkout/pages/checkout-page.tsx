@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CreditCard, MapPin, ShieldCheck, ShoppingBag } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { EmptyState, PageHeader, RequestIdReference } from "@/components";
 import {
@@ -28,6 +28,7 @@ import { rememberPendingCheckout } from "../pending-checkout";
 import { checkoutService } from "../services";
 
 export function CheckoutPage() {
+  const navigate = useNavigate();
   const { session } = useAuth();
   const { clearCart, items, total } = useCart();
   const [error, setError] = useState<OperationalError | null>(null);
@@ -66,12 +67,12 @@ export function CheckoutPage() {
       });
 
       clearCart();
-      if ("checkoutUrl" in result) rememberPendingCheckout(result);
-      globalThis.location.assign(
-        "checkoutUrl" in result
-          ? result.checkoutUrl
-          : "/checkout/resultado?status=pending",
-      );
+      if ("checkoutUrl" in result) {
+        rememberPendingCheckout(result);
+        globalThis.location.assign(result.checkoutUrl);
+        return;
+      }
+      navigate("/checkout/resultado?status=pending");
     } catch (caught: unknown) {
       setRedirecting(false);
       setError(toOperationalError(

@@ -131,24 +131,30 @@ try {
   await capture("cart-375", 375, 1100);
 
   await page.getByRole("link", { name: "Continuar al checkout" }).click();
+  await page.waitForURL("**/login?returnTo=**");
+  await capture("login-375", 375, 1000);
+  await page.getByRole("button", { name: "Entrar como cliente" }).click();
   await page.waitForURL("**/checkout");
-  await page.getByRole("heading", { name: "Prepara tu pedido" }).waitFor();
+  await page.getByRole("heading", { name: "Confirmar retiro y pago" }).waitFor();
   await capture("checkout-375", 375, 1200);
-  await page.getByLabel("Nombre", { exact: true }).fill("Ana");
-  await page.getByLabel("Apellido", { exact: true }).fill("Pérez");
-  await page.getByLabel("Correo", { exact: true }).fill("ana.perez@example.cl");
-  await page.getByLabel("Teléfono", { exact: true }).fill("+56 9 1234 5678");
-  await page.getByRole("button", { name: "Simular pedido" }).click();
-  await page.getByRole("heading", { name: "Pedido recibido" }).waitFor();
+  await page.getByLabel("Notas para preparacion (opcional)").fill("Retiro por la tarde");
+  await page.getByRole("button", { name: "Pagar pedido" }).click();
+  await page.waitForURL("**/checkout/resultado?status=pending");
+  await page.getByRole("heading", { name: "Pago pendiente" }).waitFor();
   assertReview(
-    (await page.getByText(/CH-\d+/).count()) > 0,
-    "El checkout no generó el código visual del pedido.",
+    (await page.getByText(/solo el backend confirma/i).count()) > 0,
+    "El resultado no explica la autoridad del backend sobre el pago.",
   );
   await capture("checkout-success-768", 768, 1000);
 
-  // Customer: Login → My Account → Orders → Packages → Tracking.
-  await capture("login-375", 375, 1000, "/login");
-  await page.getByRole("button", { name: "Entrar como cliente" }).click();
+  // Customer: My Account → Orders → Packages → Tracking.
+  await page.getByRole("link", { name: "Ver mis pedidos", exact: true }).click();
+  await page.waitForURL("**/mi-cuenta/pedidos");
+  await page
+    .getByRole("navigation", { name: "Navegación de mi cuenta" })
+    .first()
+    .getByRole("link", { name: "Resumen", exact: true })
+    .click();
   await page.waitForURL("**/mi-cuenta");
   await page.getByRole("heading", { name: /Hola,/ }).waitFor();
   await capture("customer-home-375", 375, 1100);

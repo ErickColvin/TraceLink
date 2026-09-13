@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowUpRight, Box, CalendarClock, ClipboardList, DollarSign, PackageSearch, ShoppingBag } from "lucide-react";
 import { Link } from "react-router-dom";
+import { runtimeConfig } from "@/app/config/runtime";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeader } from "@/components";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { useDashboardOverview, type DashboardAlertSeverity } from "@/features/dashboard";
@@ -13,6 +14,7 @@ const severityTone: Record<DashboardAlertSeverity, "info" | "warning" | "danger"
 
 export function AdminDashboardPage() {
   const dashboardQuery = useDashboardOverview();
+  const isDemo = runtimeConfig.dataMode === "mock";
 
   if (dashboardQuery.isPending) {
     return <div className="space-y-6"><LoadingSkeleton className="h-24 rounded-2xl" /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }, (_, index) => <LoadingSkeleton key={index} className="h-36 rounded-2xl" />)}</div><LoadingSkeleton className="h-80 rounded-2xl" /></div>;
@@ -35,7 +37,12 @@ export function AdminDashboardPage() {
 
   return (
     <div>
-      <PageHeader eyebrow="Resumen operativo" title="Dashboard" description={`Datos mock actualizados al ${formatDateTime(generatedAt)}.`} actions={<Badge tone="info">Frontend demo</Badge>} />
+      <PageHeader
+        eyebrow="Resumen operativo"
+        title="Dashboard"
+        description={`${isDemo ? "Datos demo" : "Datos operativos"} actualizados al ${formatDateTime(generatedAt)}.`}
+        actions={isDemo ? <Badge tone="info">Frontend demo</Badge> : undefined}
+      />
 
       <section aria-label="Indicadores principales" className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {metrics.map(({ helper, icon: Icon, label, tone, value }) => (

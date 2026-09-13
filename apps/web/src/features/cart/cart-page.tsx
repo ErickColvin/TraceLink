@@ -14,7 +14,7 @@ export function CartPage() {
         <PageHeader
           eyebrow="Tu selección"
           title="Carrito"
-          description="Revisa cantidades y precios. El checkout se conectará en la fase de ecommerce."
+          description="Revisa cantidades y precios antes de reservar stock e iniciar el pago."
         />
 
         {items.length === 0 ? (
@@ -95,7 +95,7 @@ export function CartPage() {
                   Continuar al checkout
                 </Link>
                 <p className="mt-3 text-center text-xs leading-5 text-ink-500">
-                  El checkout es visual: el pago y la reserva de stock aún no están habilitados.
+                  Debes iniciar sesión. El servidor confirmará precios y stock antes de enviarte al proveedor de pago.
                 </p>
               </CardContent>
             </Card>

@@ -80,6 +80,7 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const { session, signOut } = useAuth();
   const staff = session.kind === "staff" ? session.staff : null;
+  const isDemoSession = session.kind === "staff" && session.authSource === "demo";
   const currentItem = adminNavigation.find((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`));
 
   const closeDrawer = useCallback(() => {
@@ -152,7 +153,9 @@ export function AdminLayout() {
       <AdminNavigation onNavigate={drawerOpen ? closeDrawer : undefined} />
       <div className="mt-auto pt-6">
         <div className="rounded-xl bg-white/8 p-3">
-          <p className="text-xs font-bold uppercase tracking-[0.13em] text-ice-300">Sesión demo</p>
+          <p className="text-xs font-bold uppercase tracking-[0.13em] text-ice-300">
+            {isDemoSession ? "Sesión demo" : "Sesión protegida"}
+          </p>
           <p className="mt-1 truncate text-sm font-semibold">{staff?.roleLabel ?? "Personal autorizado"}</p>
         </div>
         <Button variant="ghost" className="mt-2 w-full justify-start text-ice-100 hover:bg-white/10 hover:text-white" onClick={() => void handleSignOut()}><LogOut aria-hidden="true" /> Cerrar sesión</Button>
@@ -188,7 +191,7 @@ export function AdminLayout() {
               <div><p className="text-xs font-bold uppercase tracking-[0.13em] text-brand-700">Operaciones</p><p className="font-display text-lg font-bold">{currentItem?.label ?? tenantBrand.name}</p></div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
-              <span role="img" className="relative grid size-11 place-items-center text-ink-700" aria-label="Hay notificaciones pendientes en la demostración"><Bell aria-hidden="true" /><span aria-hidden="true" className="absolute right-1 top-1 size-2 rounded-full bg-coral-500" /></span>
+              {isDemoSession ? <span role="img" className="relative grid size-11 place-items-center text-ink-700" aria-label="Hay notificaciones pendientes en la demostración"><Bell aria-hidden="true" /><span aria-hidden="true" className="absolute right-1 top-1 size-2 rounded-full bg-coral-500" /></span> : null}
               {staff ? <div className="hidden text-right sm:block"><p className="text-sm font-bold">{staff.firstName} {staff.lastName}</p><p className="text-xs text-ink-500">{staff.roleLabel}</p></div> : null}
               {staff ? <span aria-hidden="true" className="grid size-10 place-items-center rounded-full bg-brand-100 text-xs font-extrabold text-brand-800">{getInitials(staff.firstName, staff.lastName)}</span> : null}
             </div>
