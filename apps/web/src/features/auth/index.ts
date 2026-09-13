@@ -14,6 +14,7 @@ export type {
   CustomerAccount,
   CustomerSession,
   Permission,
+  RegisterCredentials,
   SignInCredentials,
   StaffAccount,
   StaffRole,
@@ -41,7 +42,6 @@ export {
   resolvePostAuthPath,
   sanitizeInternalPath,
 } from "./routing/auth-paths";
-export { LoginPage } from "./pages/login-page";
 export {
   AuthError,
   normalizeAuthError,

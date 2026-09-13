@@ -41,3 +41,84 @@ export interface CustomerPage {
   totalItems: number;
   totalPages: number;
 }
+
+export interface CustomerProfileInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  address?: CustomerAddress;
+}
+
+export interface StaffCustomerUpdateInput extends CustomerProfileInput {
+  status: CustomerStatus;
+}
+
+export interface StaffCustomerSummary extends Customer {
+  orderCount: number;
+  activePackageCount: number;
+  lastActivityAt: string;
+}
+
+export interface StaffCustomerPage {
+  items: StaffCustomerSummary[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface CustomerOrderSummary {
+  id: string;
+  orderNumber: string;
+  status:
+    | "PENDING_PAYMENT"
+    | "PAID"
+    | "PREPARING"
+    | "READY"
+    | "COMPLETED"
+    | "CANCELLED"
+    | "REFUNDED";
+  total: number;
+  updatedAt: string;
+}
+
+export interface CustomerPackageSummary {
+  id: string;
+  trackingCode: string;
+  status:
+    | "EXPECTED"
+    | "RECEIVED"
+    | "STORED"
+    | "READY_FOR_PICKUP"
+    | "PICKED_UP"
+    | "RETURNED"
+    | "LOST"
+    | "INCIDENT";
+  description: string;
+  updatedAt: string;
+}
+
+export type CustomerActivityKind =
+  | "CUSTOMER_CREATED"
+  | "PROFILE_UPDATED"
+  | "ORDER_UPDATED"
+  | "PACKAGE_UPDATED";
+
+export interface CustomerActivityEvent {
+  id: string;
+  kind: CustomerActivityKind;
+  occurredAt: string;
+  description: string;
+  actor: "CUSTOMER" | "STAFF" | "SYSTEM";
+}
+
+export interface StaffCustomerDetail {
+  customer: Customer;
+  orderCount: number;
+  activePackageCount: number;
+  lastActivityAt: string;
+  recentOrders: CustomerOrderSummary[];
+  activePackages: CustomerPackageSummary[];
+  activity: CustomerActivityEvent[];
+}

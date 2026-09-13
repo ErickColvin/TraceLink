@@ -4,6 +4,30 @@ import { MockSessionContext } from "../../mock-context";
 import { MockAuthService } from "../services/mock-auth-service";
 
 describe("MockAuthService", () => {
+  it("crea una sesión customer temporal al registrar en modo demo", async () => {
+    const service = new MockAuthService(
+      () => new Date("2026-09-06T12:00:00.000Z"),
+    );
+
+    await expect(
+      service.register({
+        firstName: "  Teresa  ",
+        lastName: "  Soto  ",
+        email: "  teresa@example.cl  ",
+        password: "una-clave-segura-123",
+      }),
+    ).resolves.toMatchObject({
+      kind: "customer",
+      authSource: "demo",
+      authenticatedAt: "2026-09-06T12:00:00.000Z",
+      customer: {
+        firstName: "Teresa",
+        lastName: "Soto",
+        email: "teresa@example.cl",
+      },
+    });
+  });
+
   it("keeps demo sessions only inside the current service instance", async () => {
     const firstService = new MockAuthService(
       () => new Date("2026-08-29T12:00:00.000Z"),

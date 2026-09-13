@@ -42,6 +42,7 @@ export const mockOrders = [
     updatedAt: "2026-08-29T13:25:00.000Z",
     estimatedReadyAt: "2026-08-29T16:00:00.000Z",
     pickupLocation: `Sucursal ${tenantBrand.name} Huechuraba`,
+    notes: "Mantener congelados hasta el momento del retiro.",
     packageIds: ["package-ch-41028"],
   },
   {

@@ -1,0 +1,545 @@
+TRACELINK V2 / CH MARKET
+INFORME COMPLETO DE CIERRE — FASE 2 FRONTEND OPERACIONAL
+
+Fecha de cierre: 31 de agosto de 2026
+Proyecto: TraceLink V2
+Organización inicial: CH Market / Colvin Solutions
+Repositorio: https://github.com/ErickColvin/TraceLink.git
+Rama de trabajo: feature/congelados
+Base de la fase: origin/main, commit c8b517f (chore: initialize TraceLink monorepo)
+
+===============================================================================
+1. RESULTADO DE LA FASE
+===============================================================================
+
+Se completó el 100 % del alcance frontend definido para la Fase 2.
+
+TraceLink V2 queda como una aplicación frontend profesional y navegable con tres
+experiencias completas:
+
+1. Tienda pública CH Market.
+2. Portal privado del cliente.
+3. Portal operativo para personal y administración.
+
+Todas funcionan actualmente con adapters mock tipados y datos en memoria. No se
+implementó backend, base de datos, autenticación remota, pagos, reserva real de
+stock ni infraestructura de Fase 3.
+
+La implementación conserva la arquitectura:
+
+Pantalla -> hooks/use cases -> contrato de servicio -> adapter mock actual
+                                                 -> adapter HTTP futuro
+
+Las pantallas no importan fixtures ni llaman fetch directamente.
+
+===============================================================================
+2. RUTAS TERMINADAS
+===============================================================================
+
+TIENDA PÚBLICA
+
+/
+/productos
+/productos/:slug
+/nosotros
+/contacto
+/carrito
+/checkout
+/login
+/registro                 Redirección explícita a /login
+/*                        Página pública 404
+
+PORTAL CLIENTE
+
+/mi-cuenta
+/mi-cuenta/pedidos
+/mi-cuenta/pedidos/:id
+/mi-cuenta/paquetes
+/mi-cuenta/paquetes/:id
+/mi-cuenta/perfil
+
+PORTAL DE PERSONAL
+
+/app                      Redirección a /app/dashboard
+/app/dashboard
+/app/products
+/app/products/new
+/app/products/:id
+/app/products/:id/edit
+/app/inventory
+/app/inventory/movements
+/app/orders
+/app/orders/:id
+/app/packages
+/app/packages/new
+/app/packages/:id
+/app/customers
+/app/customers/:id
+/app/users
+/app/users/:id
+/app/roles
+/app/reports
+/app/settings
+
+Las rutas privadas usan guards de sesión. Las rutas staff también repiten guards
+por permiso, y la navegación solo muestra las capacidades autorizadas.
+
+===============================================================================
+3. STOREFRONT PÚBLICO
+===============================================================================
+
+- Se conservó y verificó Home, catálogo, detalle de producto, Nosotros y Contacto.
+- Catálogo con búsqueda, categorías, filtros, orden, disponibilidad y estados
+  loading/error/empty.
+- Detalle con imagen, descripción, precio CLP, cantidad, disponibilidad, productos
+  relacionados y acción de carrito.
+- Carrito local con cantidades, límites, subtotales y total CLP.
+- Header, navegación móvil, carrito, login, footer y skip link accesibles.
+- Diseño responsive validado en 375, 768, 1024 y 1440 px.
+- La disponibilidad comercial se proyecta desde los lotes de inventario mock para
+  evitar dos fuentes de stock divergentes.
+
+===============================================================================
+4. CHECKOUT VISUAL
+===============================================================================
+
+- Se creó /checkout y se integró desde el carrito.
+- Formulario React Hook Form + Zod.
+- Datos: nombre, apellido, email, teléfono, tipo de entrega, dirección condicional
+  y notas.
+- Alternativas de retiro y despacho futuro.
+- Resumen de productos, cantidades, precio, subtotal y total CLP.
+- Estado pending que bloquea doble envío.
+- Confirmación mock con código visual de pedido y pantalla "Pedido recibido".
+- Manejo de carrito vacío.
+- Avisos explícitos: no existe cobro, transacción financiera ni reserva de stock.
+
+===============================================================================
+5. PORTAL CLIENTE
+===============================================================================
+
+- Login demo diferenciado de la sesión de personal.
+- Resumen de cuenta autenticada.
+- Lista y detalle de pedidos pertenecientes al cliente actual.
+- Lista, búsqueda, detalle y trazabilidad de paquetes propios.
+- Reutilización del único componente TrackingTimeline.
+- Perfil editable con React Hook Form + Zod.
+- CustomerSelfService no recibe un customerId libre.
+- Query keys privadas separadas por identidad y limpieza de caché al cambiar,
+  restaurar o cerrar sesión.
+- Estados loading/error/empty/success y navegación responsive.
+
+===============================================================================
+6. PRODUCTOS ADMIN
+===============================================================================
+
+Rutas: /app/products, /app/products/new, /app/products/:id y
+/app/products/:id/edit.
+
+- Tabla desktop y cards mobile.
+- Imagen, SKU, producto, categoría, marca, precio, stock disponible, publicación,
+  estado y acciones.
+- Búsqueda, categoría, estado, publicación, orden y paginación.
+- Alta y edición comercial con React Hook Form + Zod.
+- Campos: SKU, barcode, nombre, slug, descripción, marca, categoría, precio,
+  stock mínimo, imagen, publicado y activo.
+- Activar/desactivar y publicar/despublicar con confirmación accesible.
+- No se agregó eliminación física como acción principal.
+- El stock es solo lectura y se obtiene de InventoryService.
+- Se validaron opciones finitas sin assertions inseguras.
+- Se normalizaron textos operacionales y problemas de codificación.
+
+===============================================================================
+7. INVENTARIO
+===============================================================================
+
+Rutas: /app/inventory y /app/inventory/movements.
+
+- Inventario con SKU, producto, categoría, ubicación, stock físico, reservado,
+  disponible, mínimo, lote, vencimiento y estado.
+- Estados: OK, LOW, OUT, EXPIRING y EXPIRED.
+- Estados y vencimientos se recalculan con el reloj actual.
+- Filtros por producto, categoría, ubicación, estado y vencimiento.
+- Orden y paginación.
+- No existe input de edición directa de stock.
+- Todo cambio usa InventoryMovement.
+- Tipos implementados: PURCHASE_RECEIPT, SALE, ADJUSTMENT, RETURN, DAMAGE,
+  EXPIRED, TRANSFER_IN y TRANSFER_OUT.
+- Motivo obligatorio para ADJUSTMENT, DAMAGE y EXPIRED.
+- Preview y resultado con stock anterior/posterior.
+- Bloqueo de stock físico negativo o menor al reservado.
+- Historial con fecha/hora, producto, SKU, tipo, cantidad, antes/después,
+  ubicación, usuario, motivo, filtros y paginación.
+- Las mutaciones invalidan inventario, catálogo y dashboard.
+
+===============================================================================
+8. PEDIDOS ADMIN
+===============================================================================
+
+Rutas: /app/orders y /app/orders/:id.
+
+- Cola responsive con número, cliente, fecha, productos, total, pago,
+  fulfillment, estado y acción.
+- Búsqueda y filtros por estado, pago, cliente, fulfillment y rango de fechas.
+- Orden y paginación.
+- Detalle con cliente/contacto, productos, cantidades, precio unitario, subtotal,
+  descuento, despacho, total, notas e historial.
+- State machine tipada:
+  PENDING_PAYMENT -> PAID -> PREPARING -> READY -> COMPLETED.
+- Estados CANCELLED y REFUNDED representados de forma explícita.
+- Se rechazan saltos y transiciones inválidas.
+- Cada transición crea OrderStatusEvent con estado previo/nuevo, fecha y actor.
+- Cancelación solo desde estados permitidos, con motivo y confirmación.
+- No se simula un reembolso financiero real.
+
+===============================================================================
+9. PAQUETES ADMIN Y TRAZABILIDAD
+===============================================================================
+
+Rutas: /app/packages, /app/packages/new y /app/packages/:id.
+
+- Cola responsive con tracking, carrier, cliente, contenido, recepción,
+  ubicación, estado, días almacenado y acciones.
+- Filtros separados por tracking, cliente, carrier, estado y ubicación.
+- Recepción con trackingCode, carrier, cliente autorizado, contenido, cantidad,
+  cadena de frío, ubicación, peso, fechas y notas.
+- El cliente se selecciona desde StaffCustomerService; no se escribe un nombre
+  libre para asociar información privada.
+- Flujo estándar tipado:
+  EXPECTED -> RECEIVED -> STORED -> READY_FOR_PICKUP -> PICKED_UP.
+- Excepciones explícitas: INCIDENT, RETURNED y LOST.
+- Cada transición crea TrackingEvent con actor, fecha, ubicación y notas.
+- Cálculo compartido de tiempo almacenado desde recepción/eventos.
+- Detalle con cliente/contacto, carrier, contenido, ubicación, recepción,
+  permanencia, notas, timeline y datos de retiro.
+- Entrega confirmada con código de retiro y nombre de quien recibe.
+- El código solo se verifica y no se almacena.
+- Comprobante final de entrega y evento PICKED_UP.
+
+===============================================================================
+10. CLIENTES
+===============================================================================
+
+Rutas: /app/customers y /app/customers/:id.
+
+- Lista con nombre, email, teléfono, pedidos, paquetes activos, última actividad
+  y estado.
+- Búsqueda por nombre, email o teléfono.
+- Detalle con datos personales, pedidos recientes, paquetes actuales y actividad.
+- Edición staff validada mediante React Hook Form + Zod.
+- Separación real de contratos CustomerSelfService y StaffCustomerService.
+- La pantalla staff no reutiliza el endpoint conceptual /me/currentCustomer.
+- Manejo indistinguible de registros privados inexistentes o fuera de alcance.
+
+===============================================================================
+11. USUARIOS, ROLES Y PERMISOS
+===============================================================================
+
+Rutas: /app/users, /app/users/:id y /app/roles.
+
+- Lista de usuarios con nombre, email, rol, estado y última actividad.
+- Activación/desactivación y asignación de rol con confirmación.
+- Opciones de estado y rol validadas antes de mutar.
+- Roles iniciales: SUPER_ADMIN, ADMIN, INVENTORY, OPERATIONS, SALES y WAREHOUSE.
+- Matriz editable de permisos tipados.
+- La lógica UI depende de Permission, no del texto del rol.
+- SUPER_ADMIN conserva todos los permisos en el adapter demo.
+- Permisos cubiertos para productos, inventario, pedidos, paquetes, clientes,
+  usuarios, reportes y settings.
+- La autorización frontend se considera UX, no seguridad autoritativa.
+
+===============================================================================
+12. DASHBOARD OPERACIONAL
+===============================================================================
+
+- Se reemplazaron cifras aisladas por datos derivados de los servicios mock reales.
+- KPIs: ventas de hoy, pedidos de hoy, pedidos pendientes, paquetes almacenados,
+  stock crítico y próximos vencimientos.
+- Visualizaciones acotadas: ventas de siete días y pedidos por estado.
+- Alertas enlazadas a filtros de inventario, pedidos y paquetes.
+- Alertas de productos bajo mínimo, vencimientos próximos, paquetes almacenados
+  demasiado tiempo y pedidos en espera.
+- SettingsService gobierna los umbrales de stock, vencimiento y días almacenado.
+- Invalidación del dashboard tras movimientos y transiciones operacionales.
+
+===============================================================================
+13. REPORTES
+===============================================================================
+
+Ruta: /app/reports.
+
+- Reportes mínimos de ventas, pedidos, inventario y paquetes.
+- Filtros por rango de fechas, categoría y estado.
+- Resumen de registros, cantidades, monto CLP y críticos.
+- Exportación CSV local sin dependencia adicional.
+- Escape correcto de valores CSV.
+- Neutralización de fórmulas incluso tras espacios o caracteres de control.
+- No se implementó BI ni una exportación backend ficticia.
+
+===============================================================================
+14. SETTINGS
+===============================================================================
+
+Ruta: /app/settings.
+
+- Configuración mock de organización, locale, moneda, timezone, email, teléfono,
+  dirección/instrucciones de retiro, stock mínimo, días de alerta de paquete y
+  días de alerta de vencimiento.
+- Formulario validado y feedback pending/success/error.
+- Valores iniciales derivados de la configuración central de marca.
+- No se creó un segundo identificador de tenant.
+- Los umbrales guardados alimentan el dashboard.
+
+===============================================================================
+15. UX, RESPONSIVE Y ACCESIBILIDAD
+===============================================================================
+
+- Primitiva ConfirmationDialog compartida para acciones de riesgo.
+- Semántica alertdialog, foco inicial, trampa de Tab, Escape, backdrop, scroll
+  lock, estado pending y retorno del foco al activador.
+- Skip links en shells público, cliente y staff.
+- Foco del main después de navegar.
+- Drawer administrativo accesible, aislado, cerrable y estable al pasar a desktop.
+- Labels nativos, focus visible, estados textuales además de color y live regions.
+- Soporte de prefers-reduced-motion.
+- Tablas en desktop y cards/listas en móvil donde la densidad lo requiere.
+- Estados loading, error, empty, normal, success, pending y disabled.
+- Feedback visible en cada mutación.
+- Revisión automatizada en 375, 768, 1024 y 1440 px sin overflow global.
+
+===============================================================================
+16. ARQUITECTURA Y RENDIMIENTO
+===============================================================================
+
+- Organización orientada a features bajo apps/web/src/features.
+- Router/providers/bootstrap bajo src/app.
+- Componentes compartidos bajo src/components.
+- TypeScript estricto y modelos de dominio explícitos.
+- CLP representado con enteros y formateado mediante Intl.
+- Zod valida formularios y deberá validar respuestas HTTP futuras.
+- TanStack Query maneja datos con semántica de servidor e invalidaciones.
+- Raíz de composición compartida en features/mock-services.ts.
+- Las rutas de checkout y administración usan React.lazy + Suspense.
+- El chunk inicial bajó aproximadamente de 753,71 kB a 301,64 kB, sin warning
+  de bundle en el build final.
+- No se agregaron dependencias innecesarias.
+
+Contratos listos para adapters HTTP:
+
+AuthService
+ProductService
+InventoryService
+OrderService
+StaffOrderService
+PackageService
+StaffPackageService
+CustomerSelfService
+StaffCustomerService
+UserService
+RoleService
+DashboardService
+ReportService
+SettingsService
+
+===============================================================================
+17. SEGURIDAD FRONTEND APLICADA
+===============================================================================
+
+- No se añadieron secretos, tokens ni archivos .env.
+- No existe fetch directo desde componentes.
+- No se usa localStorage/sessionStorage como modelo de identidad.
+- Los datos cliente se consultan como recurso del usuario autenticado.
+- Los guards y permisos mejoran UX, dejando explícita la autoridad futura del backend.
+- El inventario solo cambia con movimientos auditables.
+- Las acciones destructivas requieren confirmación.
+- El pickup code no se persiste.
+- El CSV se protege frente a formula injection.
+- No quedaron console.log ni trazas de depuración.
+
+===============================================================================
+18. TESTING Y VALIDACIÓN
+===============================================================================
+
+Estado antes de Fase 2:
+- 16 archivos de prueba.
+- 43 tests.
+
+Estado al terminar Fase 2:
+- 36 archivos de prueba.
+- 111 tests.
+- Se conservaron las pruebas existentes; no se borraron ni silenciaron.
+
+Cobertura agregada o ampliada:
+- productos: schema, alta/edición, acciones y stock proyectado;
+- inventario: reglas, preview, motivos, stock mínimo, vencimiento y errores;
+- pedidos: workflow, filtros, transiciones, cancelación y eventos;
+- paquetes: recepción, búsqueda, workflow, entrega, eventos y permanencia;
+- clientes: búsqueda, validación, edición y aislamiento self/staff;
+- usuarios/roles: permisos, asignación y usuarios deshabilitados;
+- checkout: validación, totales, carrito vacío y confirmación mock;
+- accesibilidad: foco, navegación, guards, queries privadas y dialogs;
+- reportes/settings/dashboard: CSV seguro, persistencia mock y KPIs derivados.
+
+Gates de cierre:
+
+corepack pnpm lint       PASS
+corepack pnpm typecheck  PASS
+corepack pnpm test       PASS — 36 archivos / 111 tests
+corepack pnpm build      PASS — sin warnings de tamaño
+corepack pnpm test:e2e   PASS
+
+El E2E recorre:
+
+Public: Home -> Catalog -> Product -> Cart -> Checkout -> Pedido recibido.
+Customer: Login -> Account -> Orders -> Packages -> Tracking.
+Staff: Login -> Dashboard -> Products -> Inventory -> Orders -> Packages -> Customers.
+Package: Receive -> Store -> Ready -> Pickup.
+
+Genera 29 capturas en un directorio temporal, verifica los cuatro viewports,
+overflow horizontal, errores de página, foco, drawer y confirmación de entrega.
+
+===============================================================================
+19. LÍMITES MOCK Y DEUDA TÉCNICA CONOCIDA
+===============================================================================
+
+Estos puntos son deliberados y deben resolverse con la fuente autoritativa futura:
+
+1. Sesión, carrito y mutaciones están solo en memoria y se reinician al recargar.
+2. OrderService cliente y StaffOrderService son instancias separadas; las
+   transiciones staff aún no se reflejan en el portal cliente.
+3. PackageService cliente y StaffPackageService también son instancias separadas.
+4. Cambiar rol/estado de usuario no cambia los permisos de la sesión demo activa.
+5. Los reportes usan registros mock estáticos y no agregan mutaciones en vivo.
+6. El checkout no reserva, reconcilia ni descuenta inventario.
+7. Cambiar minimumStock del producto no migra lotes existentes.
+8. Crear un producto no crea un lote de inventario; su stock queda en cero hasta
+   que exista aprovisionamiento de inventario.
+9. Los movimientos seleccionan lotes existentes y heredan lote/vencimiento; no se
+   implementó alta independiente de lotes en esta fase.
+10. Dos casts DOM históricos del catálogo permanecen como deuda menor; no se
+    introdujeron nuevos casts inseguros.
+11. La ruta wildcard /app/* muestra el fallback "Módulo no disponible"; todas las
+    rutas nominales de Fase 2 están implementadas.
+12. Autorización, propiedad, transiciones, concurrencia e idempotencia deben volver
+    a comprobarse en backend.
+
+===============================================================================
+20. COMMITS DE FASE 2
+===============================================================================
+
+ee80973 feat(ui): add accessible confirmation dialog
+4656cff feat(checkout): add visual order simulation
+e4e5de4 feat(settings): add operational configuration
+1263dd5 feat(reports): add filtered operational exports
+723aff3 feat(orders): add staff order workflow
+aff9112 fix(a11y): add private shell skip links
+51fb911 feat(products): complete admin catalog management
+7eccbf3 feat(inventory): enforce movement-only stock changes
+a65335e feat(access): add user and role management
+b172296 feat(app): wire core admin management routes
+800c731 test(ui): verify confirmation focus behavior
+c0e312d fix(ui): keep dialog focus stable during edits
+fea8fc3 test(checkout): cover simulated receipt workflow
+fa3d70f fix(products): type form submission spy
+c53e29f fix(a11y): focus main content after navigation
+0aec4a3 feat(customers): separate self and staff management
+7e8e909 feat(packages): complete receipt tracking and delivery
+553f958 feat(dashboard): derive operational metrics from services
+c3ce8cf feat(app): wire package and customer routes
+ab3c139 perf(app): split operational routes
+10ff3e3 fix(products): normalize operational copy and filters
+36ad96d fix(inventory): project stock into catalogue
+9aa01ed feat(orders): complete operational queue metadata
+f31e183 feat(packages): complete queue filters and storage timing
+ce4f267 feat(settings): drive dashboard alert thresholds
+de5c8dd fix(reports): harden local CSV export
+a784d4e fix(users): validate status selection
+cb644b3 test(config): allow full suite concurrency
+4444e89 test(e2e): cover phase two critical flows
+
+README.md, docs/frontend-design.md, docs/frontend-roadmap.md y este informe se
+registran en el commit de cierre: docs: close frontend phase 2.
+
+Se usaron commits pequeños y revisables. Antes de cada commit se inspeccionaron
+git status y git diff --stat. No se hizo reset, clean, force push ni reescritura.
+
+===============================================================================
+21. ARCHIVOS Y ÁREAS MODIFICADAS
+===============================================================================
+
+El delta final de Fase 2 abarca aproximadamente 149 archivos, principalmente en:
+
+- apps/web/src/app: router, carga diferida y foco de navegación.
+- apps/web/src/components/ui: confirmación accesible compartida.
+- apps/web/src/features/checkout.
+- apps/web/src/features/customers.
+- apps/web/src/features/dashboard.
+- apps/web/src/features/inventory.
+- apps/web/src/features/orders.
+- apps/web/src/features/packages.
+- apps/web/src/features/products.
+- apps/web/src/features/reports.
+- apps/web/src/features/settings.
+- apps/web/src/features/users.
+- apps/web/src/layouts.
+- apps/web/vite.config.ts.
+- tools/visual-review.mjs.
+- README.md y docs/frontend-*.md.
+- FinFase 2.txt.
+
+No se modificaron destructivamente repositorios legacy ni el portafolio.
+
+===============================================================================
+22. CÓMO INICIAR Y VALIDAR EL PROYECTO
+===============================================================================
+
+Desde la carpeta TraceLink:
+
+corepack pnpm install
+corepack pnpm dev
+
+Abrir:
+
+http://127.0.0.1:5173
+
+Accesos demo en /login:
+
+- Entrar como cliente -> /mi-cuenta
+- Entrar como personal -> /app/dashboard
+
+Comandos de calidad:
+
+corepack pnpm lint
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm build
+
+Para E2E, dejar el servidor dev activo en otra terminal y ejecutar:
+
+corepack pnpm test:e2e
+
+También existe el alias:
+
+corepack pnpm review:visual
+
+===============================================================================
+23. PROPUESTA PARA FASE 3 — NO IMPLEMENTADA
+===============================================================================
+
+La Fase 3 debe concentrarse exclusivamente en backend e integración:
+
+1. API versionada y adapters HTTP compatibles con los contratos existentes.
+2. PostgreSQL y persistencia de entidades/eventos.
+3. Autenticación remota segura, sesión, recuperación y alta real.
+4. Autorización, permisos y propiedad de datos validados en servidor.
+5. Inventario transaccional, lotes, reservas, concurrencia e idempotencia.
+6. Persistencia unificada de pedidos y paquetes para cliente/personal.
+7. Integración de pagos solo cuando los contratos de negocio estén definidos.
+8. Carga de imágenes, notificaciones, couriers y observabilidad por etapas.
+9. Reportes derivados de datos persistidos y exportaciones autoritativas.
+10. Pruebas de contrato, integración y E2E contra un entorno backend controlado.
+
+La Fase 3 no debería reconstruir páginas, navegación, formularios, componentes,
+workflows visuales, permisos UX ni estados ya terminados en esta Fase 2.
+
+FIN DEL INFORME DE FASE 2

@@ -1,0 +1,81 @@
+name: Railway config
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    paths: [".railway/**", "package.json", "pnpm-lock.yaml"]
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+  id-token: write
+
+jobs:
+  plan-staging:
+    name: Plan staging infrastructure
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    environment: staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: railwayapp/config@v1
+        with:
+          command: plan
+          cli-version: 5.52.0
+          artifact-name: railway-plan-staging
+          railway-token: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+
+  plan-production:
+    name: Plan production infrastructure
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: railwayapp/config@v1
+        with:
+          command: plan
+          cli-version: 5.52.0
+          artifact-name: railway-plan-production
+          confirm-destructive: false
+          railway-token: ${{ secrets.RAILWAY_PRODUCTION_TOKEN }}
+
+  apply-staging:
+    name: Apply reviewed staging infrastructure
+    if: github.event.action == 'closed' && github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository
+    environment: staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          persist-credentials: false
+      - uses: railwayapp/config@v1
+        with:
+          command: apply
+          cli-version: 5.52.0
+          artifact-name: railway-plan-staging
+          railway-token: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+
+  apply-production:
+    name: Apply reviewed production infrastructure
+    if: github.event.action == 'closed' && github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          persist-credentials: false
+      - uses: railwayapp/config@v1
+        with:
+          command: apply
+          cli-version: 5.52.0
+          artifact-name: railway-plan-production
+          confirm-destructive: false
+          railway-token: ${{ secrets.RAILWAY_PRODUCTION_TOKEN }}

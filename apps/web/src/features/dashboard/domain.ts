@@ -30,6 +30,14 @@ export type PackageIncidentAlert = DashboardAlertBase & {
   trackingCode: string;
 };
 
+export type StoredPackageAlert = DashboardAlertBase & {
+  type: "PACKAGE_STORED_TOO_LONG";
+  packageId: string;
+  trackingCode: string;
+  storedSince: string;
+  daysStored: number;
+};
+
 export type DelayedOrderAlert = DashboardAlertBase & {
   type: "DELAYED_ORDER";
   orderId: string;
@@ -40,6 +48,7 @@ export type DashboardAlert =
   | CriticalStockAlert
   | ExpiringBatchAlert
   | PackageIncidentAlert
+  | StoredPackageAlert
   | DelayedOrderAlert;
 
 export interface DashboardKpis {
@@ -61,5 +70,9 @@ export interface DashboardOverview {
   kpis: DashboardKpis;
   salesTrend: DashboardTrendPoint[];
   alerts: DashboardAlert[];
+  thresholds: {
+    expirationWarningDays: number;
+    packageAlertDays: number;
+  };
   generatedAt: string;
 }

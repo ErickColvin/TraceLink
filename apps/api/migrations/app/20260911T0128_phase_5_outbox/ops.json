@@ -1,0 +1,284 @@
+[
+  {
+    "id": "table.outbox_events",
+    "label": "Create table \"outbox_events\"",
+    "summary": "Creates table \"outbox_events\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "outbox_events"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"outbox_events\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"outbox_events\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"outbox_events\"",
+        "sql": "CREATE TABLE \"public\".\"outbox_events\" (\n  \"attempts\" int4 DEFAULT 0 NOT NULL,\n  \"created_at\" timestamptz(3) DEFAULT (now()) NOT NULL,\n  \"delivered_at\" timestamptz(3),\n  \"event_key\" character varying(200) NOT NULL,\n  \"event_type\" character varying(120) NOT NULL,\n  \"id\" uuid DEFAULT (gen_random_uuid()) NOT NULL,\n  \"last_error\" character varying(1000),\n  \"locked_at\" timestamptz(3),\n  \"max_attempts\" int4 DEFAULT 5 NOT NULL,\n  \"next_attempt_at\" timestamptz(3) DEFAULT (now()) NOT NULL,\n  \"organization_id\" uuid NOT NULL,\n  \"payload\" json NOT NULL,\n  \"provider_message_id\" character varying(200),\n  \"recipient_email\" character varying(320) NOT NULL,\n  \"status\" text DEFAULT 'PENDING' NOT NULL,\n  \"updated_at\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"outbox_event_state_valid_566c2672\" CHECK (char_length(btrim(\"event_key\")) > 0 AND char_length(btrim(\"event_type\")) > 0 AND char_length(btrim(\"recipient_email\")) > 0 AND \"attempts\" >= 0 AND \"max_attempts\" BETWEEN 1 AND 20 AND \"attempts\" <= \"max_attempts\" AND ((\"status\" = 'PENDING' AND \"locked_at\" IS NULL AND \"delivered_at\" IS NULL) OR (\"status\" = 'PROCESSING' AND \"locked_at\" IS NOT NULL AND \"delivered_at\" IS NULL) OR (\"status\" = 'DELIVERED' AND \"locked_at\" IS NULL AND \"delivered_at\" IS NOT NULL) OR (\"status\" = 'DEAD' AND \"locked_at\" IS NULL AND \"delivered_at\" IS NULL))),\n  CONSTRAINT \"outbox_events_status_check_8211561f\" CHECK (\"status\" IN ('PENDING', 'PROCESSING', 'DELIVERED', 'DEAD'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"outbox_events\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"outbox_events\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.outbox_events.outbox_event_dedup_key",
+    "label": "Add unique constraint on \"outbox_events\" (organization_id, event_key)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "outbox_event_dedup_key",
+        "table": "outbox_events"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"outbox_event_dedup_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "outbox_event_dedup_key",
+          "public",
+          "\"public\".\"outbox_events\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"outbox_event_dedup_key\"",
+        "sql": "ALTER TABLE \"public\".\"outbox_events\" ADD CONSTRAINT \"outbox_event_dedup_key\" UNIQUE (\"organization_id\", \"event_key\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"outbox_event_dedup_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "outbox_event_dedup_key",
+          "public",
+          "\"public\".\"outbox_events\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.outbox_events.outbox_event_tenant_id_key",
+    "label": "Add unique constraint on \"outbox_events\" (organization_id, id)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "outbox_event_tenant_id_key",
+        "table": "outbox_events"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"outbox_event_tenant_id_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "outbox_event_tenant_id_key",
+          "public",
+          "\"public\".\"outbox_events\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"outbox_event_tenant_id_key\"",
+        "sql": "ALTER TABLE \"public\".\"outbox_events\" ADD CONSTRAINT \"outbox_event_tenant_id_key\" UNIQUE (\"organization_id\", \"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"outbox_event_tenant_id_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "outbox_event_tenant_id_key",
+          "public",
+          "\"public\".\"outbox_events\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.outbox_events.outbox_event_delivery_idx",
+    "label": "Create index \"outbox_event_delivery_idx\" on \"outbox_events\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "outbox_event_delivery_idx",
+        "table": "outbox_events"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"outbox_event_delivery_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"outbox_event_delivery_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"outbox_event_delivery_idx\"",
+        "sql": "CREATE INDEX \"outbox_event_delivery_idx\" ON \"public\".\"outbox_events\" (\"status\", \"next_attempt_at\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"outbox_event_delivery_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"outbox_event_delivery_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.outbox_events.outbox_event_tenant_type_idx",
+    "label": "Create index \"outbox_event_tenant_type_idx\" on \"outbox_events\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "outbox_event_tenant_type_idx",
+        "table": "outbox_events"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"outbox_event_tenant_type_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"outbox_event_tenant_type_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"outbox_event_tenant_type_idx\"",
+        "sql": "CREATE INDEX \"outbox_event_tenant_type_idx\" ON \"public\".\"outbox_events\" (\"organization_id\", \"event_type\", \"created_at\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"outbox_event_tenant_type_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"outbox_event_tenant_type_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.outbox_events.outbox_events_organization_id_idx_1a5cd3f5",
+    "label": "Create index \"outbox_events_organization_id_idx_1a5cd3f5\" on \"outbox_events\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "outbox_events_organization_id_idx_1a5cd3f5",
+        "table": "outbox_events"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"outbox_events_organization_id_idx_1a5cd3f5\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"outbox_events_organization_id_idx_1a5cd3f5\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"outbox_events_organization_id_idx_1a5cd3f5\"",
+        "sql": "CREATE INDEX \"outbox_events_organization_id_idx_1a5cd3f5\" ON \"public\".\"outbox_events\" (\"organization_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"outbox_events_organization_id_idx_1a5cd3f5\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"outbox_events_organization_id_idx_1a5cd3f5\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.outbox_events.outbox_event_organization_fkey",
+    "label": "Add foreign key \"outbox_event_organization_fkey\" on \"outbox_events\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "outbox_event_organization_fkey",
+        "table": "outbox_events"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"outbox_event_organization_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "outbox_event_organization_fkey",
+          "public",
+          "\"public\".\"outbox_events\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"outbox_event_organization_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"outbox_events\"\nADD CONSTRAINT \"outbox_event_organization_fkey\"\nFOREIGN KEY (\"organization_id\")\nREFERENCES \"public\".\"organizations\" (\"id\")\nON DELETE RESTRICT"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"outbox_event_organization_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "outbox_event_organization_fkey",
+          "public",
+          "\"public\".\"outbox_events\""
+        ]
+      }
+    ]
+  }
+]

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/features/auth";
 import { CUSTOMER_PRIVATE_QUERY_META } from "@/features/auth/query-scope";
@@ -47,5 +47,46 @@ export function useCurrentCustomerOrder(id: string | undefined) {
     enabled: Boolean(customerId && id),
     meta: CUSTOMER_PRIVATE_QUERY_META,
     staleTime: 30_000,
+  });
+}
+
+export function useRetryCurrentCustomerPayment() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const customerId = session.kind === "customer" ? session.customer.customerId : null;
+
+  return useMutation({
+    mutationFn: (id: string) => orderService.retryPayment(id),
+    onSuccess: async (result) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: orderKeys.currentCustomerLists(customerId ?? "anonymous"),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: orderKeys.currentCustomerDetail(customerId ?? "anonymous", result.order.id),
+        }),
+      ]);
+    },
+  });
+}
+
+export function useCancelCurrentCustomerOrder() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const customerId = session.kind === "customer" ? session.customer.customerId : null;
+
+  return useMutation({
+    mutationFn: (input: Readonly<{ id: string; reason: string }>) =>
+      orderService.cancel(input.id, input.reason),
+    onSuccess: async (result) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: orderKeys.currentCustomerLists(customerId ?? "anonymous"),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: orderKeys.currentCustomerDetail(customerId ?? "anonymous", result.orderId),
+        }),
+      ]);
+    },
   });
 }

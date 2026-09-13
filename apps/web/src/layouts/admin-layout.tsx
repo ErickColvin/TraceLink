@@ -80,6 +80,7 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const { session, signOut } = useAuth();
   const staff = session.kind === "staff" ? session.staff : null;
+  const isDemoSession = session.kind === "staff" && session.authSource === "demo";
   const currentItem = adminNavigation.find((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`));
 
   const closeDrawer = useCallback(() => {
@@ -152,7 +153,9 @@ export function AdminLayout() {
       <AdminNavigation onNavigate={drawerOpen ? closeDrawer : undefined} />
       <div className="mt-auto pt-6">
         <div className="rounded-xl bg-white/8 p-3">
-          <p className="text-xs font-bold uppercase tracking-[0.13em] text-ice-300">Sesión demo</p>
+          <p className="text-xs font-bold uppercase tracking-[0.13em] text-ice-300">
+            {isDemoSession ? "Sesión demo" : "Sesión protegida"}
+          </p>
           <p className="mt-1 truncate text-sm font-semibold">{staff?.roleLabel ?? "Personal autorizado"}</p>
         </div>
         <Button variant="ghost" className="mt-2 w-full justify-start text-ice-100 hover:bg-white/10 hover:text-white" onClick={() => void handleSignOut()}><LogOut aria-hidden="true" /> Cerrar sesión</Button>
@@ -162,6 +165,12 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-ice-50 text-ink-950 lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+      <a
+        href="#contenido-admin"
+        className="fixed left-4 top-3 z-[100] -translate-y-20 rounded-lg bg-brand-950 px-4 py-2 font-semibold text-white transition-transform focus:translate-y-0"
+      >
+        Saltar al contenido
+      </a>
       <aside className="hidden min-h-screen lg:block">{sidebarContents}</aside>
 
       {drawerOpen ? (
@@ -182,13 +191,13 @@ export function AdminLayout() {
               <div><p className="text-xs font-bold uppercase tracking-[0.13em] text-brand-700">Operaciones</p><p className="font-display text-lg font-bold">{currentItem?.label ?? tenantBrand.name}</p></div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
-              <span role="img" className="relative grid size-11 place-items-center text-ink-700" aria-label="Hay notificaciones pendientes en la demostración"><Bell aria-hidden="true" /><span aria-hidden="true" className="absolute right-1 top-1 size-2 rounded-full bg-coral-500" /></span>
+              {isDemoSession ? <span role="img" className="relative grid size-11 place-items-center text-ink-700" aria-label="Hay notificaciones pendientes en la demostración"><Bell aria-hidden="true" /><span aria-hidden="true" className="absolute right-1 top-1 size-2 rounded-full bg-coral-500" /></span> : null}
               {staff ? <div className="hidden text-right sm:block"><p className="text-sm font-bold">{staff.firstName} {staff.lastName}</p><p className="text-xs text-ink-500">{staff.roleLabel}</p></div> : null}
               {staff ? <span aria-hidden="true" className="grid size-10 place-items-center rounded-full bg-brand-100 text-xs font-extrabold text-brand-800">{getInitials(staff.firstName, staff.lastName)}</span> : null}
             </div>
           </div>
         </header>
-        <main className="p-4 sm:p-6 lg:p-8">
+        <main id="contenido-admin" tabIndex={-1} className="p-4 sm:p-6 lg:p-8">
           {logoutError ? <Alert tone="danger" className="mb-5"><LogOut aria-hidden="true" /><p>No pudimos cerrar la sesión. Inténtalo nuevamente.</p></Alert> : null}
           <Outlet />
         </main>
