@@ -1,20 +1,22 @@
-# Validación de staging — Fase 5C
+# Validación de staging — Fase 5D
 
 ## Resultado ejecutivo
 
-Ejecución realizada el 12 de septiembre de 2026 (timestamps de GitHub registrados en UTC del 13 de septiembre).
+Última auditoría: 13 de septiembre de 2026. Fase 5D no pudo iniciar el
+provisioning porque el environment `staging` continúa sin credenciales ni
+variables. La evidencia F5C se conserva debajo como historial.
 
 | Campo | Resultado |
 | --- | --- |
 | branch candidata | `feature/phase-5-production` |
-| último SHA de código/test validado en CI | `d9c2f8dd965c5ffde08d3776177886158788b7a3` |
-| branch publicada | PASS — igual a `origin/feature/phase-5-production` después del fix CI |
+| último SHA validado en CI antes de este registro | `efc9f81491754840d0107eaa56708cd2ca0fb92e` |
+| branch publicada | PASS — igual a `origin/feature/phase-5-production` al iniciar F5D |
 | PR hacia `main` | PASS — [#1](https://github.com/ErickColvin/TraceLink/pull/1), abierta, no mergeada |
 | GitHub Environments | PASS — `staging` y `production` creados |
 | protección `production` | PASS — un required reviewer; approval manual pendiente cuando corra el plan |
 | protección `main` | PASS — PR obligatorio, 4 checks CI strict, admins incluidos, sin force-push/delete |
-| GitHub CI | PASS — run `34734131841`, cuatro jobs verdes para `d9c2f8d` |
-| Railway plan | BLOCKED — run `34734131839`: staging sin token, production waiting, 0 artifacts |
+| GitHub CI | PASS — run `34734239898`, cuatro jobs verdes para `efc9f81` |
+| Railway plan | BLOCKED — run `34734240023`: staging sin token, production waiting, 0 artifacts |
 | frontend URL | BLOCKED — no configurada |
 | API URL | BLOCKED — no configurada |
 | Railway staging | BLOCKED — no existe evidencia accesible del proyecto desplegado |
@@ -25,9 +27,12 @@ Ejecución realizada el 12 de septiembre de 2026 (timestamps de GitHub registrad
 
 `PASS` significa prueba ejecutada con evidencia. `BLOCKED` significa que la prueba no puede ejecutarse hasta que el owner configure el recurso o acceso indicado. `NOT APPLICABLE` significa fuera del alcance deliberado de esta ejecución. No se usan checks implícitos ni se considera aprobado un proveedor por existir configuración local.
 
-La sección F5B posterior se conserva como historial. Esta cabecera y la sección “F5C external execution” contienen el estado vigente.
+Las secciones F5B/F5C posteriores se conservan como historial. Esta cabecera y
+la sección “F5D provisioning audit” contienen el estado vigente.
 
-Porcentaje F5C: 3 de los 19 blockers enumerados originalmente en el prompt quedaron resueltos (`GitHub Environments`, `GitHub CI remote` y `Pull Request`), es decir, `3 / 19 = 15,79 %`, reportado como **16 %**. La protección de `main`/`production` es evidencia de soporte y no se cuenta otra vez. Fase 5 total se calcula como `80 + (20 × 3 / 19) = 83,16 %`, reportado como **83 %**. Fase 4 permanece en **95 %**.
+Porcentaje F5D: **0 %**. Ningún gate de staging real pasó de BLOCKED a PASS;
+no se otorga avance por repetir una auditoría o por tener IaC sin aplicar. Fase 5
+total permanece en **83 %** y Fase 4 en **95 %**.
 
 No se imprimieron tokens, passwords, cookies, claves API ni valores de `.env` durante la auditoría.
 
@@ -411,3 +416,89 @@ STAGING_API_URL=[CONFIGURAR COMO VARIABLE EN STAGING]
 ```
 
 Después, reejecutar el run Railway del PR, aprobar únicamente el plan production para inspeccionarlo y no aplicar/mergear si falta artefacto, existe drift o aparece un cambio destructivo.
+
+## F5D provisioning audit — 13 de septiembre de 2026
+
+### Evidencia ejecutada
+
+- worktree limpio y branch `feature/phase-5-production` sincronizada al iniciar;
+- PR [#1](https://github.com/ErickColvin/TraceLink/pull/1) abierta, no draft y no mergeada;
+- CI run [34734239898](https://github.com/ErickColvin/TraceLink/actions/runs/34734239898) verde, cuatro jobs PASS;
+- `main` conserva PR obligatorio, cuatro checks strict, admins incluidos y sin force-push/delete;
+- environments `staging` y `production` existentes; `staging` tiene 0 secrets y 0 variables;
+- Railway CLI `5.52.0`; `config plan` y `config apply` disponibles;
+- `railway whoami` y `railway status`: `Unauthorized`;
+- `.railway/railway.ts` conserva PostgreSQL, API y tres cron con providers `fake`;
+- documentación oficial vigente confirma Infrastructure as Code y cron con proceso finito.
+
+### Configuración detectada
+
+```text
+RAILWAY_STAGING_TOKEN=MISSING
+CLOUDFLARE_API_TOKEN=MISSING
+CLOUDFLARE_ACCOUNT_ID=MISSING
+CLOUDFLARE_PAGES_PROJECT=MISSING
+STAGING_WEB_URL=MISSING
+STAGING_API_URL=MISSING
+STAGING_API_BASE_URL=MISSING
+MERCADOPAGO_ACCESS_TOKEN=MISSING
+MERCADOPAGO_WEBHOOK_SECRET=MISSING
+RESEND_API_KEY=MISSING
+```
+
+Solo se consultó presencia por nombre; no se imprimió ningún valor.
+
+### Resultado F5D
+
+```text
+Railway plan: BLOCKED
+Railway apply: NOT EXECUTED
+Cloudflare deploy: NOT EXECUTED
+managed PostgreSQL: NOT PROVISIONED
+staging web/API URLs: NOT AVAILABLE
+smoke/auth/HTTPS security: BLOCKED
+fake checkout staging: BLOCKED
+Mercado Pago TEST: BLOCKED BY BASE GATE
+Resend staging: BLOCKED BY BASE GATE
+backup/restore/monitoring/alerts: BLOCKED
+Fase 5D: 0%
+Fase 5 total: 83%
+Fase 4: 95%
+```
+
+El workflow Railway vigente fija el plan al PR y aplica el artifact después del
+merge, siguiendo el modelo oficial de la action. Como este cierre exige evidencia
+de staging antes de mergear, el owner debe elegir una ejecución controlada del
+CLI autenticado para staging o autorizar explícitamente un flujo pre-merge con
+aprobación. No se debilitó este control durante F5D.
+
+### OWNER ACTION REQUIRED
+
+Configurar directamente en GitHub Environment `staging`, sin compartir valores:
+
+```text
+RAILWAY_STAGING_TOKEN
+CLOUDFLARE_API_TOKEN
+CLOUDFLARE_ACCOUNT_ID
+CLOUDFLARE_PAGES_PROJECT
+```
+
+Después del provisioning, registrar como variables no secretas:
+
+```text
+STAGING_WEB_URL
+STAGING_API_URL
+STAGING_API_BASE_URL
+```
+
+Mercado Pago TEST y Resend continúan fuera del gate hasta que Railway API,
+PostgreSQL, migrations, db verify, Cloudflare, smoke, auth, cookies, CORS, CSRF,
+headers y checkout fake estén realmente en PASS.
+
+Referencias verificadas en esta auditoría:
+
+- <https://docs.railway.com/cli>
+- <https://docs.railway.com/infrastructure-as-code>
+- <https://docs.railway.com/environments>
+- <https://docs.railway.com/guides/cron-workers-queues>
+- <https://github.com/railwayapp/config>

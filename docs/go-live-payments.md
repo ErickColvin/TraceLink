@@ -7,9 +7,13 @@ LIVE PAYMENTS: NOT ACTIVATED
 GATE: BLOCKED
 ```
 
-Ejecución Fase 5C: 12 de septiembre de 2026. GitHub governance y CI remota ya están verificadas, pero Railway/Cloudflare/staging continúan bloqueados y ningún gate Mercado Pago TEST fue ejecutado.
+Auditoría Fase 5D: 13 de septiembre de 2026. GitHub governance y CI remota siguen
+verificadas, pero el environment `staging` continúa con 0 secrets y 0 variables.
+Railway/Cloudflare/staging siguen bloqueados y ningún gate Mercado Pago TEST fue
+ejecutado.
 
-Este archivo no autoriza cobros. Fase 5C solo puede validar sandbox TEST y preparación operativa; activar dinero real requiere otra instrucción explícita del owner.
+Este archivo no autoriza cobros. Fase 5D solo puede validar sandbox TEST después
+del gate base; activar dinero real requiere otra instrucción explícita del owner.
 
 ## Evidencia obligatoria
 
@@ -33,8 +37,8 @@ Este archivo no autoriza cobros. Fase 5C solo puede validar sandbox TEST y prepa
 | Resend/outbox real | BLOCKED |
 | textos legales y datos productivos | BLOCKED |
 | personal entrenado y runbook aceptado | BLOCKED |
-| credenciales productivas creadas/almacenadas | NOT APPLICABLE en Fase 5C |
-| activación LIVE | NOT APPLICABLE en Fase 5C |
+| credenciales productivas creadas/almacenadas | NOT APPLICABLE en Fase 5D |
+| activación LIVE | NOT APPLICABLE en Fase 5D |
 
 FakePaymentProvider y los tests locales no reemplazan ningún gate Mercado Pago TEST.
 
@@ -68,7 +72,7 @@ Solo después de cerrar todos los BLOCKED:
 
 Ante cualquier divergencia, volver a `PAYMENT_PROVIDER=fake` no revierte operaciones ya creadas. Conciliar primero pagos existentes y seguir `docs/operations-runbook.md`.
 
-## Resultado Fase 5C
+## Resultado Fase 5D
 
 ```text
 MERCADO PAGO TEST: BLOCKED — NOT EXECUTED

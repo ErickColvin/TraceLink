@@ -1480,3 +1480,255 @@ el timeout lazy descrito en la sección 35. El fallo no se ocultó: se reprodujo
 se corrigió con un timeout acotado al test, se repitió web y se repitió el
 workspace agregado hasta obtener PASS. CI remota d9c2f8d confirmó los cuatro
 jobs en verde.
+
+======================================================================
+44. FASE 5D — PROVISIONING REAL DE STAGING
+======================================================================
+
+Fecha: 13 de septiembre de 2026, America/Santiago.
+
+Objetivo solicitado:
+
+CODE-READY -> REAL STAGING HTTPS
+
+Resultado verificable:
+
+FASE 5D: 0%
+FASE 5 TOTAL: 83%
+FASE 4: 95%
+PRODUCTION READINESS: NOT READY
+LIVE PAYMENTS: NOT ACTIVATED
+PR #1: OPEN / NOT MERGED / NOT READY TO MERGE
+
+F5D se reporta en 0% porque ningún gate externo pasó de BLOCKED a PASS. No se
+otorgó porcentaje por repetir auditorías, validar YAML o conservar tests locales.
+
+======================================================================
+45. AUDITORÍA INICIAL F5D
+======================================================================
+
+- worktree limpio al iniciar;
+- branch feature/phase-5-production;
+- HEAD efc9f81491754840d0107eaa56708cd2ca0fb92e;
+- branch sincronizada con origin;
+- PR #1 abierta, no draft y no mergeada;
+- CI run 34734239898: SUCCESS, cuatro jobs PASS;
+- main protection: PASS, sin regresiones;
+- GitHub environments staging/production: PASS, sin regresiones;
+- staging: 0 secrets y 0 variables;
+- Railway config run 34734240023: staging failure por token ausente y
+  production waiting por approval;
+- Railway CLI 5.52.0 disponible;
+- railway whoami/status: Unauthorized.
+
+No se imprimió ningún secreto ni valor de variable.
+
+======================================================================
+46. CONFIGURACIÓN DEL OWNER DETECTADA
+======================================================================
+
+RAILWAY_STAGING_TOKEN=MISSING
+CLOUDFLARE_API_TOKEN=MISSING
+CLOUDFLARE_ACCOUNT_ID=MISSING
+CLOUDFLARE_PAGES_PROJECT=MISSING
+STAGING_WEB_URL=MISSING
+STAGING_API_URL=MISSING
+STAGING_API_BASE_URL=MISSING
+MERCADOPAGO_ACCESS_TOKEN=MISSING
+MERCADOPAGO_WEBHOOK_SECRET=MISSING
+RESEND_API_KEY=MISSING
+
+La presencia se comprobó en el proceso y, para GitHub staging, mediante metadata
+de nombres. Los valores nunca se solicitaron, mostraron ni almacenaron.
+
+======================================================================
+47. RAILWAY, CLOUDFLARE Y DATABASE F5D
+======================================================================
+
+Railway project: BLOCKED
+staging environment: BLOCKED
+tracelink-api: NOT PROVISIONED
+tracelink-postgres: NOT PROVISIONED
+reservation-expiry: NOT PROVISIONED
+payment-reconciliation: NOT PROVISIONED
+notification-outbox: NOT PROVISIONED
+
+Railway Infrastructure as Code sigue siendo la estrategia vigente. Se conservó
+.railway/railway.ts; no se creó railway.json ni railway.toml. El archivo mantiene:
+
+- PostgreSQL administrado;
+- API con pre-deploy de migrations y readiness;
+- pool API 10;
+- pool jobs 2;
+- tres cron */5 * * * * con restart NEVER;
+- PAYMENT_PROVIDER=fake;
+- EMAIL_PROVIDER=fake.
+
+No se obtuvo plan real, por lo que no hubo cambios destructivos que revisar ni
+apply autorizado. Production no se aprobó ni aplicó.
+
+Cloudflare project: BLOCKED
+preview: NOT CREATED
+web URL: NOT AVAILABLE
+API URL: NOT AVAILABLE
+
+No se ejecutaron migrations, db push, seed, db verify ni bootstrap contra una
+base remota. No se modificó DNS.
+
+======================================================================
+48. VALIDACIÓN EXTERNA F5D
+======================================================================
+
+health: BLOCKED
+readiness: BLOCKED
+smoke: BLOCKED
+auth register/login/me/reload/logout: BLOCKED
+cookie HTTPS: BLOCKED
+CORS allowed/rejected: BLOCKED
+CSRF valid/missing/invalid/wrong origin: BLOCKED
+CSP/security headers: BLOCKED
+HSTS: BLOCKED
+session expiration: BLOCKED
+fake checkout staging: BLOCKED
+SPA routes: BLOCKED
+preview noindex: BLOCKED
+
+No existe una URL HTTPS real ni managed DB, por lo que ningún resultado se marcó
+como PASS o FAIL.
+
+======================================================================
+49. PROVIDERS, JOBS Y OPERACIÓN F5D
+======================================================================
+
+Mercado Pago TEST:
+
+approved: BLOCKED
+pending: BLOCKED
+rejected: BLOCKED
+refund: BLOCKED
+return manipulation: BLOCKED externo
+webhook: BLOCKED
+duplicate: BLOCKED
+reconciliation: BLOCKED
+
+El gate base no está completo y las credenciales TEST no están configuradas.
+PAYMENT_PROVIDER continúa en fake. Fase 4 permanece en 95%.
+
+Resend:
+
+domain: BLOCKED
+welcome: BLOCKED
+order: BLOCKED
+payment: BLOCKED
+ready: BLOCKED
+cancelled: BLOCKED
+refund: BLOCKED
+
+EMAIL_PROVIDER continúa en fake.
+
+Jobs reales:
+
+reservation: BLOCKED
+payment reconciliation: BLOCKED
+outbox: BLOCKED
+
+Log redaction Railway: BLOCKED
+Backup: BLOCKED
+Restore result: BLOCKED
+RPO: NOT MEASURED
+RTO: NOT MEASURED
+Monitoring: BLOCKED
+Controlled alert: BLOCKED
+
+Browsers staging: ninguno ejecutado.
+Mobile staging: no ejecutado.
+Safari: no ejecutado.
+Legal: PENDIENTE DE APROBACIÓN, blocker de go-live.
+
+======================================================================
+50. OWNER ACTION REQUIRED PARA REANUDAR F5D
+======================================================================
+
+Configurar directamente en GitHub Environment staging, sin pegar valores en chat:
+
+RAILWAY_STAGING_TOKEN
+CLOUDFLARE_API_TOKEN
+CLOUDFLARE_ACCOUNT_ID
+CLOUDFLARE_PAGES_PROJECT
+
+Después del provisioning, registrar como variables no secretas:
+
+STAGING_WEB_URL
+STAGING_API_URL
+STAGING_API_BASE_URL
+
+El action Railway oficial aplica el plan fijado cuando se mergea el PR. Como F5D
+requiere evidencia pre-merge, el owner debe habilitar una estación autenticada
+para ejecutar plan/apply de staging o autorizar explícitamente un flujo controlado
+pre-merge. No se debilitó el control plan-before-apply.
+
+Solo después del gate base se deben configurar directamente en Railway staging:
+
+MERCADOPAGO_ACCESS_TOKEN
+MERCADOPAGO_WEBHOOK_SECRET
+RESEND_API_KEY
+
+No activar credenciales LIVE ni ejecutar production:bootstrap.
+
+======================================================================
+51. DECISIÓN FINAL F5D
+======================================================================
+
+FASE 5D STATUS: 0%
+FASE 5 TOTAL: 83%
+FASE 4: 95%
+GITHUB: PASS
+RAILWAY: BLOCKED — OWNER ACTION REQUIRED
+CLOUDFLARE: BLOCKED — OWNER ACTION REQUIRED
+REAL STAGING: NOT PROVISIONED
+PRODUCTION READINESS: NOT READY
+LIVE PAYMENTS: NOT ACTIVATED
+PR #1: NOT READY TO MERGE
+
+No se abrió Fase 6, no se agregaron funcionalidades, no se desplegó producción,
+no se usaron datos reales y no se procesó dinero real.
+
+======================================================================
+52. FINAL QUALITY GATES F5D
+======================================================================
+
+corepack pnpm lint
+PASS
+
+corepack pnpm typecheck
+PASS
+
+corepack pnpm test
+PASS
+
+- contracts: 15 tests;
+- API unit: 124 tests;
+- API HTTP/foundation: 14 tests;
+- web: 145 tests;
+- integration incluido: 37 tests.
+
+corepack pnpm test:integration
+PASS — 9 archivos / 37 tests, PostgreSQL 18 aislado, 9 migrations, 277
+operaciones, db verify y seed idempotente verificados.
+
+corepack pnpm test:e2e
+PASS — 11 recorridos HTTP reales contra API/web/PostgreSQL aislados.
+
+corepack pnpm db:migration:check
+PASS — All checks passed.
+
+corepack pnpm build
+PASS — contracts, API y web.
+
+Build assets:
+
+apps/web/dist/_redirects: PASS
+apps/web/dist/_headers: PASS
+
+Estos resultados son locales y reproducibles; no se contaron como evidencia de
+staging externo.

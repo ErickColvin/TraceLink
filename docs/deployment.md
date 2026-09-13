@@ -2,7 +2,14 @@
 
 ## Estado verificable
 
-La configuración del repositorio está preparada para Cloudflare Pages, Railway y GitHub Actions. La ejecución Fase 5C del 12 de septiembre de 2026 creó y verificó los environments `staging`/`production`, abrió el PR [#1](https://github.com/ErickColvin/TraceLink/pull/1), protegió `main` y obtuvo CI verde en el run `34734131841` para `d9c2f8d`. Los environments siguen con 0 secretos y 0 variables; Railway plan `34734131839` falló en staging por token no configurado y quedó esperando approval en production. No existen URLs externas ni credenciales de proveedor disponibles en este proceso, por lo que el despliegue permanece **BLOCKED — MANUAL OWNER ACTION REQUIRED**.
+La configuración del repositorio está preparada para Cloudflare Pages, Railway y
+GitHub Actions. La auditoría Fase 5D del 13 de septiembre de 2026 confirmó el PR
+[#1](https://github.com/ErickColvin/TraceLink/pull/1) abierto, CI verde en el run
+`34734239898` para `efc9f81` y protecciones intactas. Los environments continúan
+con 0 secrets y 0 variables; Railway run `34734240023` no produjo plan de staging
+por ausencia del token y production sigue esperando approval. No existen URLs ni
+credenciales externas accesibles, por lo que el despliegue permanece
+**BLOCKED — MANUAL OWNER ACTION REQUIRED**.
 
 No se han activado credenciales LIVE de Mercado Pago.
 
