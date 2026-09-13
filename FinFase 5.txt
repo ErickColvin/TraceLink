@@ -720,3 +720,367 @@ Archivo creado: FinFase 5.txt
 La preparación de código de Fase 5 queda cerrada dentro del alcance disponible.
 El siguiente trabajo no es inventar más implementación local, sino ejecutar y
 documentar los gates externos enumerados con cuentas y credenciales del owner.
+
+======================================================================
+23. EXTERNAL VALIDATION COMPLETION — FASE 5B
+======================================================================
+
+Fecha de auditoría: 12 de septiembre de 2026
+
+previous: 78%
+current: 80%
+
+Fase 5B: 10%
+
+Mercado Pago F4:
+95% -> 95% (no se ejecutó sandbox real; no aplica el cambio a 100%)
+
+Production readiness:
+NOT READY
+
+Live payments:
+NOT ACTIVATED
+
+El avance de 78% a 80% representa correcciones y recertificación local comprobada.
+No representa despliegue externo. Ningún gate crítico de proveedor cambió a PASS.
+
+======================================================================
+24. EVIDENCIA GIT Y GITHUB F5B
+======================================================================
+
+Branch:
+
+feature/phase-5-production
+
+El audit inicial confirmó worktree limpio, branch correcta, origin configurado y
+HEAD publicado. Después de cada bloque se volvió a publicar la branch sin force.
+
+Commits funcionales creados en Fase 5B:
+
+- 441bd26 test(notifications): make outbox retry timing deterministic
+- f901411 ci(deploy): scope jobs to protected environments
+- ab1efcb fix(web): align demo and production checkout UX
+- dc370ad chore(staging): keep providers fake before external gates
+
+La API pública de GitHub devolvió:
+
+- environments: 0;
+- Actions runs: 0;
+- pull requests abiertas: 0.
+
+Por ello PR, environments, protections y CI remota quedaron BLOCKED. No se
+afirmó que un YAML era suficiente y no se redujeron protecciones existentes.
+
+======================================================================
+25. BASELINE FINAL RENOVADO
+======================================================================
+
+Comandos ejecutados:
+
+corepack pnpm install --frozen-lockfile
+corepack pnpm lint
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm test:integration
+corepack pnpm test:e2e
+corepack pnpm db:migration:check
+corepack pnpm build
+
+Resultado anterior a la documentación final:
+
+- install: PASS;
+- lint: PASS;
+- typecheck: PASS;
+- test agregado: PASS;
+- integration explícito: PASS, 9 archivos / 37 tests;
+- E2E: PASS, 11 recorridos HTTP reales;
+- migration check: PASS;
+- build: PASS.
+
+Database verify se ejecutó mediante el runner PostgreSQL 18 embebido ya existente:
+
+- 9 migrations;
+- 277 operaciones desde base vacía;
+- schema contract y marker verificados;
+- seed/fixtures solo dentro del runner test aislado;
+- no se ejecutó db push;
+- no se ejecutó seed en staging/production.
+
+La primera ejecución explícita de integración reveló una carrera no determinista
+en el fixture del retry de outbox: next_attempt_at se movía a now() y el claim
+inmediato podía evaluarse antes. Se cambió únicamente el test a now() - 1 segundo.
+El backoff de producción se conservó y el rerun fue 37/37.
+
+Los gates se repetirán una vez más después de cerrar estos documentos.
+
+======================================================================
+26. WORKFLOWS E INFRAESTRUCTURA CORREGIDOS
+======================================================================
+
+GitHub Actions:
+
+- plan-staging y apply-staging ahora declaran environment staging;
+- plan-production declara environment production;
+- apply-production ya permanecía protegido por production;
+- el smoke de staging ahora declara environment staging;
+- los secretos/variables de environment ya no se resuelven accidentalmente como
+  vacíos por falta del binding del job.
+
+Railway:
+
+- la documentación oficial vigente confirmó Infrastructure as Code y
+  railwayapp/config@v1 como rutas actuales;
+- la CLI fijada 5.52.0 cumple el mínimo actual del SDK;
+- Control de aplicaciones de Windows bloqueó railway.exe;
+- no había RAILWAY_TOKEN ni RAILWAY_API_TOKEN;
+- se mantuvo la ruta GitHub Actions, sin eludir políticas del equipo;
+- PAYMENT_PROVIDER y EMAIL_PROVIDER parten en fake también en staging;
+- Mercado Pago TEST y Resend solo se habilitan tras aprobar API/DB/HTTPS base.
+
+Cloudflare:
+
+- build HTTP local PASS;
+- apps/web/dist generado;
+- _headers copiado;
+- _redirects copiado;
+- SPA fallback y headers contrastados con documentación actual;
+- deploy, edge routing y headers HTTPS continúan BLOCKED al no existir cuenta/URL.
+
+No se modificó DNS.
+
+======================================================================
+27. REVISIÓN UI Y BROWSER F5B
+======================================================================
+
+Chrome local:
+PASS
+
+Edge local:
+PASS
+
+Viewports:
+375 / 768 / 1024 / 1440
+
+Resultados:
+
+- sin overflow horizontal;
+- sin page errors;
+- storefront, catálogo, producto, carrito y login;
+- checkout customer y resultado;
+- portal customer, pedidos, paquetes y tracking;
+- dashboard/admin, productos, inventario, pedidos, paquetes y clientes;
+- recepción -> almacenado -> listo -> entrega de paquete;
+- drawer accesible con focus, Escape, inert, scroll lock y resize desktop.
+
+Correcciones aplicadas:
+
+1. El carrito dejó de decir que checkout era solo visual.
+2. El checkout demo navega internamente con React Router y conserva la sesión en
+   memoria; la URL externa del proveedor sigue usando location.assign.
+3. El script visual se actualizó al checkout autenticado y al flujo Fase 4.
+4. Las etiquetas Session demo/Frontend demo solo aparecen en el adaptador mock.
+5. El indicador de notificación ficticia no aparece en una sesión HTTP real.
+
+Safari, dispositivo móvil físico, redirección Mercado Pago real y Core Web Vitals
+de staging no se probaron y permanecen BLOCKED.
+
+Mejora UI no bloqueante detectada:
+
+- adaptar la cabecera pública para mostrar Mi cuenta/Operaciones cuando ya existe
+  sesión, en vez de mantener siempre el CTA Iniciar sesión.
+
+No se amplió funcionalidad para resolver esta mejora no crítica.
+
+======================================================================
+28. RESULTADO DE GATES EXTERNOS
+======================================================================
+
+F5B.1 Git/baseline:
+PASS
+
+F5B.2 GitHub environments/PR/CI remota:
+BLOCKED
+
+F5B.3 Railway staging:
+BLOCKED
+
+F5B.4 managed PostgreSQL staging:
+BLOCKED
+
+F5B.5 Cloudflare Pages staging:
+BLOCKED
+
+F5B.6 smoke/health/auth/cookies/CORS/CSRF HTTPS:
+BLOCKED
+
+F5B.7 Mercado Pago TEST:
+BLOCKED
+
+approved: BLOCKED
+pending: BLOCKED
+rejected: BLOCKED
+refund: BLOCKED
+webhook HTTPS: BLOCKED
+duplicate/out-of-order: BLOCKED
+reconciliation real: BLOCKED
+
+F5B.8 Resend:
+BLOCKED
+
+welcome/order created/payment approved/ready/cancelled/refunded:
+BLOCKED
+
+Resend webhook:
+NOT APPLICABLE
+
+F5B.9 jobs Railway:
+
+reservations: BLOCKED
+payments: BLOCKED
+outbox: BLOCKED
+controlled failure: BLOCKED
+
+F5B.10 backups:
+BLOCKED
+
+F5B.11 restore drill:
+
+RPO: NOT MEASURED
+RTO: NOT MEASURED
+result: BLOCKED
+
+F5B.12 monitoring/alerting/logs:
+BLOCKED
+
+F5B.13 seguridad HTTPS/headers/HSTS:
+BLOCKED
+
+F5B.14 browser/mobile:
+PARTIAL — Chrome/Edge local PASS; staging/mobile físico/Safari BLOCKED
+
+F5B.15 legal/data readiness:
+BLOCKED
+
+F5B.16 production rehearsal:
+BLOCKED
+
+F5B.17 reportes/checklists:
+PASS
+
+======================================================================
+29. DOCUMENTACIÓN F5B ACTUALIZADA
+======================================================================
+
+- docs/staging-validation.md:
+  evidencia granular PASS/BLOCKED/NOT APPLICABLE y acciones exactas.
+- docs/production-checklist.md:
+  checklist completo categorizado sin checks falsos.
+- docs/go-live-payments.md:
+  gate BLOCKED y LIVE NOT ACTIVATED.
+- docs/deployment.md:
+  mapeo de GitHub Environments, rollout fake -> TEST y bloqueo CLI.
+- docs/disaster-recovery.md:
+  capacidades actuales Railway, offsite y restore sin afirmar ejecución.
+- docs/operations-runbook.md:
+  responsable/canal de alertas pendientes y criterio de prueba.
+- FinFase 5.txt:
+  esta sección conserva la evidencia histórica y añade el cierre F5B.
+
+FinFase 4.txt no se alteró porque Mercado Pago TEST real no fue ejecutado.
+
+======================================================================
+30. ACCIONES DEL OWNER PARA REANUDAR
+======================================================================
+
+No enviar valores al chat. Introducirlos directamente en cada proveedor.
+
+1. GitHub > Settings > Environments:
+   crear staging y production; production con required reviewer.
+
+2. GitHub Environment staging:
+
+RAILWAY_STAGING_TOKEN=[CONFIGURAR EN GITHUB ENVIRONMENT STAGING]
+CLOUDFLARE_API_TOKEN=[CONFIGURAR EN GITHUB ENVIRONMENT STAGING]
+CLOUDFLARE_ACCOUNT_ID=[CONFIGURAR EN GITHUB ENVIRONMENT STAGING]
+CLOUDFLARE_PAGES_PROJECT=[CONFIGURAR COMO VARIABLE EN STAGING]
+STAGING_API_BASE_URL=[CONFIGURAR COMO VARIABLE EN STAGING]
+STAGING_WEB_URL=[CONFIGURAR COMO VARIABLE EN STAGING]
+STAGING_API_URL=[CONFIGURAR COMO VARIABLE EN STAGING]
+
+3. GitHub Environment production:
+
+RAILWAY_PRODUCTION_TOKEN=[CONFIGURAR EN GITHUB ENVIRONMENT PRODUCTION]
+CLOUDFLARE_API_TOKEN=[CONFIGURAR EN GITHUB ENVIRONMENT PRODUCTION]
+CLOUDFLARE_ACCOUNT_ID=[CONFIGURAR EN GITHUB ENVIRONMENT PRODUCTION]
+RAILWAY_PROJECT_ID=[CONFIGURAR COMO VARIABLE EN PRODUCTION]
+CLOUDFLARE_PAGES_PROJECT=[CONFIGURAR COMO VARIABLE EN PRODUCTION]
+PRODUCTION_API_BASE_URL=[CONFIGURAR COMO VARIABLE EN PRODUCTION]
+PRODUCTION_WEB_URL=[CONFIGURAR COMO VARIABLE EN PRODUCTION]
+PRODUCTION_API_URL=[CONFIGURAR COMO VARIABLE EN PRODUCTION]
+
+PRODUCTION_WEB_URL y PRODUCTION_API_URL deben duplicarse como repository variables
+no secretas para el monitor programado, que no debe requerir approval cada 15 min.
+
+4. Abrir PR:
+
+feature/phase-5-production -> main
+
+Revisar CI y Railway plans. No hacer merge si hay fail, artifact ausente, drift o
+cambio destructivo.
+
+5. Crear/aplicar Railway staging con providers fake. Registrar URL API y DB.
+6. Crear Cloudflare Pages staging, registrar URL web y ejecutar smoke.
+7. Aplicar migrations versionadas y db:verify contra managed PostgreSQL.
+8. Probar auth/cookies/CORS/CSRF/headers sobre HTTPS.
+9. Solo entonces configurar Mercado Pago TEST directamente en Railway staging:
+
+MERCADOPAGO_ACCESS_TOKEN=[CONFIGURAR EN RAILWAY STAGING]
+MERCADOPAGO_WEBHOOK_SECRET=[CONFIGURAR EN RAILWAY STAGING]
+
+10. Solo después del gate base configurar Resend:
+
+RESEND_API_KEY=[CONFIGURAR EN RAILWAY STAGING]
+
+11. Ejecutar sandbox completo, seis emails, tres cron y fallo controlado.
+12. Habilitar backups, offsite cifrado y restore en nueva DB aislada.
+13. Definir responsables/canal y demostrar recepción de alertas.
+14. Entregar textos legales/datos productivos y ejecutar rehearsal.
+
+No ejecutar production:bootstrap hasta mostrar target, host redactado y organization
+y recibir una acción deliberada del owner. No activar Mercado Pago LIVE.
+
+======================================================================
+31. DEUDA TÉCNICA DESPUÉS DE F5B
+======================================================================
+
+1. Prisma 8 continúa en release candidate y requiere una migración futura
+   controlada a versión estable.
+2. No existe confirmación de delivery por webhook Resend; sigue fuera del alcance.
+3. El monitor GitHub no tiene runs ni canal de alerta configurado.
+4. Core Web Vitals requieren una URL staging real.
+5. Safari y dispositivo móvil físico no fueron probados.
+6. La cabecera pública no adapta todavía su CTA a una sesión ya autenticada.
+
+Credenciales, cuentas, datos legales, DNS y decisiones de negocio son blockers
+operativos, no deuda de código.
+
+======================================================================
+32. DECISIÓN FINAL F5B
+======================================================================
+
+FASE 5B STATUS: 10%
+FASE 5 TOTAL: 80%
+FASE 4: 95%
+PRODUCTION CHECKLIST: BLOCKED
+PRODUCTION READINESS: NOT READY
+LIVE PAYMENTS: NOT ACTIVATED
+
+Fase 5 no está terminada. El software local quedó verde y más seguro para iniciar
+staging, pero TraceLink todavía no ha demostrado deploy, recuperación, observación,
+alertas, correo ni cobro sandbox en proveedores reales.
+
+Próximo paso recomendado, no ejecutado:
+
+crear/proteger los dos GitHub Environments, abrir la PR y desplegar staging base
+con PAYMENT_PROVIDER=fake y EMAIL_PROVIDER=fake. Volver a Codex después del primer
+run con las dos URLs públicas, sin compartir secretos.

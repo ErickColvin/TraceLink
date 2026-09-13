@@ -34,7 +34,7 @@ Fase 5 preparada en código incluye:
 - bootstrap productivo de un solo uso, sin datos demo;
 - runbook, política de backup/restore y checklists de staging/go-live.
 
-El repositorio está preparado, pero staging, backups, restore real, Resend y Mercado Pago TEST requieren credenciales/infraestructura del owner. Pagos LIVE: **NOT ACTIVATED**.
+Auditoría Fase 5B (12 de septiembre de 2026): Fase 5 total **80 %**, Fase 5B **10 %**, production readiness **NOT READY**. GitHub aún informa 0 environments, 0 Actions runs y 0 PR abiertas; staging, backups, restore real, Resend y Mercado Pago TEST requieren configuración/infraestructura del owner. Pagos LIVE: **NOT ACTIVATED**. La matriz exacta PASS/BLOCKED está en [docs/staging-validation.md](docs/staging-validation.md).
 
 ## Requisitos
 

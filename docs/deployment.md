@@ -2,7 +2,7 @@
 
 ## Estado verificable
 
-La configuración del repositorio está preparada para Cloudflare Pages, Railway y GitHub Actions. Al 12 de septiembre de 2026 no existen URLs ni credenciales disponibles en este workspace, por lo que el despliegue externo permanece **PENDIENTE — MANUAL OWNER ACTION REQUIRED**.
+La configuración del repositorio está preparada para Cloudflare Pages, Railway y GitHub Actions. La auditoría Fase 5B del 12 de septiembre de 2026 confirmó mediante la API pública de GitHub: 0 environments, 0 Actions runs y 0 PR abiertas. Tampoco existen URLs ni credenciales de proveedor disponibles en este proceso, por lo que el despliegue externo permanece **BLOCKED — MANUAL OWNER ACTION REQUIRED**.
 
 No se han activado credenciales LIVE de Mercado Pago.
 
@@ -28,7 +28,8 @@ Staging y production son environments independientes. No deben compartir base, s
 | Entorno | Web | API/DB | Pago | Email |
 | --- | --- | --- | --- | --- |
 | local | Vite | PostgreSQL local | fake | fake |
-| staging | Cloudflare Pages preview | Railway staging | Mercado Pago TEST | Resend de prueba |
+| staging inicial | Cloudflare Pages preview | Railway staging | fake | fake |
+| staging después del gate base | misma URL | misma API/DB | Mercado Pago TEST | Resend de prueba |
 | production | Cloudflare Pages main | Railway production | fake hasta gate LIVE | fake hasta verificar dominio |
 
 `APP_ENV` selecciona el entorno. Fuera de local, `NODE_ENV=production`, `WEB_ORIGIN` y `API_PUBLIC_URL` HTTPS son obligatorios.
@@ -61,6 +62,16 @@ PRODUCTION_API_URL
 
 El token de Cloudflare debe limitarse al proyecto/cuenta necesarios.
 
+Ubicación requerida:
+
+| Scope | Secrets | Variables |
+| --- | --- | --- |
+| GitHub Environment `staging` | `RAILWAY_STAGING_TOKEN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | `CLOUDFLARE_PAGES_PROJECT`, `STAGING_API_BASE_URL`, `STAGING_WEB_URL`, `STAGING_API_URL` |
+| GitHub Environment `production` | `RAILWAY_PRODUCTION_TOKEN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | `RAILWAY_PROJECT_ID`, `CLOUDFLARE_PAGES_PROJECT`, `PRODUCTION_API_BASE_URL`, `PRODUCTION_WEB_URL`, `PRODUCTION_API_URL` |
+| GitHub repository variables | ninguna credencial | duplicar solo `PRODUCTION_WEB_URL` y `PRODUCTION_API_URL` para el monitor programado |
+
+El monitor no usa el Environment protegido: hacerlo exigiría aprobación manual cada 15 minutos. Las dos URLs del monitor no son secretos.
+
 ## Railway
 
 `.railway/railway.ts` declara dos environments y cinco recursos:
@@ -71,7 +82,7 @@ El token de Cloudflare debe limitarse al proyecto/cuenta necesarios.
 4. `payment-reconciliation`, cada 5 minutos;
 5. `notification-outbox`, cada 5 minutos.
 
-Todos los cron terminan al finalizar. Las migrations usan archivos versionados; production nunca usa `db push` ni ejecuta seed demo.
+Todos los cron terminan al finalizar. Las migrations usan archivos versionados; production nunca usa `db push` ni ejecuta seed demo. La primera aplicación de IaC conserva `PAYMENT_PROVIDER=fake` y `EMAIL_PROVIDER=fake` en ambos environments. Después de que staging base, DB y HTTPS estén verdes, habilitar Mercado Pago TEST/Resend mediante un cambio revisado; no editar el dashboard creando drift silencioso.
 
 Primera configuración, desde un equipo autenticado:
 
@@ -82,6 +93,8 @@ corepack pnpm exec railway config apply --environment staging
 ```
 
 Los nombres exactos de opciones deben confirmarse con `corepack pnpm exec railway config --help` de la versión fijada. El workflow `.github/workflows/railway-config.yml` es la ruta preferida porque conserva plan revisable y approval productivo.
+
+En el equipo Windows usado para Fase 5B, una política de Control de aplicaciones bloqueó el ejecutable local `railway.exe`. No se intentó eludir la política. Usar el workflow revisado o una estación autorizada/WSL, siempre con tokens introducidos directamente en el proveedor.
 
 Secrets Railway, solo nombres:
 

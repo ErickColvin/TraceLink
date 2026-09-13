@@ -2,19 +2,23 @@
 
 ## Estado
 
-La política y el procedimiento están definidos, pero no hay una instancia Railway ni acceso a backups en este workspace. Backup gestionado y restore drill real: **PENDIENTE — MANUAL OWNER ACTION REQUIRED**.
+La política y el procedimiento están definidos, pero no hay una instancia Railway ni acceso a backups en este workspace. Backup gestionado y restore drill real: **BLOCKED — MANUAL OWNER ACTION REQUIRED**.
 
 No se declara un RPO/RTO garantizado hasta medir un restore aislado.
 
 ## Política mínima requerida
 
-| Copia | Frecuencia objetivo | Retención objetivo | Estado |
+| Copia | Frecuencia/capacidad actual revisada | Retención actual documentada | Estado |
 | --- | --- | --- | --- |
-| Railway backup | diaria | 14 días o límite del plan | pendiente de habilitar |
-| Railway backup | semanal | 8 semanas o límite del plan | pendiente de habilitar |
-| `pg_dump` cifrado offsite | semanal | 8 semanas | pendiente de definir destino |
+| Railway volume backup | diaria | 6 días | BLOCKED — pendiente de habilitar |
+| Railway volume backup | semanal | 1 mes | BLOCKED — pendiente de habilitar |
+| Railway volume backup | mensual, opcional | 3 meses | BLOCKED — decisión del owner |
+| Railway PITR | WAL continuo + full semanal/diferencial diario | aproximadamente 4 semanas | BLOCKED — validar plan/coste y habilitar antes de necesitarlo |
+| `pg_dump` cifrado offsite | semanal como mínimo | 8 semanas, política propia | BLOCKED — pendiente de destino separado |
 
-El owner debe confirmar las capacidades y límites del plan Railway contratado. El storage offsite debe pertenecer a otra frontera de fallo, cifrar en tránsito/reposo, restringir lectura y probar descarga.
+Estos límites se contrastaron el 12 de septiembre de 2026 con la guía vigente de Railway. El owner debe confirmar que las funciones estén disponibles en el plan contratado antes de activarlas. El storage offsite debe pertenecer a otra frontera de fallo, cifrar en tránsito/reposo, restringir lectura y probar descarga. Borrar un volumen también elimina sus backups de volumen; por eso la copia lógica offsite no es opcional para cerrar el gate.
+
+Referencia operativa: <https://docs.railway.com/guides/postgres-backups-restores>.
 
 ## Backup offsite
 
@@ -66,14 +70,14 @@ SELECT COUNT(*) FROM outbox_events;
 
 | Campo | Resultado actual |
 | --- | --- |
-| fecha | pendiente |
-| backup probado | pendiente |
-| base aislada | pendiente |
-| inicio/fin | pendiente |
+| fecha | BLOCKED |
+| backup probado | BLOCKED |
+| base aislada | BLOCKED |
+| inicio/fin | BLOCKED |
 | RPO observado | no medido |
 | RTO observado | no medido |
-| integridad | no ejecutada |
-| responsable | pendiente |
+| integridad | BLOCKED — no ejecutada |
+| responsable | BLOCKED — no asignado |
 
 RPO observado es la antigüedad de los datos restaurados respecto del incidente simulado. RTO observado se mide desde el inicio de recuperación hasta tener API aislada lista y controles de integridad aprobados.
 

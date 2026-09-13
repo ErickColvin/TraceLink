@@ -8,6 +8,18 @@
 
 Para todo incidente: registrar inicio, ambiente, deployment SHA, request IDs, servicios afectados, decisiones, owner y hora de recuperación. No copiar secretos, cuerpos completos, cookies ni PII a tickets/chat.
 
+## Propiedad y canal de alerta
+
+Estado Fase 5B: **BLOCKED — MANUAL OWNER ACTION REQUIRED**.
+
+- responsable primario nominal: por asignar;
+- suplente nominal: por asignar;
+- canal inicial (email o notificación de proveedor): por definir y probar;
+- escalamiento fuera de horario: por definir;
+- evidencia de recepción de una alerta de prueba: no ejecutada.
+
+El monitor no se considera activo hasta que una falla controlada genere una notificación y un responsable confirme recepción. No registrar direcciones personales en este documento público salvo aprobación del owner; pueden mantenerse como configuración privada del proveedor.
+
 ## Señales y alertas
 
 | Señal | Condición inicial | Severidad sugerida |
