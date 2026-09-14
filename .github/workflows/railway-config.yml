@@ -14,7 +14,7 @@ permissions:
 jobs:
   plan-staging:
     name: Plan staging infrastructure
-    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository && secrets.RAILWAY_STAGING_TOKEN != '' && secrets.RAILWAY_STAGING_TOKEN != 'MISSING'
     environment: staging
     runs-on: ubuntu-latest
     steps:
@@ -30,7 +30,7 @@ jobs:
 
   plan-production:
     name: Plan production infrastructure
-    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository && secrets.RAILWAY_PRODUCTION_TOKEN != '' && secrets.RAILWAY_PRODUCTION_TOKEN != 'MISSING'
     environment: production
     runs-on: ubuntu-latest
     steps:
@@ -47,7 +47,7 @@ jobs:
 
   apply-staging:
     name: Apply reviewed staging infrastructure
-    if: github.event.action == 'closed' && github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.action == 'closed' && github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository && secrets.RAILWAY_STAGING_TOKEN != '' && secrets.RAILWAY_STAGING_TOKEN != 'MISSING'
     environment: staging
     runs-on: ubuntu-latest
     steps:
@@ -64,7 +64,7 @@ jobs:
 
   apply-production:
     name: Apply reviewed production infrastructure
-    if: github.event.action == 'closed' && github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.action == 'closed' && github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository && secrets.RAILWAY_PRODUCTION_TOKEN != '' && secrets.RAILWAY_PRODUCTION_TOKEN != 'MISSING'
     environment: production
     runs-on: ubuntu-latest
     steps:
