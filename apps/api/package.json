@@ -1,0 +1,63 @@
+{
+  "name": "@tracelink/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=../../.env --import tsx src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "db:contract": "node --env-file-if-exists=../../.env ./node_modules/prisma/dist/prisma.js contract emit",
+    "db:plan": "node --env-file-if-exists=../../.env ./node_modules/prisma/dist/prisma.js migration plan",
+    "db:migrate": "node --env-file-if-exists=../../.env ./node_modules/prisma/dist/prisma.js db migrate --advance-ref db",
+    "db:verify": "node --env-file-if-exists=../../.env ./node_modules/prisma/dist/prisma.js db verify",
+    "db:migration:check": "node --env-file-if-exists=../../.env ./node_modules/prisma/dist/prisma.js migration check",
+    "db:seed": "node --env-file-if-exists=../../.env --import tsx prisma/seed.ts",
+    "reservations:expire": "node --env-file-if-exists=../../.env --import tsx src/jobs/expire-reservations.ts",
+    "payments:reconcile": "node --env-file-if-exists=../../.env --import tsx src/jobs/reconcile-payments.ts",
+    "outbox:process": "node --env-file-if-exists=../../.env --import tsx src/jobs/process-notification-outbox.ts",
+    "production:bootstrap": "node --env-file-if-exists=../../.env --import tsx src/jobs/bootstrap-production.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+    "test": "pnpm test:unit && pnpm test:api && pnpm test:integration",
+    "test:unit": "vitest run tests/unit",
+    "test:api": "vitest run tests/api",
+    "test:integration": "tsx tests/support/run-integration.ts",
+    "test:e2e": "tsx tests/support/run-e2e.ts",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@prisma/orm-postgres": "8.0.0-rc.8",
+    "@tracelink/contracts": "workspace:*",
+    "argon2": "0.45.1",
+    "cookie": "2.0.1",
+    "cors": "2.8.6",
+    "express": "5.2.1",
+    "helmet": "8.3.0",
+    "pg": "8.23.0",
+    "pino": "10.3.1",
+    "pino-http": "11.0.0",
+    "temporal-polyfill": "1.0.4",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.6",
+    "@types/node": "24.13.3",
+    "@types/pg": "8.20.4",
+    "@types/supertest": "7.2.1",
+    "embedded-postgres": "18.4.0-beta.17",
+    "eslint": "10.9.1",
+    "globals": "17.11.0",
+    "prisma": "8.0.0-rc.12",
+    "supertest": "7.2.2",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.68.0",
+    "vitest": "4.1.11"
+  }
+}

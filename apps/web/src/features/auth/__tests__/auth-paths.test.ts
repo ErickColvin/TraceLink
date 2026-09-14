@@ -30,7 +30,7 @@ const staffSession: StaffSession = {
     firstName: "Camila",
     lastName: "Torres",
     email: "camila.torres@example.cl",
-    role: "administrator",
+    role: "ADMIN",
     roleLabel: "Administración",
   },
   permissions: ["orders.view"],

@@ -5,6 +5,7 @@ import {
   type AuthenticatedSession,
   type AuthSession,
   type CustomerSession,
+  type RegisterCredentials,
   type SignInCredentials,
   type StaffSession,
 } from "../model/auth";
@@ -23,6 +24,7 @@ import { AuthError, type AuthService } from "./auth-service";
  * the authoritative authentication backend is available.
  */
 export class MockAuthService implements AuthService {
+  readonly demoSessionsEnabled = true;
   private currentSession: AuthSession = ANONYMOUS_SESSION;
   private readonly now: () => Date;
   private readonly sessionContext: MockSessionContext;
@@ -48,6 +50,15 @@ export class MockAuthService implements AuthService {
       "AUTH_NOT_CONFIGURED",
       "El inicio de sesión real aún no está conectado. Usa un acceso de demostración para explorar la plataforma.",
     );
+  }
+
+  async register(
+    credentials: RegisterCredentials,
+  ): Promise<AuthenticatedSession> {
+    const session = this.createRegisteredCustomerSession(credentials);
+    this.sessionContext.setCurrentCustomer(session.customer.customerId);
+    this.currentSession = session;
+    return session;
   }
 
   async startDemoSession(
@@ -87,6 +98,23 @@ export class MockAuthService implements AuthService {
     };
   }
 
+  private createRegisteredCustomerSession(
+    credentials: RegisterCredentials,
+  ): CustomerSession {
+    return {
+      kind: "customer",
+      authSource: "demo",
+      authenticatedAt: this.now().toISOString(),
+      customer: {
+        id: "account-customer-demo-registration",
+        customerId: DEMO_CUSTOMER_ID,
+        firstName: credentials.firstName.trim(),
+        lastName: credentials.lastName.trim(),
+        email: credentials.email.trim(),
+      },
+    };
+  }
+
   private createStaffSession(): StaffSession {
     return {
       kind: "staff",
@@ -97,7 +125,7 @@ export class MockAuthService implements AuthService {
         firstName: "Camila",
         lastName: "Torres",
         email: "camila.torres@example.cl",
-        role: "administrator",
+        role: "ADMIN",
         roleLabel: "Administración",
       },
       permissions: PERMISSIONS,

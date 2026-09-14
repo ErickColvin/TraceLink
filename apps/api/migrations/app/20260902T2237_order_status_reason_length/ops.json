@@ -1,0 +1,48 @@
+[
+  {
+    "id": "alterType.order_status_events.reason",
+    "label": "Alter type of \"order_status_events\".\"reason\" to character varying(1000)",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "reason",
+        "table": "order_status_events"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"reason\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "order_status_events",
+          "reason"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "alter type of \"reason\"",
+        "sql": "ALTER TABLE \"public\".\"order_status_events\" ALTER COLUMN \"reason\" TYPE character varying(1000) USING \"reason\"::character varying(1000)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"reason\" has type \"character varying(1000)\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "order_status_events",
+          "reason",
+          "character varying(1000)"
+        ]
+      }
+    ],
+    "meta": {
+      "warning": "TABLE_REWRITE"
+    }
+  }
+]

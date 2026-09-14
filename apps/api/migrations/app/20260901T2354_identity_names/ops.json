@@ -1,0 +1,170 @@
+[
+  {
+    "id": "dropCheckConstraint.users.user_identity_valid_962ac172",
+    "label": "Drop check constraint \"user_identity_valid_962ac172\" on \"users\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "checkConstraint",
+        "name": "user_identity_valid_962ac172",
+        "table": "users"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"user_identity_valid_962ac172\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_identity_valid_962ac172",
+          "public",
+          "\"public\".\"users\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop check constraint \"user_identity_valid_962ac172\"",
+        "sql": "ALTER TABLE \"public\".\"users\" DROP CONSTRAINT \"user_identity_valid_962ac172\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"user_identity_valid_962ac172\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_identity_valid_962ac172",
+          "public",
+          "\"public\".\"users\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.users.first_name",
+    "label": "Add column \"first_name\" to \"users\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "first_name",
+        "table": "users"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"first_name\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "users",
+          "first_name"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"first_name\"",
+        "sql": "ALTER TABLE \"public\".\"users\" ADD COLUMN \"first_name\" character varying(100) DEFAULT 'Usuario' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"first_name\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "users",
+          "first_name"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.users.last_name",
+    "label": "Add column \"last_name\" to \"users\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "last_name",
+        "table": "users"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"last_name\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "users",
+          "last_name"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"last_name\"",
+        "sql": "ALTER TABLE \"public\".\"users\" ADD COLUMN \"last_name\" character varying(100) DEFAULT 'TraceLink' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"last_name\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "users",
+          "last_name"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "checkConstraint.users.user_identity_valid_05b3fcc0",
+    "label": "Add check constraint \"user_identity_valid_05b3fcc0\" on \"users\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "checkConstraint",
+        "name": "user_identity_valid_05b3fcc0",
+        "table": "users"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"user_identity_valid_05b3fcc0\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_identity_valid_05b3fcc0",
+          "public",
+          "\"public\".\"users\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add check constraint \"user_identity_valid_05b3fcc0\"",
+        "sql": "ALTER TABLE \"public\".\"users\" ADD CONSTRAINT \"user_identity_valid_05b3fcc0\" CHECK (\"email_normalized\" = lower(btrim(\"email_normalized\")) AND char_length(btrim(\"first_name\")) > 0 AND char_length(btrim(\"last_name\")) > 0 AND char_length(\"password_hash\") > 0)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"user_identity_valid_05b3fcc0\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_identity_valid_05b3fcc0",
+          "public",
+          "\"public\".\"users\""
+        ]
+      }
+    ]
+  }
+]

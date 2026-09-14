@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { AppProviders } from "@/app/providers";
+import { RouteFocusManager } from "@/app/route-focus-manager";
 import { AppRouter } from "@/app/router";
 import "@/styles/index.css";
 
@@ -14,10 +15,10 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <BrowserRouter>
+      <RouteFocusManager />
       <AppProviders>
         <AppRouter />
       </AppProviders>
     </BrowserRouter>
   </StrictMode>,
 );
-

@@ -1,12 +1,19 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { ProductListParams } from "../domain";
+import type {
+  ProductAdminListParams,
+  ProductCommercialInput,
+  ProductListParams,
+} from "../domain";
 import { productService } from "../services";
 
 export const productKeys = {
   all: ["products"] as const,
   lists: () => [...productKeys.all, "list"] as const,
   list: (params: ProductListParams) => [...productKeys.lists(), params] as const,
+  adminLists: () => [...productKeys.all, "admin-list"] as const,
+  adminList: (params: ProductAdminListParams) =>
+    [...productKeys.adminLists(), params] as const,
   categories: () => [...productKeys.all, "categories"] as const,
   details: () => [...productKeys.all, "detail"] as const,
   detailById: (id: string) => [...productKeys.details(), "id", id] as const,
@@ -19,6 +26,14 @@ export function useProducts(params: ProductListParams = {}) {
     queryKey: productKeys.list(params),
     queryFn: () => productService.list(params),
     staleTime: 60_000,
+  });
+}
+
+export function useAdminProducts(params: ProductAdminListParams = {}) {
+  return useQuery({
+    queryKey: productKeys.adminList(params),
+    queryFn: () => productService.listAdmin(params),
+    staleTime: 30_000,
   });
 }
 
@@ -63,5 +78,48 @@ export function useRelatedProducts(slug: string | undefined, limit = 4) {
     },
     enabled: Boolean(slug) && limit > 0,
     staleTime: 60_000,
+  });
+}
+
+function useInvalidateProducts() {
+  const queryClient = useQueryClient();
+
+  return async () => {
+    await queryClient.invalidateQueries({ queryKey: productKeys.all });
+  };
+}
+
+export function useCreateProduct() {
+  const invalidate = useInvalidateProducts();
+  return useMutation({
+    mutationFn: (input: ProductCommercialInput) => productService.create(input),
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateProduct() {
+  const invalidate = useInvalidateProducts();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: ProductCommercialInput }) =>
+      productService.update(id, input),
+    onSuccess: invalidate,
+  });
+}
+
+export function useSetProductActive() {
+  const invalidate = useInvalidateProducts();
+  return useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) =>
+      productService.setActive(id, active),
+    onSuccess: invalidate,
+  });
+}
+
+export function useSetProductPublished() {
+  const invalidate = useInvalidateProducts();
+  return useMutation({
+    mutationFn: ({ id, published }: { id: string; published: boolean }) =>
+      productService.setPublished(id, published),
+    onSuccess: invalidate,
   });
 }

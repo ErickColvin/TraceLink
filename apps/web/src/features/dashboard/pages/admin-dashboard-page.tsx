@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowUpRight, Box, CalendarClock, ClipboardList, DollarSign, PackageSearch, ShoppingBag } from "lucide-react";
 import { Link } from "react-router-dom";
+import { runtimeConfig } from "@/app/config/runtime";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeader } from "@/components";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { useDashboardOverview, type DashboardAlertSeverity } from "@/features/dashboard";
@@ -13,6 +14,7 @@ const severityTone: Record<DashboardAlertSeverity, "info" | "warning" | "danger"
 
 export function AdminDashboardPage() {
   const dashboardQuery = useDashboardOverview();
+  const isDemo = runtimeConfig.dataMode === "mock";
 
   if (dashboardQuery.isPending) {
     return <div className="space-y-6"><LoadingSkeleton className="h-24 rounded-2xl" /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }, (_, index) => <LoadingSkeleton key={index} className="h-36 rounded-2xl" />)}</div><LoadingSkeleton className="h-80 rounded-2xl" /></div>;
@@ -22,7 +24,7 @@ export function AdminDashboardPage() {
     return <ErrorState title="No pudimos cargar el dashboard" description="Los indicadores operativos no están disponibles en este momento." action={<Button onClick={() => void dashboardQuery.refetch()}>Reintentar</Button>} />;
   }
 
-  const { alerts, generatedAt, kpis, salesTrend } = dashboardQuery.data;
+  const { alerts, generatedAt, kpis, salesTrend, thresholds } = dashboardQuery.data;
   const maxSales = Math.max(1, ...salesTrend.map((point) => point.salesClp));
   const metrics = [
     { label: "Ventas hoy", value: formatClp(kpis.salesTodayClp), helper: "Total confirmado", icon: DollarSign, tone: "bg-brand-700 text-white" },
@@ -30,12 +32,17 @@ export function AdminDashboardPage() {
     { label: "Pedidos pendientes", value: String(kpis.pendingOrders), helper: "Requieren acción", icon: ClipboardList, tone: "bg-coral-50 text-coral-700" },
     { label: "Paquetes almacenados", value: String(kpis.storedPackages), helper: "En custodia", icon: PackageSearch, tone: "bg-brand-50 text-brand-700" },
     { label: "Stock crítico", value: String(kpis.criticalStockItems), helper: "Bajo mínimo", icon: Box, tone: "bg-coral-50 text-coral-700" },
-    { label: "Próximos a vencer", value: String(kpis.expiringSoonItems), helper: "Dentro de 14 días", icon: CalendarClock, tone: "bg-coral-50 text-coral-700" },
+    { label: "Próximos a vencer", value: String(kpis.expiringSoonItems), helper: `Dentro de ${thresholds.expirationWarningDays} días`, icon: CalendarClock, tone: "bg-coral-50 text-coral-700" },
   ] as const;
 
   return (
     <div>
-      <PageHeader eyebrow="Resumen operativo" title="Dashboard" description={`Datos mock actualizados al ${formatDateTime(generatedAt)}.`} actions={<Badge tone="info">Frontend demo</Badge>} />
+      <PageHeader
+        eyebrow="Resumen operativo"
+        title="Dashboard"
+        description={`${isDemo ? "Datos demo" : "Datos operativos"} actualizados al ${formatDateTime(generatedAt)}.`}
+        actions={isDemo ? <Badge tone="info">Frontend demo</Badge> : undefined}
+      />
 
       <section aria-label="Indicadores principales" className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {metrics.map(({ helper, icon: Icon, label, tone, value }) => (

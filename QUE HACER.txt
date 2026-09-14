@@ -1,0 +1,283 @@
+TRACELINK V2 / CH MARKET
+QUÉ HACER AHORA Y QUÉ INFORMACIÓN ENTREGAR A CODEX
+
+Este archivo explica qué debes hacer para ejecutar el proyecto y qué necesito
+que me entregues si quieres comenzar la siguiente fase. No necesitas volver a
+cargar los archivos que ya están dentro del repositorio.
+
+===============================================================================
+1. ESTADO ACTUAL
+===============================================================================
+
+- Las Fases 1, 2 y 3 están terminadas.
+- La tienda, el portal cliente y el portal administrativo ya existen.
+- El backend, PostgreSQL, autenticación, permisos e integración HTTP funcionan.
+- El checkout todavía es visual: no crea una compra, no reserva inventario y no
+  procesa un pago real.
+- El siguiente bloque recomendado es la Fase 4: checkout autoritativo, reservas
+  de inventario, pagos y webhooks.
+
+Los documentos que ya tengo disponibles y no necesitas volver a cargar son:
+
+- ARCHITECTURE.md
+- README.md
+- FinFase 3.txt
+- docs/backend-architecture.md
+- docs/api.md
+- docs/api-contract-map.md
+- docs/database-model.md
+- docs/security.md
+- docs/frontend-roadmap.md
+- docs/ui-review-phase-3.md
+
+===============================================================================
+2. QUÉ DEBES HACER PARA EJECUTAR EL PROYECTO
+===============================================================================
+
+Requisitos:
+
+- Node.js 24 o superior.
+- Docker Desktop iniciado.
+- Corepack y pnpm.
+- Chrome, Microsoft Edge o Chromium para las pruebas E2E.
+
+Desde la carpeta TraceLink ejecuta:
+
+corepack enable
+corepack pnpm install
+Copy-Item .env.example .env
+
+Después abre .env y reemplaza todos los valores que comiencen con
+"replace-with" o "replace-before".
+
+Genera cada secreto local con este comando:
+
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+
+Necesitas valores diferentes para:
+
+- SESSION_SECRET
+- CSRF_SECRET
+- IDEMPOTENCY_SECRET
+- RATE_LIMIT_SECRET
+- PICKUP_CODE_SECRET
+
+También debes definir correos y contraseñas locales para:
+
+- SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD
+- SEED_STAFF_EMAIL / SEED_STAFF_PASSWORD
+- SEED_CUSTOMER_EMAIL / SEED_CUSTOMER_PASSWORD
+- SEED_PACKAGE_PICKUP_CODE
+
+No me envíes esos secretos ni contraseñas. Deben quedarse únicamente en tu
+archivo .env local, el cual está excluido de Git.
+
+Cuando .env esté listo, ejecuta:
+
+corepack pnpm db:up
+corepack pnpm db:migrate
+corepack pnpm db:seed
+corepack pnpm dev
+
+Abre estas direcciones:
+
+- Frontend: http://127.0.0.1:5173
+- API: http://127.0.0.1:3001/api/v1
+- Health: http://127.0.0.1:3001/api/v1/health
+- Readiness: http://127.0.0.1:3001/api/v1/health/ready
+
+Inicia sesión con los correos y contraseñas que tú configuraste para el seed.
+
+Para comprobar la instalación completa:
+
+corepack pnpm lint
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm build
+corepack pnpm test:e2e
+
+===============================================================================
+3. QUÉ NECESITO QUE DECIDAS PARA LA FASE 4
+===============================================================================
+
+Antes de programar pagos y checkout real, responde estas decisiones de negocio.
+Puedes escribirlas en un TXT o pegarlas directamente en tu siguiente mensaje.
+
+1. Proveedor de pagos
+
+- ¿Transbank Webpay Plus, Mercado Pago u otro?
+- ¿La primera integración será solo sandbox?
+- ¿Necesitas tarjetas, transferencia u otros medios?
+
+2. Momento de creación del pedido
+
+- ¿Se crea el pedido antes de redirigir al pago como PENDING_PAYMENT?
+- ¿O solamente se crea después de confirmar el pago?
+
+Recomendación: crear una orden pendiente antes del pago, reservar stock y
+confirmarla únicamente mediante una respuesta autoritativa del proveedor.
+
+3. Reserva de inventario
+
+- ¿Cuántos minutos debe durar una reserva? Recomendación inicial: 15 minutos.
+- ¿Qué ocurre si el cliente abandona el pago?
+- ¿Se permite vender sin stock o siempre debe bloquearse?
+
+4. Entrega
+
+- ¿Solo retiro en tienda, despacho o ambos?
+- Si existe despacho: comunas disponibles, tarifas, dirección, horarios y
+  proveedor courier.
+- Si existe retiro: sucursal, ventanas horarias y plazo máximo de retiro.
+
+5. Totales del checkout
+
+- ¿Los precios incluyen IVA?
+- ¿Existen descuentos, cupones o costo de despacho?
+- ¿Cuál es el pedido mínimo y máximo?
+- ¿Cómo se redondean los importes CLP?
+
+6. Cancelaciones y devoluciones
+
+- ¿Cuándo puede cancelar el cliente?
+- ¿Quién puede aprobar una devolución?
+- ¿Los reembolsos se harán automáticamente o primero de forma manual?
+
+7. Identidad del comprador
+
+- ¿Es obligatorio iniciar sesión para comprar?
+- ¿Se permitirá compra como invitado?
+- ¿Qué datos legales y de contacto son obligatorios?
+
+8. Estados y notificaciones
+
+- ¿Qué estados debe ver el cliente después de pagar?
+- ¿Se enviará correo, SMS o WhatsApp?
+- ¿Qué proveedor de notificaciones se usará?
+
+9. Prioridad de UI
+
+Indica si quieres resolver antes o durante Fase 4 estas mejoras ya detectadas:
+
+- errores con requestId copiable;
+- experiencia centralizada de sesión vencida;
+- reintentos seguros con la misma Idempotency-Key;
+- selector remoto paginado de inventario;
+- mejoras móviles de dashboard, filtros y timelines;
+- pantalla pública de registro.
+
+10. Despliegue
+
+- ¿Dónde se alojará frontend, API y PostgreSQL?
+- ¿Cuál será el dominio real?
+- ¿Habrá reverse proxy, Cloudflare u otro intermediario?
+
+Si todavía no conoces alguna respuesta, escribe "POR DEFINIR". Puedo proponer
+alternativas y explicarte sus costos y riesgos antes de implementar.
+
+===============================================================================
+4. QUÉ PUEDES CARGARME
+===============================================================================
+
+Los archivos más útiles para continuar son:
+
+- un TXT o Markdown con el alcance exacto de Fase 4;
+- documentación oficial o enlaces del proveedor de pagos elegido;
+- capturas, wireframes o archivo de Figma del checkout deseado;
+- imágenes de productos o branding que realmente deban incorporarse;
+- ejemplos JSON de requests/webhooks con todos los secretos eliminados;
+- reglas de negocio, estados y criterios de aceptación;
+- tarifas y zonas de despacho en CSV, sin datos personales;
+- textos legales aprobados: términos, privacidad, cambios y devoluciones;
+- errores o capturas si algo no funciona al levantar el proyecto.
+
+Para reportar un error, incluye:
+
+1. el comando exacto que ejecutaste;
+2. el mensaje completo del error;
+3. qué esperabas que ocurriera;
+4. sistema operativo y versiones de Node, pnpm y Docker;
+5. una captura si el problema es visual;
+6. nunca incluyas contraseñas, tokens o cookies.
+
+===============================================================================
+5. QUÉ NO DEBES CARGAR NI PEGAR EN EL CHAT
+===============================================================================
+
+No compartas:
+
+- el archivo .env;
+- contraseñas reales o del sandbox;
+- API keys, client secrets o secretos de webhook;
+- cookies, tokens de sesión o códigos de retiro reales;
+- llaves privadas, certificados privados o credenciales cloud;
+- dumps de producción sin sanitizar;
+- nombres, RUT, direcciones, teléfonos o correos de clientes reales;
+- datos de tarjetas o información bancaria.
+
+Si una integración necesita un secreto, guárdalo tú en .env y dime solamente el
+nombre de la variable, por ejemplo:
+
+TRANSBANK_COMMERCE_CODE=[CONFIGURADO LOCALMENTE]
+TRANSBANK_API_KEY=[CONFIGURADO LOCALMENTE]
+
+Para ejemplos, reemplaza todo valor sensible por [REDACTED] y utiliza clientes
+ficticios con dominios como example.invalid.
+
+===============================================================================
+6. INFORMACIÓN MÍNIMA PARA QUE YO PUEDA COMENZAR
+===============================================================================
+
+Si quieres avanzar rápido, basta con que me respondas estas cinco preguntas:
+
+1. ¿Qué proveedor de pago eliges?
+2. ¿Solo retiro, solo despacho o ambos?
+3. ¿Cuántos minutos debe reservarse el stock?
+4. ¿La compra exige una cuenta de cliente?
+5. ¿Quieres primero checkout/pago o primero las mejoras UI prioritarias?
+
+Con esas respuestas puedo investigar la documentación oficial, preparar el
+plan de Fase 4 y señalar cualquier decisión adicional antes de tocar secretos o
+infraestructura externa.
+
+===============================================================================
+7. PLANTILLA PARA TU PRÓXIMO MENSAJE
+===============================================================================
+
+Copia, completa y envíame lo siguiente:
+
+CONTINÚA CON LA FASE 4 DE TRACELINK.
+
+Proveedor de pagos:
+Modo inicial (sandbox/producción):
+Tipo de entrega (retiro/despacho/ambos):
+Duración de reserva de stock:
+Compra como invitado (sí/no):
+Política de cancelación:
+Política de devolución/reembolso:
+Impuestos y costos adicionales:
+Notificaciones requeridas:
+Hosting o dominio previsto:
+Mejoras UI que quieres incluir:
+Criterios de aceptación:
+Archivos o documentación adjunta:
+
+No implementar todavía:
+
+Al terminar quiero:
+- pruebas ejecutadas;
+- comandos nuevos;
+- documentación actualizada;
+- informe TXT de cierre;
+- riesgos y pendientes claramente separados.
+
+===============================================================================
+8. RECOMENDACIÓN CONCRETA
+===============================================================================
+
+El siguiente paso recomendado es que elijas primero el proveedor de pagos y el
+modelo de entrega. Después envíame la plantilla anterior. No necesitas enviarme
+credenciales: cuando hagan falta, crearé las variables de entorno necesarias y
+tú colocarás sus valores únicamente en tu máquina o secret manager.
+
+ESTADO: LISTO PARA RECIBIR LAS DECISIONES DE FASE 4.

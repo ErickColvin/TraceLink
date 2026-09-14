@@ -1,0 +1,895 @@
+// use prisma-next
+
+// Prisma 8 RC data contract for the authoritative TraceLink PostgreSQL model.
+// Connection details live in prisma.config.ts, never in this contract.
+
+enum UserStatus {
+  @@type("pg/text@1")
+  ACTIVE
+  INACTIVE
+}
+
+enum MembershipStatus {
+  @@type("pg/text@1")
+  ACTIVE
+  INACTIVE
+}
+
+enum CustomerStatus {
+  @@type("pg/text@1")
+  ACTIVE
+  INACTIVE
+}
+
+enum AuthAudience {
+  @@type("pg/text@1")
+  CUSTOMER
+  STAFF
+}
+
+enum InventoryMovementType {
+  @@type("pg/text@1")
+  PURCHASE_RECEIPT
+  SALE
+  ADJUSTMENT
+  RETURN
+  DAMAGE
+  EXPIRED
+  TRANSFER_IN
+  TRANSFER_OUT
+}
+
+enum InventoryReservationStatus {
+  @@type("pg/text@1")
+  ACTIVE
+  COMMITTED
+  CONSUMED
+  RELEASED
+  EXPIRED
+}
+
+enum OrderStatus {
+  @@type("pg/text@1")
+  PENDING_PAYMENT
+  PAID
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  @@type("pg/text@1")
+  PENDING
+  PAID
+  REFUNDED
+}
+
+enum PaymentLifecycleStatus {
+  @@type("pg/text@1")
+  CREATED
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  REFUNDED
+  ERROR
+}
+
+enum PaymentProvider {
+  @@type("pg/text@1")
+  MERCADOPAGO
+  FAKE
+}
+
+enum FulfillmentType {
+  @@type("pg/text@1")
+  PICKUP
+  DELIVERY
+}
+
+enum PackageStatus {
+  @@type("pg/text@1")
+  EXPECTED
+  RECEIVED
+  STORED
+  READY_FOR_PICKUP
+  PICKED_UP
+  RETURNED
+  LOST
+  INCIDENT
+}
+
+enum IdempotencyStatus {
+  @@type("pg/text@1")
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum OutboxStatus {
+  @@type("pg/text@1")
+  PENDING
+  PROCESSING
+  DELIVERED
+  DEAD
+}
+
+model Organization {
+  id        Uuid     @id @default(dbgenerated("gen_random_uuid()"))
+  name      VarChar(160)
+  slug      VarChar(80)   @unique(map: "organization_slug_key")
+  locale    VarChar(35)   @default("es-CL")
+  currency  VarChar(3)   @default("CLP")
+  timezone  VarChar(100)   @default("America/Santiago")
+  active    Boolean  @default(true)
+  createdAt Timestamptz(3) @default(now()) @map("created_at")
+  updatedAt temporal.updatedAt() @map("updated_at")
+
+  outboxEvents OutboxEvent[]
+
+  roles                Role[]
+  memberships          Membership[]
+  customers            Customer[]
+  sessions             Session[]
+  categories           Category[]
+  products             Product[]
+  inventoryLocations   InventoryLocation[]
+  inventoryLots        InventoryLot[]
+  inventoryBalances    InventoryBalance[]
+  inventoryMovements   InventoryMovement[]
+  inventoryReservations InventoryReservation[]
+  orders               Order[]
+  orderItems           OrderItem[]
+  orderStatusEvents    OrderStatusEvent[]
+  packages             Package[]
+  trackingEvents       TrackingEvent[]
+  packagePickupReceipts PackagePickupReceipt[]
+  settings             OrganizationSettings?
+  auditLogs            AuditLog[]
+  idempotencyRecords   IdempotencyRecord[]
+  payments             Payment[]
+  paymentAttempts      PaymentAttempt[]
+  paymentProviderEvents PaymentProviderEvent[]
+  refunds              Refund[]
+
+  @@check(expression: "char_length(btrim(\"name\")) > 0 AND \"slug\" = lower(btrim(\"slug\")) AND char_length(\"currency\") = 3", name: "organization_identity_valid")
+  @@map("organizations")
+}
+
+model User {
+  id              Uuid       @id @default(dbgenerated("gen_random_uuid()"))
+  email           VarChar(320)
+  emailNormalized VarChar(320)     @unique(map: "user_email_normalized_key") @map("email_normalized")
+  firstName       VarChar(100)     @default("Usuario") @map("first_name")
+  lastName        VarChar(100)     @default("TraceLink") @map("last_name")
+  passwordHash    VarChar(512)     @map("password_hash")
+  status          UserStatus @default(ACTIVE)
+  emailVerifiedAt Timestamptz(3)?  @map("email_verified_at")
+  createdAt       Timestamptz(3)   @default(now()) @map("created_at")
+  updatedAt       temporal.updatedAt() @map("updated_at")
+
+  memberships          Membership[]
+  customers            Customer[]
+  sessions             Session[]
+  inventoryMovements   InventoryMovement[] @relation("InventoryMovementActor")
+  orderStatusEvents    OrderStatusEvent[] @relation("OrderStatusEventActor")
+  packagesReceived     Package[] @relation("PackageReceiver")
+  trackingEvents       TrackingEvent[] @relation("TrackingEventActor")
+  pickupReceipts       PackagePickupReceipt[] @relation("PickupReceiptDeliverer")
+  auditLogs            AuditLog[] @relation("AuditActor")
+  idempotencyRecords   IdempotencyRecord[] @relation("IdempotencyActor")
+  refundsRequested     Refund[] @relation("RefundActor")
+
+  @@check(expression: "\"email_normalized\" = lower(btrim(\"email_normalized\")) AND char_length(btrim(\"first_name\")) > 0 AND char_length(btrim(\"last_name\")) > 0 AND char_length(\"password_hash\") > 0", name: "user_identity_valid")
+  @@index([status], map: "user_status_idx")
+  @@map("users")
+}
+
+model Role {
+  id             Uuid     @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId Uuid     @map("organization_id")
+  code           VarChar(80)
+  label          VarChar(120)
+  description    String?
+  system         Boolean  @default(false)
+  createdAt      Timestamptz(3) @default(now()) @map("created_at")
+  updatedAt      temporal.updatedAt() @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "role_organization_fkey")
+  memberships Membership[]
+  permissions RolePermission[]
+
+  @@unique([organizationId, id], map: "role_tenant_id_key")
+  @@unique([organizationId, code], map: "role_tenant_code_key")
+  @@check(expression: "char_length(btrim(\"code\")) > 0 AND char_length(btrim(\"label\")) > 0", name: "role_identity_valid")
+  @@index([organizationId], map: "role_organization_idx")
+  @@map("roles")
+}
+
+model Permission {
+  key         VarChar(120)   @id
+  description VarChar(240)?
+  createdAt   Timestamptz(3) @default(now()) @map("created_at")
+
+  roles RolePermission[]
+
+  @@check(expression: "\"key\" ~ '^[a-z][a-z0-9_-]*\\.[a-z][a-z0-9_-]*$'", name: "permission_key_valid")
+  @@map("permissions")
+}
+
+model RolePermission {
+  organizationId Uuid     @map("organization_id")
+  roleId         Uuid     @map("role_id")
+  permissionKey  VarChar(120)   @map("permission_key")
+  createdAt      Timestamptz(3) @default(now()) @map("created_at")
+
+  role       Role       @relation(fields: [organizationId, roleId], references: [organizationId, id], onDelete: Cascade, map: "role_permission_role_fkey")
+  permission Permission @relation(fields: [permissionKey], references: [key], onDelete: Restrict, map: "role_permission_permission_fkey")
+
+  @@id([organizationId, roleId, permissionKey], map: "role_permission_pkey")
+  @@index([permissionKey], map: "role_permission_permission_idx")
+  @@map("role_permissions")
+}
+
+model Membership {
+  id             Uuid             @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId Uuid             @map("organization_id")
+  userId         Uuid             @map("user_id")
+  roleId         Uuid             @map("role_id")
+  status         MembershipStatus @default(ACTIVE)
+  createdAt      Timestamptz(3)         @default(now()) @map("created_at")
+  updatedAt      temporal.updatedAt() @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "membership_organization_fkey")
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict, map: "membership_user_fkey")
+  role         Role         @relation(fields: [organizationId, roleId], references: [organizationId, id], onDelete: Restrict, map: "membership_role_fkey")
+  sessions     Session[]
+
+  @@unique([organizationId, id], map: "membership_tenant_id_key")
+  @@unique([organizationId, userId], map: "membership_tenant_user_key")
+  @@index([organizationId, status], map: "membership_tenant_status_idx")
+  @@index([userId, status], map: "membership_user_status_idx")
+  @@map("memberships")
+}
+
+model Customer {
+  id              Uuid           @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId  Uuid           @map("organization_id")
+  userId          Uuid?          @map("user_id")
+  firstName       VarChar(100)         @map("first_name")
+  lastName        VarChar(100)         @map("last_name")
+  email           VarChar(320)
+  emailNormalized VarChar(320)         @map("email_normalized")
+  phone           VarChar(40)?
+  taxId           VarChar(40)?        @map("tax_id")
+  addressLine1    VarChar(240)?        @map("address_line_1")
+  addressLine2    VarChar(240)?        @map("address_line_2")
+  commune         VarChar(120)?
+  city            VarChar(120)?
+  region          VarChar(120)?
+  status          CustomerStatus @default(ACTIVE)
+  createdAt       Timestamptz(3)       @default(now()) @map("created_at")
+  updatedAt       temporal.updatedAt() @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "customer_organization_fkey")
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull, map: "customer_user_fkey")
+  sessions     Session[]
+  orders       Order[]
+  packages     Package[]
+
+  @@unique([organizationId, id], map: "customer_tenant_id_key")
+  @@unique([organizationId, emailNormalized], map: "customer_tenant_email_key")
+  @@index([organizationId, status, createdAt], map: "customer_tenant_status_created_idx")
+  @@index([userId], map: "customer_user_idx")
+  @@check(expression: "char_length(btrim(\"first_name\")) > 0 AND char_length(btrim(\"last_name\")) > 0 AND \"email_normalized\" = lower(btrim(\"email_normalized\"))", name: "customer_identity_valid")
+  @@map("customers")
+}
+
+model Session {
+  id               Uuid         @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId   Uuid         @map("organization_id")
+  userId           Uuid         @map("user_id")
+  audience         AuthAudience
+  membershipId     Uuid?        @map("membership_id")
+  customerId       Uuid?        @map("customer_id")
+  tokenHash        Bytes        @unique(map: "session_token_hash_key") @map("token_hash")
+  createdAt        Timestamptz(3)     @default(now()) @map("created_at")
+  expiresAt        Timestamptz(3)     @map("expires_at")
+  lastSeenAt       Timestamptz(3)     @default(now()) @map("last_seen_at")
+  revokedAt        Timestamptz(3)?    @map("revoked_at")
+  revocationReason VarChar(160)?      @map("revocation_reason")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "session_organization_fkey")
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade, map: "session_user_fkey")
+  membership   Membership?  @relation(fields: [organizationId, membershipId], references: [organizationId, id], onDelete: Restrict, map: "session_membership_fkey")
+  customer     Customer?    @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: Restrict, map: "session_customer_fkey")
+
+  @@check(expression: "octet_length(\"token_hash\") = 32 AND \"expires_at\" > \"created_at\" AND ((\"audience\" = 'STAFF' AND \"membership_id\" IS NOT NULL AND \"customer_id\" IS NULL) OR (\"audience\" = 'CUSTOMER' AND \"customer_id\" IS NOT NULL AND \"membership_id\" IS NULL))", name: "session_context_valid")
+  @@index([userId, revokedAt, expiresAt], map: "session_user_validity_idx")
+  @@index([organizationId, audience, expiresAt], map: "session_tenant_audience_idx")
+  @@map("sessions")
+}
+
+model Category {
+  id             Uuid     @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId Uuid     @map("organization_id")
+  slug           VarChar(100)
+  name           VarChar(140)
+  description    String?
+  imageUrl       VarChar(2048)?  @map("image_url")
+  active         Boolean  @default(true)
+  createdAt      Timestamptz(3) @default(now()) @map("created_at")
+  updatedAt      temporal.updatedAt() @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "category_organization_fkey")
+  products     Product[]
+
+  @@unique([organizationId, id], map: "category_tenant_id_key")
+  @@unique([organizationId, slug], map: "category_tenant_slug_key")
+  @@check(expression: "\"slug\" = lower(btrim(\"slug\")) AND char_length(btrim(\"name\")) > 0", name: "category_identity_valid")
+  @@index([organizationId, active], map: "category_tenant_active_idx")
+  @@map("categories")
+}
+
+model Product {
+  id             Uuid     @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId Uuid     @map("organization_id")
+  categoryId     Uuid     @map("category_id")
+  sku            VarChar(100)
+  barcode        VarChar(100)?
+  slug           VarChar(160)
+  name           VarChar(200)
+  description    String?
+  brand          VarChar(160)?
+  salePrice      Int      @map("sale_price")
+  minimumStock   Int      @default(0) @map("minimum_stock")
+  imageUrl       VarChar(2048)?  @map("image_url")
+  published      Boolean  @default(false)
+  active         Boolean  @default(true)
+  featured       Boolean  @default(false)
+  createdAt      Timestamptz(3) @default(now()) @map("created_at")
+  updatedAt      temporal.updatedAt() @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "product_organization_fkey")
+  category     Category     @relation(fields: [organizationId, categoryId], references: [organizationId, id], onDelete: Restrict, map: "product_category_fkey")
+  lots         InventoryLot[]
+  balances     InventoryBalance[]
+  movements    InventoryMovement[]
+  reservations InventoryReservation[]
+  orderItems   OrderItem[]
+
+  @@unique([organizationId, id], map: "product_tenant_id_key")
+  @@unique([organizationId, sku], map: "product_tenant_sku_key")
+  @@unique([organizationId, slug], map: "product_tenant_slug_key")
+  @@unique([organizationId, barcode], map: "product_tenant_barcode_key")
+  @@check(expression: "char_length(btrim(\"sku\")) > 0 AND \"slug\" = lower(btrim(\"slug\")) AND char_length(btrim(\"name\")) > 0 AND \"sale_price\" >= 0 AND \"minimum_stock\" >= 0", name: "product_values_valid")
+  @@index([organizationId, categoryId, active, published], map: "product_catalog_idx")
+  @@index([organizationId, createdAt], map: "product_tenant_created_idx")
+  @@map("products")
+}
+
+model InventoryLocation {
+  id             Uuid     @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId Uuid     @map("organization_id")
+  name           VarChar(160)
+  code           VarChar(80)
+  active         Boolean  @default(true)
+  createdAt      Timestamptz(3) @default(now()) @map("created_at")
+  updatedAt      temporal.updatedAt() @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "inventory_location_organization_fkey")
+  balances     InventoryBalance[]
+  movements    InventoryMovement[]
+  reservations InventoryReservation[]
+  packages     Package[]
+
+  @@unique([organizationId, id], map: "inventory_location_tenant_id_key")
+  @@unique([organizationId, code], map: "inventory_location_tenant_code_key")
+  @@check(expression: "char_length(btrim(\"name\")) > 0 AND char_length(btrim(\"code\")) > 0", name: "inventory_location_identity_valid")
+  @@index([organizationId, active], map: "inventory_location_active_idx")
+  @@map("inventory_locations")
+}
+
+model InventoryLot {
+  id             Uuid      @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId Uuid      @map("organization_id")
+  productId      Uuid      @map("product_id")
+  lotNumber      VarChar(120)    @map("lot_number")
+  expirationDate Date? @map("expiration_date")
+  createdAt      Timestamptz(3)  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "inventory_lot_organization_fkey")
+  product      Product      @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: Restrict, map: "inventory_lot_product_fkey")
+  balances     InventoryBalance[]
+  movements    InventoryMovement[]
+  reservations InventoryReservation[]
+
+  @@unique([organizationId, id], map: "inventory_lot_tenant_id_key")
+  @@unique([organizationId, productId, id], map: "inventory_lot_tenant_product_id_key")
+  @@unique([organizationId, productId, lotNumber], map: "inventory_lot_tenant_number_key")
+  @@check(expression: "char_length(btrim(\"lot_number\")) > 0", name: "inventory_lot_number_valid")
+  @@index([organizationId, productId, expirationDate], map: "inventory_lot_expiration_idx")
+  @@map("inventory_lots")
+}
+
+model InventoryBalance {
+  id               Uuid     @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId   Uuid     @map("organization_id")
+  productId        Uuid     @map("product_id")
+  locationId       Uuid     @map("location_id")
+  lotId            Uuid?    @map("lot_id")
+  physicalQuantity Int      @default(0) @map("physical_quantity")
+  reservedQuantity Int      @default(0) @map("reserved_quantity")
+  updatedAt        temporal.updatedAt() @map("updated_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "inventory_balance_organization_fkey")
+  product      Product           @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: Restrict, map: "inventory_balance_product_fkey")
+  location     InventoryLocation @relation(fields: [organizationId, locationId], references: [organizationId, id], onDelete: Restrict, map: "inventory_balance_location_fkey")
+  lot          InventoryLot?     @relation(fields: [organizationId, productId, lotId], references: [organizationId, productId, id], onDelete: Restrict, map: "inventory_balance_lot_fkey")
+  movements    InventoryMovement[]
+
+  @@unique([organizationId, id], map: "inventory_balance_tenant_id_key")
+  @@index([organizationId, productId, locationId, lotId], name: "inventory_balance_lot_key", unique: true, where: "\"lot_id\" IS NOT NULL")
+  @@index([organizationId, productId, locationId], name: "inventory_balance_no_lot_key", unique: true, where: "\"lot_id\" IS NULL")
+  @@check(expression: "\"physical_quantity\" >= 0 AND \"reserved_quantity\" >= 0 AND \"reserved_quantity\" <= \"physical_quantity\"", name: "inventory_balance_quantities_valid")
+  @@map("inventory_balances")
+}
+
+model InventoryMovement {
+  id                       Uuid                  @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId           Uuid                  @map("organization_id")
+  balanceId                Uuid                  @map("balance_id")
+  productId                Uuid                  @map("product_id")
+  locationId               Uuid                  @map("location_id")
+  lotId                    Uuid?                 @map("lot_id")
+  reservationId            Uuid?                 @map("reservation_id")
+  type                     InventoryMovementType
+  quantityDelta            Int                   @map("quantity_delta")
+  previousPhysicalQuantity Int                   @map("previous_physical_quantity")
+  newPhysicalQuantity      Int                   @map("new_physical_quantity")
+  previousReservedQuantity Int                   @default(0) @map("previous_reserved_quantity")
+  newReservedQuantity      Int                   @default(0) @map("new_reserved_quantity")
+  actorUserId              Uuid                  @map("actor_user_id")
+  originLocation           VarChar(200)          @default("Sin especificar") @map("origin_location")
+  destinationLocation      VarChar(200)?         @map("destination_location")
+  reason                   VarChar(240)?
+  notes                    String?
+  createdAt                Timestamptz(3)              @default(now()) @map("created_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "inventory_movement_organization_fkey")
+  balance      InventoryBalance  @relation(fields: [organizationId, balanceId], references: [organizationId, id], onDelete: Restrict, map: "inventory_movement_balance_fkey")
+  product      Product           @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: Restrict, map: "inventory_movement_product_fkey")
+  location     InventoryLocation @relation(fields: [organizationId, locationId], references: [organizationId, id], onDelete: Restrict, map: "inventory_movement_location_fkey")
+  lot          InventoryLot?     @relation(fields: [organizationId, productId, lotId], references: [organizationId, productId, id], onDelete: Restrict, map: "inventory_movement_lot_fkey")
+  actor        User              @relation("InventoryMovementActor", fields: [actorUserId], references: [id], onDelete: Restrict, map: "inventory_movement_actor_fkey")
+  reservation  InventoryReservation? @relation("InventoryReservationSaleMovement", fields: [organizationId, reservationId], references: [organizationId, id], onDelete: Restrict, map: "inventory_movement_reservation_fkey")
+
+  @@unique([organizationId, id], map: "inventory_movement_tenant_id_key")
+  @@check(expression: "\"quantity_delta\" <> 0 AND \"previous_physical_quantity\" >= 0 AND \"new_physical_quantity\" >= 0 AND \"new_physical_quantity\" = \"previous_physical_quantity\" + \"quantity_delta\" AND \"previous_reserved_quantity\" >= 0 AND \"previous_reserved_quantity\" <= \"previous_physical_quantity\" AND \"new_reserved_quantity\" >= 0 AND \"new_reserved_quantity\" <= \"new_physical_quantity\"", name: "inventory_movement_quantities_valid")
+  @@check(expression: "\"reservation_id\" IS NULL OR \"type\" = 'SALE'", name: "inventory_movement_reservation_sale_valid")
+  @@index([organizationId, reservationId], name: "inventory_movement_reservation_key", unique: true, where: "\"reservation_id\" IS NOT NULL")
+  @@index([organizationId, productId, createdAt], map: "inventory_movement_product_created_idx")
+  @@index([organizationId, type, createdAt], map: "inventory_movement_type_created_idx")
+  @@index([organizationId, balanceId, createdAt], map: "inventory_movement_balance_created_idx")
+  @@map("inventory_movements")
+}
+
+model InventoryReservation {
+  id             Uuid                       @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId Uuid                       @map("organization_id")
+  orderId        Uuid?                      @map("order_id")
+  productId      Uuid                       @map("product_id")
+  locationId     Uuid                       @map("location_id")
+  lotId          Uuid?                      @map("lot_id")
+  quantity       Int
+  status         InventoryReservationStatus @default(ACTIVE)
+  expiresAt      Timestamptz(3)                   @map("expires_at")
+  createdAt      Timestamptz(3)                   @default(now()) @map("created_at")
+  updatedAt      temporal.updatedAt() @map("updated_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "inventory_reservation_organization_fkey")
+  order        Order?             @relation(fields: [organizationId, orderId], references: [organizationId, id], onDelete: Restrict, map: "inventory_reservation_order_fkey")
+  product      Product            @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: Restrict, map: "inventory_reservation_product_fkey")
+  location     InventoryLocation  @relation(fields: [organizationId, locationId], references: [organizationId, id], onDelete: Restrict, map: "inventory_reservation_location_fkey")
+  lot          InventoryLot?      @relation(fields: [organizationId, productId, lotId], references: [organizationId, productId, id], onDelete: Restrict, map: "inventory_reservation_lot_fkey")
+  saleMovements InventoryMovement[] @relation("InventoryReservationSaleMovement")
+
+  @@unique([organizationId, id], map: "inventory_reservation_tenant_id_key")
+  @@check(expression: "\"quantity\" > 0 AND \"expires_at\" > \"created_at\"", name: "inventory_reservation_values_valid")
+  @@index([organizationId, status, expiresAt], map: "inventory_reservation_expiry_idx")
+  @@index([organizationId, productId, locationId, lotId], map: "inventory_reservation_stock_idx")
+  @@index([organizationId, orderId], map: "inventory_reservation_order_idx")
+  @@map("inventory_reservations")
+}
+
+model Order {
+  id              Uuid            @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId  Uuid            @map("organization_id")
+  customerId      Uuid            @map("customer_id")
+  orderNumber     VarChar(80)          @map("order_number")
+  status          OrderStatus     @default(PENDING_PAYMENT)
+  paymentStatus   PaymentStatus   @default(PENDING) @map("payment_status")
+  fulfillmentType FulfillmentType @map("fulfillment_type")
+  subtotal        Int
+  discount        Int             @default(0)
+  shipping        Int             @default(0)
+  total           Int
+  notes           String?
+  estimatedReadyAt Timestamptz(3)?      @map("estimated_ready_at")
+  completedAt     Timestamptz(3)?       @map("completed_at")
+  createdAt       Timestamptz(3)        @default(now()) @map("created_at")
+  updatedAt       temporal.updatedAt() @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "order_organization_fkey")
+  customer     Customer     @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: Restrict, map: "order_customer_fkey")
+  items        OrderItem[]
+  statusEvents OrderStatusEvent[]
+  packages     Package[]
+  reservations InventoryReservation[]
+  payment      Payment?
+
+  @@unique([organizationId, id], map: "order_tenant_id_key")
+  @@unique([organizationId, orderNumber], map: "order_tenant_number_key")
+  @@check(expression: "\"subtotal\" >= 0 AND \"discount\" >= 0 AND \"shipping\" >= 0 AND \"discount\" <= \"subtotal\" AND \"total\" = \"subtotal\" - \"discount\" + \"shipping\"", name: "order_amounts_valid")
+  @@index([organizationId, customerId, createdAt], map: "order_customer_created_idx")
+  @@index([organizationId, status, createdAt], map: "order_status_created_idx")
+  @@index([organizationId, paymentStatus, createdAt], map: "order_payment_created_idx")
+  @@map("orders")
+}
+
+model OrderItem {
+  id                  Uuid   @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId      Uuid   @map("organization_id")
+  orderId             Uuid   @map("order_id")
+  productId           Uuid   @map("product_id")
+  skuSnapshot         VarChar(100) @map("sku_snapshot")
+  productNameSnapshot VarChar(200) @map("product_name_snapshot")
+  unitPrice           Int    @map("unit_price")
+  quantity            Int
+  lineTotal           Int    @map("line_total")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "order_item_organization_fkey")
+  order        Order        @relation(fields: [organizationId, orderId], references: [organizationId, id], onDelete: Cascade, map: "order_item_order_fkey")
+  product      Product      @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: Restrict, map: "order_item_product_fkey")
+
+  @@unique([organizationId, id], map: "order_item_tenant_id_key")
+  @@check(expression: "\"unit_price\" >= 0 AND \"quantity\" > 0 AND \"line_total\" = \"unit_price\" * \"quantity\"", name: "order_item_amounts_valid")
+  @@index([organizationId, orderId], map: "order_item_order_idx")
+  @@index([organizationId, productId], map: "order_item_product_idx")
+  @@map("order_items")
+}
+
+model OrderStatusEvent {
+  id             Uuid         @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId Uuid         @map("organization_id")
+  orderId        Uuid         @map("order_id")
+  fromStatus     OrderStatus? @map("from_status")
+  toStatus       OrderStatus  @map("to_status")
+  actorUserId    Uuid?        @map("actor_user_id")
+  reason         VarChar(1000)?
+  occurredAt     Timestamptz(3)     @default(now()) @map("occurred_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "order_status_event_organization_fkey")
+  order        Order        @relation(fields: [organizationId, orderId], references: [organizationId, id], onDelete: Cascade, map: "order_status_event_order_fkey")
+  actor        User?        @relation("OrderStatusEventActor", fields: [actorUserId], references: [id], onDelete: SetNull, map: "order_status_event_actor_fkey")
+
+  @@unique([organizationId, id], map: "order_status_event_tenant_id_key")
+  @@check(expression: "\"from_status\" IS NULL OR \"from_status\" <> \"to_status\"", name: "order_status_event_transition_valid")
+  @@index([organizationId, orderId, occurredAt], map: "order_status_event_order_time_idx")
+  @@map("order_status_events")
+}
+
+model Payment {
+  id                        Uuid                   @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId            Uuid                   @map("organization_id")
+  orderId                   Uuid                   @map("order_id")
+  provider                  PaymentProvider
+  status                    PaymentLifecycleStatus @default(CREATED)
+  amount                    Int
+  currency                  VarChar(3)             @default("CLP")
+  providerExternalReference VarChar(160)            @map("provider_external_reference")
+  providerPaymentId         VarChar(160)?           @map("provider_payment_id")
+  providerStatus            VarChar(120)?           @map("provider_status")
+  providerStatusDetail      VarChar(240)?           @map("provider_status_detail")
+  approvedAt                Timestamptz(3)?         @map("approved_at")
+  cancelledAt               Timestamptz(3)?         @map("cancelled_at")
+  refundedAt                Timestamptz(3)?         @map("refunded_at")
+  lastReconciledAt          Timestamptz(3)?         @map("last_reconciled_at")
+  createdAt                 Timestamptz(3)          @default(now()) @map("created_at")
+  updatedAt                 temporal.updatedAt()    @map("updated_at")
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "payment_organization_fkey")
+  order        Order                  @relation(fields: [organizationId, orderId], references: [organizationId, id], onDelete: Restrict, map: "payment_order_fkey")
+  attempts     PaymentAttempt[]
+  providerEvents PaymentProviderEvent[]
+  refunds      Refund[]
+
+  @@unique([organizationId, id], map: "payment_tenant_id_key")
+  @@unique([organizationId, orderId], map: "payment_order_key")
+  @@unique([provider, providerExternalReference], map: "payment_provider_external_reference_key")
+  @@check(expression: "\"amount\" > 0 AND \"currency\" = upper(btrim(\"currency\")) AND char_length(\"currency\") = 3 AND char_length(btrim(\"provider_external_reference\")) > 0 AND (\"provider_payment_id\" IS NULL OR char_length(btrim(\"provider_payment_id\")) > 0)", name: "payment_values_valid")
+  @@index([provider, providerPaymentId], name: "payment_provider_payment_id_key", unique: true, where: "\"provider_payment_id\" IS NOT NULL")
+  @@index([organizationId, status, updatedAt], map: "payment_status_updated_idx")
+  @@index([organizationId, orderId], map: "payment_order_idx")
+  @@map("payments")
+}
+
+model PaymentAttempt {
+  id                   Uuid                   @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId       Uuid                   @map("organization_id")
+  paymentId            Uuid                   @map("payment_id")
+  attemptNumber        Int                    @map("attempt_number")
+  status               PaymentLifecycleStatus @default(CREATED)
+  providerOrderId      VarChar(160)?           @map("provider_order_id")
+  providerPreferenceId VarChar(160)?           @map("provider_preference_id")
+  checkoutUrl          VarChar(2048)?          @map("checkout_url")
+  errorCode            VarChar(160)?           @map("error_code")
+  errorMessage         VarChar(1000)?          @map("error_message")
+  startedAt            Timestamptz(3)          @default(now()) @map("started_at")
+  completedAt          Timestamptz(3)?         @map("completed_at")
+  createdAt            Timestamptz(3)          @default(now()) @map("created_at")
+  updatedAt            temporal.updatedAt()    @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "payment_attempt_organization_fkey")
+  payment      Payment      @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict, map: "payment_attempt_payment_fkey")
+
+  @@unique([organizationId, id], map: "payment_attempt_tenant_id_key")
+  @@unique([organizationId, paymentId, attemptNumber], map: "payment_attempt_number_key")
+  @@check(expression: "\"attempt_number\" > 0 AND (\"provider_order_id\" IS NULL OR char_length(btrim(\"provider_order_id\")) > 0) AND (\"provider_preference_id\" IS NULL OR char_length(btrim(\"provider_preference_id\")) > 0) AND (\"checkout_url\" IS NULL OR \"checkout_url\" ~ '^https?://')", name: "payment_attempt_values_valid")
+  @@index([organizationId, providerOrderId], name: "payment_attempt_provider_order_key", unique: true, where: "\"provider_order_id\" IS NOT NULL")
+  @@index([organizationId, providerPreferenceId], name: "payment_attempt_provider_preference_key", unique: true, where: "\"provider_preference_id\" IS NOT NULL")
+  @@index([organizationId, paymentId, status, createdAt], map: "payment_attempt_payment_status_idx")
+  @@index([organizationId, status, updatedAt], map: "payment_attempt_reconciliation_idx")
+  @@map("payment_attempts")
+}
+
+model PaymentProviderEvent {
+  id                      Uuid            @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId          Uuid            @map("organization_id")
+  paymentId               Uuid            @map("payment_id")
+  provider                PaymentProvider
+  providerEventId         VarChar(160)     @map("provider_event_id")
+  eventType               VarChar(120)     @map("event_type")
+  providerResourceId      VarChar(160)?    @map("provider_resource_id")
+  sanitizedPayload        Json             @map("sanitized_payload")
+  payloadHash             Bytes            @map("payload_hash")
+  processed               Boolean          @default(false)
+  processingAttempts      Int              @default(0) @map("processing_attempts")
+  lastProcessingError     VarChar(1000)?    @map("last_processing_error")
+  receivedAt              Timestamptz(3)   @default(now()) @map("received_at")
+  processedAt             Timestamptz(3)?  @map("processed_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "payment_provider_event_organization_fkey")
+  payment      Payment      @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict, map: "payment_provider_event_payment_fkey")
+
+  @@unique([organizationId, id], map: "payment_provider_event_tenant_id_key")
+  @@unique([provider, providerEventId], map: "payment_provider_event_dedup_key")
+  @@check(expression: "char_length(btrim(\"provider_event_id\")) > 0 AND char_length(btrim(\"event_type\")) > 0 AND octet_length(\"payload_hash\") = 32 AND \"processing_attempts\" >= 0 AND ((NOT \"processed\" AND \"processed_at\" IS NULL) OR (\"processed\" AND \"processed_at\" IS NOT NULL))", name: "payment_provider_event_values_valid")
+  @@index([organizationId, processed, receivedAt], map: "payment_provider_event_processing_idx")
+  @@index([provider, providerResourceId], map: "payment_provider_event_resource_idx")
+  @@map("payment_provider_events")
+}
+
+model Refund {
+  id               Uuid                   @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId   Uuid                   @map("organization_id")
+  paymentId        Uuid                   @map("payment_id")
+  amount           Int
+  reason           VarChar(1000)
+  actorUserId      Uuid?                  @map("actor_user_id")
+  status           PaymentLifecycleStatus @default(CREATED)
+  providerRefundId VarChar(160)?           @map("provider_refund_id")
+  requestedAt      Timestamptz(3)          @default(now()) @map("requested_at")
+  completedAt      Timestamptz(3)?         @map("completed_at")
+  createdAt        Timestamptz(3)          @default(now()) @map("created_at")
+  updatedAt        temporal.updatedAt()    @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "refund_organization_fkey")
+  payment      Payment      @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict, map: "refund_payment_fkey")
+  actor        User?        @relation("RefundActor", fields: [actorUserId], references: [id], onDelete: SetNull, map: "refund_actor_fkey")
+
+  @@unique([organizationId, id], map: "refund_tenant_id_key")
+  @@unique([organizationId, paymentId], map: "refund_full_payment_key")
+  @@check(expression: "\"amount\" > 0 AND char_length(btrim(\"reason\")) >= 3 AND (\"provider_refund_id\" IS NULL OR char_length(btrim(\"provider_refund_id\")) > 0)", name: "refund_values_valid")
+  @@index([organizationId, providerRefundId], name: "refund_provider_id_key", unique: true, where: "\"provider_refund_id\" IS NOT NULL")
+  @@index([organizationId, status, requestedAt], map: "refund_status_requested_idx")
+  @@index([actorUserId], map: "refund_actor_idx")
+  @@map("refunds")
+}
+
+model Package {
+  id                    Uuid          @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId        Uuid          @map("organization_id")
+  customerId            Uuid          @map("customer_id")
+  orderId               Uuid?         @map("order_id")
+  trackingCode          VarChar(160)        @map("tracking_code")
+  carrier               VarChar(160)
+  description           String?
+  itemCount             Int           @default(1) @map("item_count")
+  requiresColdStorage   Boolean       @default(false) @map("requires_cold_storage")
+  weightKg              Decimal?      @map("weight_kg")
+  storageLocationId     Uuid?         @map("storage_location_id")
+  status                PackageStatus @default(EXPECTED)
+  pickupCodeHash        Bytes?        @map("pickup_code_hash")
+  pickupCodeConsumedAt  Timestamptz(3)?     @map("pickup_code_consumed_at")
+  receivedAt            Timestamptz(3)?     @map("received_at")
+  storedAt              Timestamptz(3)?     @map("stored_at")
+  readyAt               Timestamptz(3)?     @map("ready_at")
+  pickupDeadline        Timestamptz(3)?     @map("pickup_deadline")
+  pickedUpAt            Timestamptz(3)?     @map("picked_up_at")
+  receivedByUserId      Uuid?         @map("received_by_user_id")
+  notes                 String?
+  createdAt             Timestamptz(3)      @default(now()) @map("created_at")
+  updatedAt             temporal.updatedAt() @map("updated_at")
+
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "package_organization_fkey")
+  customer       Customer           @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: Restrict, map: "package_customer_fkey")
+  order          Order?             @relation(fields: [organizationId, orderId], references: [organizationId, id], onDelete: Restrict, map: "package_order_fkey")
+  storageLocation InventoryLocation? @relation(fields: [organizationId, storageLocationId], references: [organizationId, id], onDelete: Restrict, map: "package_storage_location_fkey")
+  receivedBy     User?              @relation("PackageReceiver", fields: [receivedByUserId], references: [id], onDelete: SetNull, map: "package_receiver_fkey")
+  events         TrackingEvent[]
+  pickupReceipt  PackagePickupReceipt?
+
+  @@unique([organizationId, id], map: "package_tenant_id_key")
+  @@unique([organizationId, trackingCode], map: "package_tenant_tracking_key")
+  @@check(expression: "char_length(btrim(\"tracking_code\")) > 0 AND char_length(btrim(\"carrier\")) > 0 AND \"item_count\" > 0 AND (\"weight_kg\" IS NULL OR \"weight_kg\" > 0) AND (\"pickup_code_hash\" IS NULL OR octet_length(\"pickup_code_hash\") = 32)", name: "package_values_valid")
+  @@index([organizationId, customerId, createdAt], map: "package_customer_created_idx")
+  @@index([organizationId, status, createdAt], map: "package_status_created_idx")
+  @@index([organizationId, storageLocationId, status], map: "package_location_status_idx")
+  @@map("packages")
+}
+
+model TrackingEvent {
+  id             Uuid          @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId Uuid          @map("organization_id")
+  packageId      Uuid          @map("package_id")
+  previousStatus PackageStatus? @map("previous_status")
+  newStatus      PackageStatus @map("new_status")
+  description    VarChar(2000)
+  location       VarChar(240)?
+  actorUserId    Uuid?         @map("actor_user_id")
+  notes          String?
+  occurredAt     Timestamptz(3)      @default(now()) @map("occurred_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "tracking_event_organization_fkey")
+  package      Package      @relation(fields: [organizationId, packageId], references: [organizationId, id], onDelete: Cascade, map: "tracking_event_package_fkey")
+  actor        User?        @relation("TrackingEventActor", fields: [actorUserId], references: [id], onDelete: SetNull, map: "tracking_event_actor_fkey")
+
+  @@unique([organizationId, id], map: "tracking_event_tenant_id_key")
+  @@check(expression: "char_length(btrim(\"description\")) > 0 AND (\"previous_status\" IS NULL OR \"previous_status\" <> \"new_status\")", name: "tracking_event_values_valid")
+  @@index([organizationId, packageId, occurredAt], map: "tracking_event_package_time_idx")
+  @@map("tracking_events")
+}
+
+model PackagePickupReceipt {
+  id                    Uuid     @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId        Uuid     @map("organization_id")
+  packageId             Uuid     @map("package_id")
+  receivedBy            VarChar(200)   @map("received_by")
+  deliveredByUserId     Uuid     @map("delivered_by_user_id")
+  pickupCodeVerified    Boolean  @default(true) @map("pickup_code_verified")
+  deliveredAt           Timestamptz(3) @default(now()) @map("delivered_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "package_pickup_receipt_organization_fkey")
+  package      Package      @relation(fields: [organizationId, packageId], references: [organizationId, id], onDelete: Restrict, map: "package_pickup_receipt_package_fkey")
+  deliveredBy  User         @relation("PickupReceiptDeliverer", fields: [deliveredByUserId], references: [id], onDelete: Restrict, map: "package_pickup_receipt_deliverer_fkey")
+
+  @@unique([organizationId, id], map: "package_pickup_receipt_tenant_id_key")
+  @@unique([organizationId, packageId], map: "package_pickup_receipt_package_key")
+  @@check(expression: "char_length(btrim(\"received_by\")) > 0 AND \"pickup_code_verified\"", name: "package_pickup_receipt_values_valid")
+  @@index([organizationId, deliveredAt], map: "package_pickup_receipt_time_idx")
+  @@map("package_pickup_receipts")
+}
+
+model OrganizationSettings {
+  organizationId       Uuid     @id @map("organization_id")
+  contactEmail         VarChar(320)   @map("contact_email")
+  contactPhone         VarChar(40)   @map("contact_phone")
+  pickupAddress        VarChar(500)   @map("pickup_address")
+  pickupInstructions   String   @map("pickup_instructions")
+  lowStockThreshold    Int      @default(5) @map("low_stock_threshold")
+  packageAlertDays     Int      @default(5) @map("package_alert_days")
+  expirationWarningDays Int    @default(30) @map("expiration_warning_days")
+  createdAt            Timestamptz(3) @default(now()) @map("created_at")
+  updatedAt            temporal.updatedAt() @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, map: "organization_settings_organization_fkey")
+
+  @@check(expression: "\"low_stock_threshold\" >= 0 AND \"package_alert_days\" >= 0 AND \"expiration_warning_days\" >= 0", name: "organization_settings_thresholds_valid")
+  @@map("organization_settings")
+}
+
+model AuditLog {
+  id             Uuid     @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId Uuid     @map("organization_id")
+  actorUserId    Uuid?    @map("actor_user_id")
+  action         VarChar(160)
+  entityType     VarChar(120)   @map("entity_type")
+  entityId       Uuid?    @map("entity_id")
+  beforeJson     Json?    @map("before_json")
+  afterJson      Json?    @map("after_json")
+  requestId      VarChar(128) @map("request_id")
+  createdAt      Timestamptz(3) @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "audit_log_organization_fkey")
+  actor        User?        @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull, map: "audit_log_actor_fkey")
+
+  @@unique([organizationId, id], map: "audit_log_tenant_id_key")
+  @@check(expression: "char_length(btrim(\"action\")) > 0 AND char_length(btrim(\"entity_type\")) > 0", name: "audit_log_identity_valid")
+  @@index([organizationId, createdAt], map: "audit_log_tenant_created_idx")
+  @@index([organizationId, entityType, entityId, createdAt], map: "audit_log_entity_created_idx")
+  @@index([requestId], map: "audit_log_request_idx")
+  @@map("audit_logs")
+}
+
+model OutboxEvent {
+  id                Uuid         @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId    Uuid         @map("organization_id")
+  eventKey          VarChar(200) @map("event_key")
+  eventType         VarChar(120) @map("event_type")
+  recipientEmail    VarChar(320) @map("recipient_email")
+  payload           Json
+  status            OutboxStatus @default(PENDING)
+  attempts          Int          @default(0)
+  maxAttempts       Int          @default(5) @map("max_attempts")
+  nextAttemptAt     Timestamptz(3) @default(now()) @map("next_attempt_at")
+  lockedAt          Timestamptz(3)? @map("locked_at")
+  lastError         VarChar(1000)? @map("last_error")
+  providerMessageId VarChar(200)? @map("provider_message_id")
+  deliveredAt       Timestamptz(3)? @map("delivered_at")
+  createdAt         Timestamptz(3) @default(now()) @map("created_at")
+  updatedAt         temporal.updatedAt() @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "outbox_event_organization_fkey")
+
+  @@unique([organizationId, id], map: "outbox_event_tenant_id_key")
+  @@unique([organizationId, eventKey], map: "outbox_event_dedup_key")
+  @@check(expression: "char_length(btrim(\"event_key\")) > 0 AND char_length(btrim(\"event_type\")) > 0 AND char_length(btrim(\"recipient_email\")) > 0 AND \"attempts\" >= 0 AND \"max_attempts\" BETWEEN 1 AND 20 AND \"attempts\" <= \"max_attempts\" AND ((\"status\" = 'PENDING' AND \"locked_at\" IS NULL AND \"delivered_at\" IS NULL) OR (\"status\" = 'PROCESSING' AND \"locked_at\" IS NOT NULL AND \"delivered_at\" IS NULL) OR (\"status\" = 'DELIVERED' AND \"locked_at\" IS NULL AND \"delivered_at\" IS NOT NULL) OR (\"status\" = 'DEAD' AND \"locked_at\" IS NULL AND \"delivered_at\" IS NULL))", name: "outbox_event_state_valid")
+  @@index([status, nextAttemptAt], map: "outbox_event_delivery_idx")
+  @@index([organizationId, eventType, createdAt], map: "outbox_event_tenant_type_idx")
+  @@map("outbox_events")
+}
+
+model IdempotencyRecord {
+  id                Uuid              @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId    Uuid              @map("organization_id")
+  actorUserId       Uuid              @map("actor_user_id")
+  keyHash           Bytes             @map("key_hash")
+  requestHash       Bytes             @map("request_hash")
+  operation         VarChar(160)
+  status            IdempotencyStatus @default(IN_PROGRESS)
+  responseStatus    Int?              @map("response_status")
+  responseJson      Json?             @map("response_json")
+  resourceType      VarChar(120)?           @map("resource_type")
+  resourceId        Uuid?             @map("resource_id")
+  originalRequestId VarChar(128)       @map("original_request_id")
+  createdAt         Timestamptz(3)          @default(now()) @map("created_at")
+  expiresAt         Timestamptz(3)          @map("expires_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "idempotency_record_organization_fkey")
+  actor        User         @relation("IdempotencyActor", fields: [actorUserId], references: [id], onDelete: Restrict, map: "idempotency_record_actor_fkey")
+
+  @@unique([organizationId, id], map: "idempotency_record_tenant_id_key")
+  @@unique([organizationId, actorUserId, keyHash], map: "idempotency_record_scope_key")
+  @@check(expression: "octet_length(\"key_hash\") = 32 AND octet_length(\"request_hash\") = 32 AND \"expires_at\" > \"created_at\" AND ((\"status\" = 'IN_PROGRESS' AND \"response_status\" IS NULL AND \"response_json\" IS NULL) OR (\"status\" = 'COMPLETED' AND \"response_status\" BETWEEN 200 AND 599 AND \"response_json\" IS NOT NULL))", name: "idempotency_record_state_valid")
+  @@index([expiresAt], map: "idempotency_record_expiry_idx")
+  @@index([organizationId, resourceType, resourceId], map: "idempotency_record_resource_idx")
+  @@map("idempotency_records")
+}
+
+model RateLimitBucket {
+  id              Uuid     @id @default(dbgenerated("gen_random_uuid()"))
+  scope           VarChar(120)
+  keyHash         Bytes    @map("key_hash")
+  windowStartedAt Timestamptz(3) @map("window_started_at")
+  count           Int      @default(0)
+  blockedUntil    Timestamptz(3)? @map("blocked_until")
+  expiresAt       Timestamptz(3) @map("expires_at")
+  updatedAt       temporal.updatedAt() @map("updated_at")
+
+  @@unique([scope, keyHash], map: "rate_limit_bucket_scope_key")
+  @@check(expression: "char_length(btrim(\"scope\")) > 0 AND octet_length(\"key_hash\") = 32 AND \"count\" >= 0 AND \"expires_at\" >= \"window_started_at\"", name: "rate_limit_bucket_values_valid")
+  @@index([expiresAt], map: "rate_limit_bucket_expiry_idx")
+  @@map("rate_limit_buckets")
+}

@@ -1,4 +1,5 @@
-import { MockDashboardService } from "./services/mock-dashboard-service";
+import { applicationServices } from "../service-composition";
 import type { DashboardService } from "./services/dashboard-service";
 
-export const dashboardService: DashboardService = new MockDashboardService();
+export const dashboardService: DashboardService =
+  applicationServices.dashboardService;

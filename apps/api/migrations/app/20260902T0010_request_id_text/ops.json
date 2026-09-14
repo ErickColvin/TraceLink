@@ -1,0 +1,66 @@
+[
+  {
+    "id": "column.public.audit_logs.request_id.uuid-to-varchar",
+    "label": "Change audit_logs.request_id from uuid to varchar(128)",
+    "operationClass": "widening",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "request_id",
+        "table": "audit_logs"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure audit request_id is uuid",
+        "sql": "SELECT (data_type = 'uuid') AS result\n                  FROM information_schema.columns\n                 WHERE table_schema = 'public'\n                   AND table_name = 'audit_logs'\n                   AND column_name = 'request_id'"
+      }
+    ],
+    "execute": [
+      {
+        "description": "cast audit request_id to varchar(128)",
+        "sql": "ALTER TABLE \"public\".\"audit_logs\"\n                  ALTER COLUMN \"request_id\" TYPE character varying(128)\n                  USING \"request_id\"::text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify audit request_id is varchar(128)",
+        "sql": "SELECT (data_type = 'character varying' AND character_maximum_length = 128) AS result\n                  FROM information_schema.columns\n                 WHERE table_schema = 'public'\n                   AND table_name = 'audit_logs'\n                   AND column_name = 'request_id'"
+      }
+    ]
+  },
+  {
+    "id": "column.public.idempotency_records.original_request_id.uuid-to-varchar",
+    "label": "Change idempotency_records.original_request_id from uuid to varchar(128)",
+    "operationClass": "widening",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "original_request_id",
+        "table": "idempotency_records"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure idempotency original_request_id is uuid",
+        "sql": "SELECT (data_type = 'uuid') AS result\n                  FROM information_schema.columns\n                 WHERE table_schema = 'public'\n                   AND table_name = 'idempotency_records'\n                   AND column_name = 'original_request_id'"
+      }
+    ],
+    "execute": [
+      {
+        "description": "cast idempotency original_request_id to varchar(128)",
+        "sql": "ALTER TABLE \"public\".\"idempotency_records\"\n                  ALTER COLUMN \"original_request_id\" TYPE character varying(128)\n                  USING \"original_request_id\"::text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify idempotency original_request_id is varchar(128)",
+        "sql": "SELECT (data_type = 'character varying' AND character_maximum_length = 128) AS result\n                  FROM information_schema.columns\n                 WHERE table_schema = 'public'\n                   AND table_name = 'idempotency_records'\n                   AND column_name = 'original_request_id'"
+      }
+    ]
+  }
+]

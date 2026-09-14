@@ -1,4 +1,4 @@
-import { MockProductService } from "./services/mock-product-service";
+import { applicationServices } from "../service-composition";
 import type { ProductService } from "./services/product-service";
 
-export const productService: ProductService = new MockProductService();
+export const productService: ProductService = applicationServices.productService;

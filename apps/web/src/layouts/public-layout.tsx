@@ -226,18 +226,21 @@ export function PublicLayout() {
           </div>
           <div>
             <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-ice-300">
-              Tu cuenta
+              Cuenta y ayuda
             </h2>
             <ul className="mt-4 space-y-3 text-sm text-ice-100">
               <li><Link className="hover:text-white" to="/login">Iniciar sesión</Link></li>
               <li><Link className="hover:text-white" to="/login?returnTo=/mi-cuenta/pedidos">Mis pedidos</Link></li>
               <li><Link className="hover:text-white" to="/login?returnTo=/mi-cuenta/paquetes">Mis paquetes</Link></li>
+              <li><Link className="hover:text-white" to="/terminos">Términos</Link></li>
+              <li><Link className="hover:text-white" to="/privacidad">Privacidad</Link></li>
+              <li><Link className="hover:text-white" to="/cambios-y-devoluciones">Cambios y devoluciones</Link></li>
             </ul>
           </div>
         </div>
         <div className="border-t border-white/10">
           <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 text-xs text-ice-300 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-            <p>© {currentYear} {tenantBrand.name}. Experiencia demo frontend.</p>
+            <p>© {currentYear} {tenantBrand.name}. Todos los derechos reservados.</p>
             <p>Plataforma TraceLink · {tenantBrand.organization}</p>
           </div>
         </div>

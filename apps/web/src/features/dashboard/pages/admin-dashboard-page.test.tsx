@@ -27,6 +27,10 @@ afterEach(() => {
 
 describe("AdminDashboardPage", () => {
   it("exposes each sales bar as a named list item", async () => {
+    vi.spyOn(dashboardService, "getOverview").mockResolvedValue(
+      mockDashboardOverview,
+    );
+
     renderDashboard();
 
     const trend = await screen.findByRole("list", {

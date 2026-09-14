@@ -6,10 +6,12 @@ import {
 } from "../../mock-context";
 import { mockOrders } from "../data/mock-orders";
 import type {
+  CancelCustomerOrderResult,
   CurrentCustomerOrderListParams,
   Order,
   OrderPage,
   OrderSort,
+  RetryCustomerPaymentResult,
 } from "../domain";
 import { OrderNotFoundError, type OrderService } from "./order-service";
 
@@ -78,5 +80,54 @@ export class MockOrderService implements OrderService {
 
     if (!order) throw new OrderNotFoundError(id);
     return cloneOrder(order);
+  }
+
+  async retryPayment(id: string): Promise<RetryCustomerPaymentResult> {
+    await delay(160);
+    const order = await this.getCurrentCustomerById(id);
+
+    return {
+      order: {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        fulfillmentMethod: "PICKUP",
+        subtotal: order.subtotal,
+        discountTotal: 0,
+        deliveryFee: 0,
+        total: order.total,
+        createdAt: order.createdAt,
+      },
+      payment: {
+        id: `${order.id}-payment`,
+        orderId: order.id,
+        provider: "FAKE",
+        status: "PENDING",
+        amount: order.total,
+        currency: "CLP",
+        providerExternalReference: `${order.id}-mock`,
+        createdAt: order.createdAt,
+        updatedAt: new Date().toISOString(),
+      },
+      attempt: {
+        id: `${order.id}-attempt-retry`,
+        paymentId: `${order.id}-payment`,
+        attemptNumber: 2,
+        status: "PENDING",
+        checkoutUrl: "/checkout/resultado?status=pending",
+        startedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      checkoutUrl: "/checkout/resultado?status=pending",
+      reservationExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+    };
+  }
+
+  async cancel(id: string): Promise<CancelCustomerOrderResult> {
+    await delay(120);
+    const order = await this.getCurrentCustomerById(id);
+    return { orderId: order.id, status: "CANCELLED", paymentStatus: "CANCELLED" };
   }
 }

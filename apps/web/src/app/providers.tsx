@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { PropsWithChildren } from "react";
-import { AuthProvider } from "@/features/auth";
+import { AuthProvider } from "@/features/auth/context/auth-provider";
 import { CartProvider } from "@/features/cart/cart-provider";
 
 const queryClient = new QueryClient({
@@ -21,4 +21,3 @@ export function AppProviders({ children }: PropsWithChildren) {
     </QueryClientProvider>
   );
 }
-

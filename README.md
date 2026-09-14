@@ -1,111 +1,322 @@
 # TraceLink V2 · CH Market
 
-Base frontend de TraceLink V2 para CH Market, desarrollada por Colvin Solutions. Esta entrega reúne una tienda pública, un portal privado de cliente y un shell operativo para personal, todos sobre servicios mock tipados y reemplazables por adaptadores HTTP.
+TraceLink V2 es la plataforma de comercio, inventario, pedidos y trazabilidad de Colvin Solutions. Esta entrega integra la UI completa de CH Market con una API autoritativa, sesiones server-side, PostgreSQL, checkout real con reservas y una abstracción de pagos. La Fase 5 agrega configuración de producción, CI/CD, jobs, outbox de notificaciones, observabilidad y recuperación, manteniendo un modo mock local.
 
-## Estado de la entrega
+## Estado
 
-Incluye:
+Fase 5 preparada en código incluye:
 
-- home comercial responsive;
-- catálogo con búsqueda, categorías, disponibilidad y ordenamiento;
-- detalle de producto y carrito local demostrativo;
-- login preparado para autenticación futura y accesos demo explícitos;
-- portal cliente con resumen, pedidos, paquetes, perfil y detalle;
-- timeline reutilizable de trazabilidad;
-- shell administrativo con navegación por permisos y dashboard inicial;
-- contratos de productos, pedidos, paquetes, clientes, inventario y dashboard;
-- estados de carga, error, vacío, éxito y controles deshabilitados;
-- pruebas unitarias y de integración frontend.
+- storefront responsive, carrito y checkout autenticado;
+- portales customer y staff con la UX de Fase 2 intacta;
+- API Express 5 modular bajo `/api/v1`;
+- PostgreSQL 18 y modelos tenant-scoped para comercio, inventario, pedidos, paquetes y pagos;
+- contrato Prisma 8 y migraciones versionadas;
+- auth con Argon2id, cookie HttpOnly, sesión revocable y CSRF;
+- seis roles, permisos tipados y enforcement en servidor, incluyendo `orders.refund`;
+- productos, clientes, inventario transaccional, reservas de checkout, pedidos, pagos y paquetes persistidos;
+- checkout autoritativo: precios/stock calculados en backend, order `PENDING_PAYMENT`, reserva de 15 minutos configurable y redirección a `checkoutUrl`;
+- `PaymentProvider` con provider fake para CI y adapter Mercado Pago Orders API para sandbox;
+- webhook firmado `/api/v1/webhooks/mercadopago`, reconciliación contra provider e idempotencia ante duplicados;
+- reintento de pago sobre la misma order, cancelación customer de pedidos pendientes y full refund staff;
+- cumplimiento de pedidos pagados que consume inventario reservado una sola vez;
+- registro público customer en `/registro`;
+- AuditLog, request IDs, idempotencia y rate limits persistentes;
+- dashboard/reportes derivados de PostgreSQL;
+- adapters HTTP con validación Zod y modo mock intercambiable;
+- tests unitarios, API, integración PostgreSQL, seguridad y E2E browser real.
+- Cloudflare Pages con fallback SPA y security headers;
+- Railway IaC para API, PostgreSQL y tres cron jobs;
+- CI de Pull Request, CD de staging y deploy productivo manual protegido;
+- reconciliación bounded de pagos pendientes ante webhooks perdidos;
+- `NotificationProvider` fake/Resend y transactional outbox idempotente;
+- liveness/readiness separados, logs JSON redactados y uptime workflow;
+- route-level splitting, polling limitado de pago, countdown informativo y payment timeline;
+- bootstrap productivo de un solo uso, sin datos demo;
+- runbook, política de backup/restore y checklists de staging/go-live.
 
-No incluye backend, pagos, persistencia de sesión, stock transaccional ni autenticación real. Los accesos demo viven solo en memoria y no emiten tokens.
+Ejecución Fase 5C (12 de septiembre de 2026): Fase 5 total **83 %**, Fase 5C **16 %**, production readiness **NOT READY**. Ya existen los environments `staging`/`production`, el PR [#1](https://github.com/ErickColvin/TraceLink/pull/1), protección de `main` y CI remota verde en el run `34734131841`. Railway plan sigue bloqueado porque los environments no tienen secretos/variables; por ello staging, backups, restore real, Resend y Mercado Pago TEST no se han ejecutado. Pagos LIVE: **NOT ACTIVATED**. La matriz exacta PASS/BLOCKED está en [docs/staging-validation.md](docs/staging-validation.md).
 
 ## Requisitos
 
-- Node.js 22.12 o superior.
-- pnpm 11.24.0. Si `pnpm` no está instalado globalmente, usa `corepack pnpm` en los comandos iniciales.
+- Node.js 24 LTS (`>=24`).
+- Corepack y pnpm 11.24.0.
+- Docker Desktop/Engine para la base de desarrollo.
+- Chrome, Microsoft Edge o Chromium para E2E/revisión visual. Si no está en una ruta estándar, define `CHROME_PATH`.
 
-## Inicio rápido
+Comprueba las versiones:
+
+```powershell
+node --version
+corepack pnpm --version
+docker compose version
+```
+
+## Primera instalación en modo HTTP
+
+Desde la carpeta `TraceLink`:
 
 ```powershell
 corepack pnpm install
+Copy-Item .env.example .env
+```
+
+Edita `.env` antes de continuar:
+
+- usa una contraseña PostgreSQL exclusivamente local;
+- genera valores independientes de al menos 32 bytes para `SESSION_SECRET`, `CSRF_SECRET`, `IDEMPOTENCY_SECRET`, `RATE_LIMIT_SECRET` y `PICKUP_CODE_SECRET`;
+- define email/password locales para las identidades seed;
+- deja `VITE_DATA_MODE=http`.
+
+Puedes generar cada secreto con:
+
+```powershell
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+```
+
+Levanta PostgreSQL, aplica la cadena y carga datos coherentes:
+
+```powershell
+corepack pnpm db:up
+corepack pnpm db:migrate
+corepack pnpm db:seed
+
+# Expirar reservas de checkout vencidas de forma idempotente
+corepack pnpm reservations:expire
+
+# Conciliar pagos no terminales recientes y procesar emails pendientes
+corepack pnpm payments:reconcile
+corepack pnpm outbox:process
+```
+
+El seed es idempotente. Usa las variables `SEED_ADMIN_*`, `SEED_STAFF_*`, `SEED_CUSTOMER_*` y `SEED_PACKAGE_PICKUP_CODE`; no contiene una contraseña productiva en el código. Requiere `NODE_ENV=development|test`, rechaza producción y los placeholders de `.env.example` antes de abrir una conexión.
+
+Inicia frontend y API:
+
+```powershell
 corepack pnpm dev
 ```
 
-La aplicación queda disponible en `http://127.0.0.1:5173` o en la URL indicada por Vite.
+Abre:
 
-En `/login` están disponibles dos accesos sin credenciales:
+- web: `http://127.0.0.1:5173`;
+- API: `http://127.0.0.1:3001/api/v1`;
+- salud: `http://127.0.0.1:3001/api/v1/health`;
+- readiness DB: `http://127.0.0.1:3001/api/v1/health/ready`.
 
-- **Entrar como cliente** abre `/mi-cuenta` con datos privados mock de Valentina Rojas.
-- **Entrar como personal** abre `/app/dashboard` con permisos administrativos mock.
+En modo HTTP, inicia sesión con los valores de email/password que configuraste para el seed. Los accesos demo se ocultan.
 
-## Comandos
+## Inicio rápido en modo mock
+
+Para recorrer solamente el frontend sin Docker/API, define en `.env`:
+
+```text
+VITE_DATA_MODE=mock
+```
+
+Luego:
+
+```powershell
+corepack pnpm dev:web
+```
+
+En `/login` aparecerán “Entrar como cliente” y “Entrar como personal”. Los datos y mutaciones mock viven en memoria y se reinician al recargar.
+
+## Comandos de desarrollo
+
+```powershell
+# Frontend + API
+corepack pnpm dev
+
+# Solo una aplicación
+corepack pnpm dev:web
+corepack pnpm dev:api
+
+# Compilar y previsualizar frontend compilado
+corepack pnpm build
+corepack pnpm preview
+```
+
+Vite proxyea `/api` a `VITE_API_PROXY_TARGET`, por defecto `http://127.0.0.1:3001`, para aproximar same-origin en desarrollo.
+
+## Comandos de base de datos
+
+```powershell
+# Contenedor PostgreSQL 18 persistente de desarrollo
+corepack pnpm db:up
+corepack pnpm db:down
+
+# PostgreSQL separado del perfil de tests manual
+corepack pnpm db:test:up
+
+# Contrato y migraciones Prisma 8
+corepack pnpm db:contract
+corepack pnpm db:plan
+corepack pnpm db:migrate
+corepack pnpm db:verify
+corepack pnpm db:migration:check
+
+# Dataset de desarrollo idempotente
+corepack pnpm db:seed
+```
+
+`db:down` detiene los servicios y conserva el volumen de desarrollo. Ningún script de este proyecto hace reset o drop automático de una base productiva.
+
+## Calidad y pruebas
+
+Gates completos:
 
 ```powershell
 corepack pnpm lint
 corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm build
+corepack pnpm test:e2e
 ```
 
-Para repetir la revisión visual, deja `corepack pnpm dev` ejecutándose en otra terminal y usa:
+Suites backend por separado:
 
 ```powershell
-corepack pnpm test:e2e
-# alias descriptivo del mismo flujo:
+corepack pnpm test:unit
+corepack pnpm test:api
+corepack pnpm test:integration
+```
+
+`test:integration` y `test:e2e` levantan un PostgreSQL 18 embebido y aislado. El E2E aplica migraciones, carga fixtures, inicia API y Vite en modo HTTP, ejecuta Chrome/Edge y libera los procesos; no requiere dejar servidores abiertos.
+
+Revisión responsive del modo mock con Vite ya iniciado:
+
+```powershell
+corepack pnpm dev:web
+# En otra terminal:
 corepack pnpm review:visual
 ```
 
-El script utiliza `playwright-core` con Chrome o Edge instalado. Captura Home a 375, 768, 1024 y 1440 px, y toma muestras adicionales de catálogo, detalle, login, portal cliente y dashboard en los anchos relevantes; falla si detecta overflow horizontal del documento. También comprueba la búsqueda de paquetes por contenido y el aislamiento de foco, fondo y scroll del drawer administrativo. Las capturas se escriben en el directorio temporal del sistema.
+La revisión genera 29 capturas temporales y verifica 375, 768, 1024 y 1440 px, overflow, errores de página, foco/drawer y el flujo de paquete.
 
-## Estructura
+## Modos de datos
 
-```text
-TraceLink/
-├── apps/
-│   └── web/
-│       ├── public/
-│       └── src/
-│           ├── app/          # providers, rutas y configuración de marca
-│           ├── components/   # UI compartida
-│           ├── features/     # dominio, servicios, queries y pantallas
-│           ├── layouts/      # público, cliente y administración
-│           ├── lib/          # formato CLP/fechas y utilidades
-│           └── styles/       # tokens y estilos globales
-├── docs/
-├── tools/
-├── AGENTS.md
-└── ARCHITECTURE.md
-```
+| Variable | Resultado |
+| --- | --- |
+| `VITE_DATA_MODE=mock` | Adapters en memoria y accesos demo. |
+| `VITE_DATA_MODE=http` | Adapters HTTP, cookie de sesión real y PostgreSQL autoritativo. |
 
-El acceso a datos sigue esta dirección:
+La selección ocurre en `apps/web/src/features/service-composition.ts`; no hay condicionales de modo dispersos por las pantallas.
+
+## Rutas principales
+
+### Tienda pública
 
 ```text
-Pantalla → hook de feature → interfaz de servicio → adapter mock
+/
+/productos
+/productos/:slug
+/nosotros
+/contacto
+/terminos
+/privacidad
+/cambios-y-devoluciones
+/carrito
+/checkout
+/checkout/resultado
+/login
+/registro
 ```
 
-Los fixtures se mantienen privados dentro de cada feature. Una integración futura sustituirá los adapters mock por adapters HTTP sin cambiar las páginas.
+`/checkout` requiere sesión customer. La URL de retorno `/checkout/resultado` es solo UX: no aprueba pedidos desde query params; el estado real queda en API/PostgreSQL y se actualiza por webhook/reconciliación.
 
-## Configuración regional
+### Portal customer
 
-La marca y la configuración regional viven en `apps/web/src/app/config/brand.ts`:
+```text
+/mi-cuenta
+/mi-cuenta/pedidos
+/mi-cuenta/pedidos/:id
+/mi-cuenta/paquetes
+/mi-cuenta/paquetes/:id
+/mi-cuenta/perfil
+```
 
-- locale: `es-CL`;
-- moneda: `CLP`;
-- timezone: `America/Santiago`.
+### Portal staff
 
-Los montos y fechas se formatean mediante `Intl` desde utilidades centralizadas. Los valores monetarios CLP son enteros.
+```text
+/app/dashboard
+/app/products
+/app/products/new
+/app/products/:id
+/app/products/:id/edit
+/app/inventory
+/app/inventory/movements
+/app/orders
+/app/orders/:id
+/app/packages
+/app/packages/new
+/app/packages/:id
+/app/customers
+/app/customers/:id
+/app/users
+/app/users/:id
+/app/roles
+/app/reports
+/app/settings
+```
+
+## Arquitectura resumida
+
+```text
+React page
+  -> feature service interface
+  -> mock adapter o HTTP adapter
+  -> shared HttpClient
+  -> Express middleware/controller/service/repository
+  -> PostgreSQL
+```
+
+- `apps/web/src/app`: router, providers y configuración runtime.
+- `apps/web/src/features`: dominio, queries, contratos y adapters.
+- `apps/web/src/lib/http`: cliente HTTP reutilizable.
+- `apps/api/src/modules`: módulos de negocio por capas.
+- `apps/api/src/modules/checkout`: creación autoritativa de order, reserva y payment attempt.
+- `apps/api/src/modules/payments`: providers, webhooks, retry, refund y reconciliación.
+- `apps/api/src/middleware` y `shared`: seguridad y comportamiento transversal.
+- `packages/contracts`: DTOs Zod compartidos.
+
+## Seguridad operativa
+
+- Nunca subas `.env`, credenciales, cookies ni tokens.
+- El tenant, actor y ownership se derivan de Session; no se aceptan como autoridad desde el navegador.
+- La cookie fuera de local es `__Host-`, HttpOnly, Secure, Path=/ y sin Domain. `SameSite` es configurable: `none` para los dominios técnicos separados Cloudflare/Railway y `lax` en local/same-site; CSRF y Origin exacto siguen siendo obligatorios.
+- CSRF y Origin exacto protegen mutaciones autenticadas.
+- Passwords usan Argon2id; tokens/códigos se guardan únicamente como hashes.
+- Rate limits protegen auth y entrega; AuditLog omite secretos.
+- IDs fuera de tenant/customer responden `404` sin revelar existencia.
+- El navegador no envía precios, customerId ni estado de pago como autoridad.
+- Webhooks de pago inválidos no aplican efectos de negocio.
+- `TRUST_PROXY` debe coincidir con la topología real y el origen de API no debe quedar accesible saltándose el proxy autorizado.
+
+Consulta [docs/security.md](docs/security.md) antes de desplegar.
 
 ## Documentación
 
-- [`ARCHITECTURE.md`](ARCHITECTURE.md): arquitectura objetivo y límites.
-- [`docs/legacy-audit.md`](docs/legacy-audit.md): auditoría de los tres proyectos históricos y matriz de reutilización.
-- [`docs/frontend-design.md`](docs/frontend-design.md): sistema visual, layouts y patrones UX.
-- [`docs/frontend-roadmap.md`](docs/frontend-roadmap.md): estado `DONE / NEXT / LATER`.
-
-## Seguridad
-
-- No agregues `.env`, secretos ni tokens al repositorio.
-- La autorización frontend solo mejora la UX; el backend futuro deberá validar sesión, permisos y propiedad de registros.
-- Los datos de cliente se obtienen mediante contratos `current customer`; nunca mediante búsqueda libre por nombre.
-- La caché privada se separa por identidad autenticada y se limpia al restaurar, cambiar o cerrar sesión.
-- Los repositorios legacy contienen antecedentes de credenciales versionadas. No se copió ningún secreto a esta solución.
+- [ARCHITECTURE.md](ARCHITECTURE.md): arquitectura vigente y límites.
+- [docs/backend-architecture.md](docs/backend-architecture.md): capas y transacciones.
+- [docs/api.md](docs/api.md): endpoints HTTP estables.
+- [docs/api-contract-map.md](docs/api-contract-map.md): equivalencia de los 14 servicios frontend.
+- [docs/database-model.md](docs/database-model.md): modelos, relaciones, índices y migraciones.
+- [docs/security.md](docs/security.md): controles y checklist de despliegue.
+- [docs/ecommerce.md](docs/ecommerce.md): reglas de checkout, orders, fulfillment, cancelación y refund.
+- [docs/inventory-reservations.md](docs/inventory-reservations.md): ciclo de vida de reservas y consumo.
+- [docs/payments.md](docs/payments.md): arquitectura de pagos y Mercado Pago Orders API.
+- [docs/payment-webhooks.md](docs/payment-webhooks.md): firma, deduplicación y reconciliación.
+- [docs/deployment.md](docs/deployment.md): Cloudflare, Railway, environments, migrations y bootstrap.
+- [docs/disaster-recovery.md](docs/disaster-recovery.md): backups, restore aislado y medición RPO/RTO.
+- [docs/operations-runbook.md](docs/operations-runbook.md): incidentes, rollback y recuperación operativa.
+- [docs/production-checklist.md](docs/production-checklist.md): gates previos a producción.
+- [docs/staging-validation.md](docs/staging-validation.md): matriz de pruebas externas pendiente.
+- [docs/go-live-payments.md](docs/go-live-payments.md): gate manual de Mercado Pago LIVE.
+- [docs/frontend-design.md](docs/frontend-design.md): sistema visual y patrones UX.
+- [docs/frontend-roadmap.md](docs/frontend-roadmap.md): fases terminadas y siguientes.
+- [docs/ui-review-phase-3.md](docs/ui-review-phase-3.md): revisión visual y mejoras posibles.
+- [FinFase 2.txt](FinFase%202.txt): informe de cierre anterior.
+- `FinFase 3.txt`: informe integral generado al cerrar esta fase.
+- [FinFase 4.txt](FinFase%204.txt): informe integral generado al cerrar Fase 4.
+- [FinFase 5.txt](FinFase%205.txt): informe honesto de preparación productiva y pendientes externos.
+- [QUE HACER.txt](QUE%20HACER.txt): pasos locales y datos necesarios para preparar la siguiente fase.

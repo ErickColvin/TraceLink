@@ -14,6 +14,7 @@ import {
   type AuthenticatedSession,
   type AuthSession,
   type Permission,
+  type RegisterCredentials,
   type SignInCredentials,
 } from "../model/auth";
 import {
@@ -21,8 +22,9 @@ import {
   type AuthError,
   type AuthService,
 } from "../services/auth-service";
-import { MockAuthService } from "../services/mock-auth-service";
+import { applicationServices } from "../../service-composition";
 import { clearCustomerPrivateQueries } from "../query-scope";
+import { SESSION_EXPIRED_EVENT } from "@/lib/http/http-client";
 import {
   AuthContext,
   type AuthContextValue,
@@ -37,7 +39,7 @@ export type AuthProviderProps = Readonly<{
 export function AuthProvider({ children, service }: AuthProviderProps) {
   const queryClient = useQueryClient();
   const [authService] = useState<AuthService>(
-    () => service ?? new MockAuthService(),
+    () => service ?? applicationServices.authService,
   );
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [session, setSession] = useState<AuthSession>(ANONYMOUS_SESSION);
@@ -78,6 +80,18 @@ export function AuthProvider({ children, service }: AuthProviderProps) {
     };
   }, [authService, clearPrivateCache]);
 
+  useEffect(() => {
+    const handleExpiredSession = () => {
+      void clearPrivateCache();
+      setSession(ANONYMOUS_SESSION);
+      setStatus("ready");
+    };
+    globalThis.addEventListener(SESSION_EXPIRED_EVENT, handleExpiredSession);
+    return () => {
+      globalThis.removeEventListener(SESSION_EXPIRED_EVENT, handleExpiredSession);
+    };
+  }, [clearPrivateCache]);
+
   const runSessionOperation = useCallback(
     async (
       operation: () => Promise<AuthenticatedSession>,
@@ -106,6 +120,12 @@ export function AuthProvider({ children, service }: AuthProviderProps) {
   const signIn = useCallback(
     (credentials: SignInCredentials) =>
       runSessionOperation(() => authService.signIn(credentials)),
+    [authService, runSessionOperation],
+  );
+
+  const registerAccount = useCallback(
+    (credentials: RegisterCredentials) =>
+      runSessionOperation(() => authService.register(credentials)),
     [authService, runSessionOperation],
   );
 
@@ -147,8 +167,10 @@ export function AuthProvider({ children, service }: AuthProviderProps) {
     () => ({
       status,
       session,
+      demoSessionsEnabled: authService.demoSessionsEnabled,
       isPending,
       error,
+      registerAccount,
       signIn,
       startDemoSession,
       signOut,
@@ -158,8 +180,10 @@ export function AuthProvider({ children, service }: AuthProviderProps) {
     [
       status,
       session,
+      authService,
       isPending,
       error,
+      registerAccount,
       signIn,
       startDemoSession,
       signOut,

@@ -40,6 +40,12 @@ export function CustomerLayout() {
 
   return (
     <div className="min-h-screen bg-ice-50 text-ink-950">
+      <a
+        href="#contenido-cuenta"
+        className="fixed left-4 top-3 z-[100] -translate-y-20 rounded-lg bg-brand-950 px-4 py-2 font-semibold text-white transition-transform focus:translate-y-0"
+      >
+        Saltar al contenido
+      </a>
       <header className="border-b border-ink-100 bg-white">
         <div className="mx-auto flex min-h-18 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Link to="/" aria-label={`Volver a ${tenantBrand.name}`}>
@@ -74,7 +80,7 @@ export function CustomerLayout() {
             <Button variant="ghost" className="w-full justify-start" onClick={() => void handleSignOut()}><LogOut aria-hidden="true" /> Cerrar sesión</Button>
           </div>
         </aside>
-        <main id="contenido-cuenta" className="min-w-0">
+        <main id="contenido-cuenta" tabIndex={-1} className="min-w-0">
           {logoutError ? <Alert tone="danger" className="mb-5"><LogOut aria-hidden="true" /><p>No pudimos cerrar la sesión. Inténtalo nuevamente.</p></Alert> : null}
           <Outlet />
           <Button variant="ghost" className="mt-8 w-full lg:hidden" onClick={() => void handleSignOut()}><LogOut aria-hidden="true" /> Cerrar sesión</Button>

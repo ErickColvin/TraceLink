@@ -1,0 +1,140 @@
+[
+  {
+    "id": "alterType.organization_settings.pickup_address",
+    "label": "Alter type of \"organization_settings\".\"pickup_address\" to character varying(500)",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "pickup_address",
+        "table": "organization_settings"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"pickup_address\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "organization_settings",
+          "pickup_address"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "alter type of \"pickup_address\"",
+        "sql": "ALTER TABLE \"public\".\"organization_settings\" ALTER COLUMN \"pickup_address\" TYPE character varying(500) USING \"pickup_address\"::character varying(500)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"pickup_address\" has type \"character varying(500)\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "organization_settings",
+          "pickup_address",
+          "character varying(500)"
+        ]
+      }
+    ],
+    "meta": {
+      "warning": "TABLE_REWRITE"
+    }
+  },
+  {
+    "id": "alterType.organizations.locale",
+    "label": "Alter type of \"organizations\".\"locale\" to character varying(35)",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "locale",
+        "table": "organizations"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"locale\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "organizations",
+          "locale"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "alter type of \"locale\"",
+        "sql": "ALTER TABLE \"public\".\"organizations\" ALTER COLUMN \"locale\" TYPE character varying(35) USING \"locale\"::character varying(35)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"locale\" has type \"character varying(35)\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "organizations",
+          "locale",
+          "character varying(35)"
+        ]
+      }
+    ],
+    "meta": {
+      "warning": "TABLE_REWRITE"
+    }
+  },
+  {
+    "id": "alterType.organizations.timezone",
+    "label": "Alter type of \"organizations\".\"timezone\" to character varying(100)",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "timezone",
+        "table": "organizations"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"timezone\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "organizations",
+          "timezone"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "alter type of \"timezone\"",
+        "sql": "ALTER TABLE \"public\".\"organizations\" ALTER COLUMN \"timezone\" TYPE character varying(100) USING \"timezone\"::character varying(100)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"timezone\" has type \"character varying(100)\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "organizations",
+          "timezone",
+          "character varying(100)"
+        ]
+      }
+    ],
+    "meta": {
+      "warning": "TABLE_REWRITE"
+    }
+  }
+]

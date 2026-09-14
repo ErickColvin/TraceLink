@@ -5,6 +5,7 @@ import type {
   AuthenticatedSession,
   AuthSession,
   Permission,
+  RegisterCredentials,
   SignInCredentials,
 } from "../model/auth";
 import type { AuthError } from "../services/auth-service";
@@ -14,8 +15,10 @@ export type AuthStatus = "loading" | "ready";
 export type AuthContextValue = Readonly<{
   status: AuthStatus;
   session: AuthSession;
+  demoSessionsEnabled: boolean;
   isPending: boolean;
   error: AuthError | null;
+  registerAccount(credentials: RegisterCredentials): Promise<AuthenticatedSession>;
   signIn(credentials: SignInCredentials): Promise<AuthenticatedSession>;
   startDemoSession(audience: AuthAudience): Promise<AuthenticatedSession>;
   signOut(): Promise<void>;

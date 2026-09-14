@@ -8,6 +8,7 @@ export const PERMISSIONS = Object.freeze([
   "orders.view",
   "orders.update",
   "orders.cancel",
+  "orders.refund",
   "packages.view",
   "packages.receive",
   "packages.update",
@@ -33,7 +34,16 @@ export type CustomerAccount = Readonly<{
   email: string;
 }>;
 
-export type StaffRole = "administrator" | "operations" | "inventory";
+export const STAFF_ROLE_CODES = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "INVENTORY",
+  "OPERATIONS",
+  "SALES",
+  "WAREHOUSE",
+] as const;
+
+export type StaffRole = (typeof STAFF_ROLE_CODES)[number];
 
 export type StaffAccount = Readonly<{
   id: string;
@@ -74,6 +84,14 @@ export type SignInCredentials = Readonly<{
   audience: AuthAudience;
   email: string;
   password: string;
+}>;
+
+export type RegisterCredentials = Readonly<{
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phone?: string;
 }>;
 
 export function isCustomerSession(
