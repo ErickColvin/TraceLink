@@ -3,7 +3,11 @@ name: Railway config
 on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
-    paths: [".railway/**", "package.json", "pnpm-lock.yaml"]
+    paths:
+      - ".railway/**"
+      - ".github/workflows/railway-config.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
 
 permissions:
   contents: read
@@ -11,10 +15,17 @@ permissions:
   actions: read
   id-token: write
 
+# Job-level `if` may only use the github, needs, vars and inputs contexts.
+# The secrets context is NOT available there and makes the whole workflow
+# invalid, so tokens are passed exclusively through the action inputs below.
+# RAILWAY_PRODUCTION_ENABLED must be a REPOSITORY variable: environment
+# variables are not resolved when a job-level condition is evaluated.
 jobs:
   plan-staging:
     name: Plan staging infrastructure
-    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository && secrets.RAILWAY_STAGING_TOKEN != '' && secrets.RAILWAY_STAGING_TOKEN != 'MISSING'
+    if: >-
+      github.event.action != 'closed'
+      && github.event.pull_request.head.repo.full_name == github.repository
     environment: staging
     runs-on: ubuntu-latest
     steps:
@@ -30,7 +41,10 @@ jobs:
 
   plan-production:
     name: Plan production infrastructure
-    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository && secrets.RAILWAY_PRODUCTION_TOKEN != '' && secrets.RAILWAY_PRODUCTION_TOKEN != 'MISSING'
+    if: >-
+      github.event.action != 'closed'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && vars.RAILWAY_PRODUCTION_ENABLED == 'true'
     environment: production
     runs-on: ubuntu-latest
     steps:
@@ -47,7 +61,10 @@ jobs:
 
   apply-staging:
     name: Apply reviewed staging infrastructure
-    if: github.event.action == 'closed' && github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository && secrets.RAILWAY_STAGING_TOKEN != '' && secrets.RAILWAY_STAGING_TOKEN != 'MISSING'
+    if: >-
+      github.event.action == 'closed'
+      && github.event.pull_request.merged == true
+      && github.event.pull_request.head.repo.full_name == github.repository
     environment: staging
     runs-on: ubuntu-latest
     steps:
@@ -64,7 +81,11 @@ jobs:
 
   apply-production:
     name: Apply reviewed production infrastructure
-    if: github.event.action == 'closed' && github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository && secrets.RAILWAY_PRODUCTION_TOKEN != '' && secrets.RAILWAY_PRODUCTION_TOKEN != 'MISSING'
+    if: >-
+      github.event.action == 'closed'
+      && github.event.pull_request.merged == true
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && vars.RAILWAY_PRODUCTION_ENABLED == 'true'
     environment: production
     runs-on: ubuntu-latest
     steps:
