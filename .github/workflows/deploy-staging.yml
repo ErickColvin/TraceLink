@@ -56,8 +56,22 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           packageManager: pnpm
-          command: pages deploy apps/web/dist --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }} --branch=staging
+          # Install/run Wrangler inside the web package, not the workspace root.
+          workingDirectory: apps/web
+          command: pages deploy dist --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }} --branch=staging
+          preCommands: |
+            node --input-type=module <<'NODE'
+            const { CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: token, PAGES_PROJECT: project } = process.env;
+            const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(account)}/pages/projects/${encodeURIComponent(project)}`, { headers: { Authorization: `Bearer ${token}` } });
+            const payload = await response.json();
+            if (!response.ok || !payload.success) throw new Error(`Cannot verify Pages preview target (HTTP ${response.status}).`);
+            const productionBranch = payload.result?.production_branch;
+            if (!productionBranch || productionBranch === 'staging') throw new Error('Refusing staging deploy: production branch is staging or unknown.');
+            console.log('Verified: staging is a preview branch, not production.');
+            NODE
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
 
   smoke:
     name: Staging smoke
