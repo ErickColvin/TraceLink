@@ -5,6 +5,7 @@ on:
     workflows: [CI]
     branches: [main]
     types: [completed]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,16 +15,24 @@ concurrency:
   group: deploy-staging
   cancel-in-progress: false
 
+# A job-level `if` only sees organization and repository variables: environment
+# variables are published to the runner after the job starts. STAGING_API_BASE_URL,
+# STAGING_WEB_URL and STAGING_API_URL must therefore be REPOSITORY variables, or
+# these gates never open. While they are unset the jobs skip instead of failing,
+# so staging can be provisioned before its public URLs exist.
 jobs:
   web:
     name: Cloudflare Pages staging
-    if: github.event.workflow_run.conclusion == 'success'
+    if: >-
+      (github.event_name == 'workflow_dispatch'
+      || github.event.workflow_run.conclusion == 'success')
+      && vars.STAGING_API_BASE_URL != ''
     environment: staging
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
       - uses: pnpm/action-setup@v4
         with:
@@ -34,6 +43,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Build shared contracts
+        run: pnpm --filter @tracelink/contracts build
       - name: Build HTTP frontend
         run: pnpm --filter @tracelink/web build
         env:
@@ -51,12 +62,13 @@ jobs:
   smoke:
     name: Staging smoke
     needs: web
+    if: vars.STAGING_WEB_URL != '' && vars.STAGING_API_URL != ''
     environment: staging
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
       - run: node tools/smoke-deployment.mjs
         env:
