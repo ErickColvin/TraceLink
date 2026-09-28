@@ -16,6 +16,19 @@ const validEnvironment = {
   PICKUP_CODE_SECRET: "pickup-code-secret-for-tests-only-32-",
 } as const;
 
+const optionalProviderFields = [
+  "MERCADOPAGO_ACCESS_TOKEN",
+  "MERCADOPAGO_WEBHOOK_SECRET",
+  "PAYMENT_SUCCESS_URL",
+  "PAYMENT_FAILURE_URL",
+  "PAYMENT_PENDING_URL",
+  "PAYMENT_WEBHOOK_URL",
+  "EMAIL_FROM",
+  "EMAIL_REPLY_TO",
+  "RESEND_API_KEY",
+  "STAFF_NOTIFICATION_EMAIL",
+] as const;
+
 describe("parseEnvironment", () => {
   it("normalizes an exact web origin and applies bounded defaults", () => {
     const config = parseEnvironment(validEnvironment);
@@ -78,6 +91,69 @@ describe("parseEnvironment", () => {
       }),
     ).toThrow(EnvironmentValidationError);
   });
+
+  it.each(["", " \t "])("treats blank optional provider references as absent: %j", (blank) => {
+    const config = parseEnvironment({
+      ...validEnvironment,
+      ...Object.fromEntries(optionalProviderFields.map((field) => [field, blank])),
+      NODE_ENV: "production",
+      APP_ENV: "staging",
+      PAYMENT_PROVIDER: "fake",
+      EMAIL_PROVIDER: "fake",
+      WEB_ORIGIN: "https://staging.shop.example.invalid",
+      API_PUBLIC_URL: "https://staging.api.example.invalid",
+    });
+
+    expect(config.paymentProvider).toBe("fake");
+    expect(config.emailProvider).toBe("fake");
+    expect(config.mercadoPagoAccessToken).toBeUndefined();
+    expect(config.mercadoPagoWebhookSecret).toBeUndefined();
+    expect(config.emailFrom).toBeUndefined();
+    expect(config.emailReplyTo).toBeUndefined();
+    expect(config.resendApiKey).toBeUndefined();
+    expect(config.staffNotificationEmail).toBeUndefined();
+    expect(config.paymentSuccessUrl).toBe("https://staging.shop.example.invalid/checkout/resultado");
+    expect(config.paymentFailureUrl).toBe(config.paymentSuccessUrl);
+    expect(config.paymentPendingUrl).toBe(config.paymentSuccessUrl);
+    expect(config.paymentWebhookUrl).toBe("https://staging.api.example.invalid/api/v1/webhooks/mercadopago");
+  });
+
+  it.each(["", " \t "])("still requires active provider configuration when blank: %j", (blank) => {
+    expect(() => parseEnvironment({
+      ...validEnvironment,
+      ...Object.fromEntries(optionalProviderFields.map((field) => [field, blank])),
+      PAYMENT_PROVIDER: "mercadopago",
+      EMAIL_PROVIDER: "resend",
+    })).toThrow(expect.objectContaining({
+      fields: expect.arrayContaining([
+        "MERCADOPAGO_ACCESS_TOKEN", "MERCADOPAGO_WEBHOOK_SECRET",
+        "PAYMENT_SUCCESS_URL", "PAYMENT_FAILURE_URL", "PAYMENT_PENDING_URL",
+        "PAYMENT_WEBHOOK_URL", "EMAIL_FROM", "RESEND_API_KEY",
+      ]),
+    }));
+  });
+
+  it.each([
+    "SESSION_SECRET", "CSRF_SECRET", "IDEMPOTENCY_SECRET", "RATE_LIMIT_SECRET",
+    "PICKUP_CODE_SECRET", "DATABASE_URL", "WEB_ORIGIN", "API_PUBLIC_URL",
+  ])("does not normalize required staging field %s", (field) => {
+    expect(() => parseEnvironment({
+      ...validEnvironment,
+      NODE_ENV: "production",
+      APP_ENV: "staging",
+      PAYMENT_PROVIDER: "fake",
+      WEB_ORIGIN: "https://staging.shop.example.invalid",
+      API_PUBLIC_URL: "https://staging.api.example.invalid",
+      [field]: "",
+    })).toThrow(expect.objectContaining({ fields: expect.arrayContaining([field]) }));
+  });
+
+  it.each(["EMAIL_FROM", "EMAIL_REPLY_TO", "STAFF_NOTIFICATION_EMAIL"])(
+    "still rejects nonblank malformed provider email %s", (field) => {
+      expect(() => parseEnvironment({ ...validEnvironment, [field]: "not-an-email" }))
+        .toThrow(EnvironmentValidationError);
+    },
+  );
 
   it("rejects insecure public URLs outside local development", () => {
     expect(() =>

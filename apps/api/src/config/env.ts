@@ -15,6 +15,16 @@ const LOG_LEVELS = [
 ] as const;
 const EMAIL_PROVIDERS = ["fake", "resend"] as const;
 
+// Railway resolves references to unset provider variables as empty strings.
+// Only optional provider fields use this normalization; active providers still
+// require their credentials below, and mandatory app secrets stay strict.
+function optionalProviderValue<Schema extends z.ZodType>(schema: Schema) {
+  return z.preprocess(
+    (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
+    schema.optional(),
+  );
+}
+
 const webOriginSchema = z
   .string()
   .trim()
@@ -163,17 +173,17 @@ const rawEnvironmentSchema = z.object({
   RATE_LIMIT_SECRET: z.string().min(32),
   PICKUP_CODE_SECRET: z.string().min(32),
   EMAIL_PROVIDER: z.enum(EMAIL_PROVIDERS).default("fake"),
-  EMAIL_FROM: z.string().trim().email().optional(),
-  EMAIL_REPLY_TO: z.string().trim().email().optional(),
-  RESEND_API_KEY: z.string().trim().min(1).max(512).optional(),
-  STAFF_NOTIFICATION_EMAIL: z.string().trim().email().optional(),
+  EMAIL_FROM: optionalProviderValue(z.string().trim().email()),
+  EMAIL_REPLY_TO: optionalProviderValue(z.string().trim().email()),
+  RESEND_API_KEY: optionalProviderValue(z.string().trim().min(1).max(512)),
+  STAFF_NOTIFICATION_EMAIL: optionalProviderValue(z.string().trim().email()),
   PAYMENT_PROVIDER: z.enum(["fake", "mercadopago"]).optional(),
-  MERCADOPAGO_ACCESS_TOKEN: z.string().trim().min(1).max(2_048).optional(),
-  MERCADOPAGO_WEBHOOK_SECRET: z.string().trim().min(1).max(512).optional(),
-  PAYMENT_SUCCESS_URL: paymentUrlSchema.optional(),
-  PAYMENT_FAILURE_URL: paymentUrlSchema.optional(),
-  PAYMENT_PENDING_URL: paymentUrlSchema.optional(),
-  PAYMENT_WEBHOOK_URL: paymentUrlSchema.optional(),
+  MERCADOPAGO_ACCESS_TOKEN: optionalProviderValue(z.string().trim().min(1).max(2_048)),
+  MERCADOPAGO_WEBHOOK_SECRET: optionalProviderValue(z.string().trim().min(1).max(512)),
+  PAYMENT_SUCCESS_URL: optionalProviderValue(paymentUrlSchema),
+  PAYMENT_FAILURE_URL: optionalProviderValue(paymentUrlSchema),
+  PAYMENT_PENDING_URL: optionalProviderValue(paymentUrlSchema),
+  PAYMENT_WEBHOOK_URL: optionalProviderValue(paymentUrlSchema),
   CHECKOUT_RESERVATION_MINUTES: z.coerce
     .number()
     .int()

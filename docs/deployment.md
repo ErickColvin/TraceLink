@@ -2,16 +2,36 @@
 
 ## Estado verificable
 
-La configuración del repositorio está preparada para Cloudflare Pages, Railway y
-GitHub Actions. La auditoría Fase 5D del 13 de septiembre de 2026 confirmó el PR
-[#1](https://github.com/ErickColvin/TraceLink/pull/1) abierto, CI verde en el run
-`34734239898` para `efc9f81` y protecciones intactas. Los environments continúan
-con 0 secrets y 0 variables; Railway run `34734240023` no produjo plan de staging
-por ausencia del token y production sigue esperando approval. No existen URLs ni
-credenciales externas accesibles, por lo que el despliegue permanece
-**BLOCKED — MANUAL OWNER ACTION REQUIRED**.
+Validación del 27 de septiembre de 2026: staging ya tiene infraestructura real,
+frontend HTTPS y API HTTPS, pero **el cierre completo sigue pendiente**.
 
-No se han activado credenciales LIVE de Mercado Pago.
+- PR [#3](https://github.com/ErickColvin/TraceLink/pull/3) fusionado como
+  `a6a758a713e679a1e741686540c7f82b17fe38d7` el 27/09/2026 a las 00:21:33 UTC.
+- [Apply 36282256328](https://github.com/ErickColvin/TraceLink/actions/runs/36282256328)
+  SUCCESS: aplicó el plan fijado del PR (artifact `10919012457`, 8 creaciones,
+  0 cambios, 0 eliminaciones), sin generar otro plan. Production SKIPPED.
+- Railway staging: PostgreSQL 18, API y tres cron creados. Nueve migraciones
+  aplicadas; último pre-deploy confirmó `Already up to date`, con ref
+  `4c27837b13335fd2a0e15acd8d3bdf7b950a7cc7fa5bb8c7c3c6eabbbdbfaecd`.
+- Web: <https://staging.tracelink.pages.dev> (alias preview confirmado por
+  Cloudflare; deployment <https://e7e65257.tracelink.pages.dev>).
+- API: <https://tracelink-api-staging.up.railway.app>. El dominio dirige al puerto
+  **8080**, observado en el proceso Railway, no al default local 3001.
+- [Deploy 36338394084](https://github.com/ErickColvin/TraceLink/actions/runs/36338394084):
+  web y smoke SUCCESS (5 checks), desde `fix/staging-preview-preflight`.
+  La corrección del workflow está en PR [#5](https://github.com/ErickColvin/TraceLink/pull/5),
+  pendiente de merge; un deploy correcto desde esa rama no implica que `main`
+  ya incluya el arreglo.
+- Health y readiness externos: HTTP 200, `ok` / `ready`. CORS permite el origin
+  exacto de staging; mutaciones con origin ajeno o ausente: 403.
+- Los cinco secretos de aplicación están configurados directamente en Railway,
+  sin valores guardados en archivos ni GitHub. Pago/email permanecen `fake`.
+
+Pendientes reales: despliegue de la corrección de variables opcionales vacías
+para los cron, acceso SSH para `db:verify`, e inicialización mínima autorizada
+de la organización de staging para validar una sesión real. No se ejecutó seed
+demo ni bootstrap productivo. Production no se tocó; Mercado Pago (TEST/LIVE)
+y Resend no se activaron.
 
 ## Arquitectura
 
@@ -36,7 +56,7 @@ Staging y production son environments independientes. No deben compartir base, s
 | --- | --- | --- | --- | --- |
 | local | Vite | PostgreSQL local | fake | fake |
 | staging inicial | Cloudflare Pages preview | Railway staging | fake | fake |
-| staging después del gate base | misma URL | misma API/DB | Mercado Pago TEST | Resend de prueba |
+| staging después del gate base y nueva autorización | misma URL | misma API/DB | Mercado Pago TEST | Resend de prueba |
 | production | Cloudflare Pages main | Railway production | fake hasta gate LIVE | fake hasta verificar dominio |
 
 `APP_ENV` selecciona el entorno. Fuera de local, `NODE_ENV=production`, `WEB_ORIGIN` y `API_PUBLIC_URL` HTTPS son obligatorios.
@@ -73,9 +93,32 @@ Ubicación requerida:
 
 | Scope | Secrets | Variables |
 | --- | --- | --- |
-| GitHub Environment `staging` | `RAILWAY_STAGING_TOKEN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | `CLOUDFLARE_PAGES_PROJECT`, `STAGING_API_BASE_URL`, `STAGING_WEB_URL`, `STAGING_API_URL` |
+| GitHub Environment `staging` | `RAILWAY_STAGING_TOKEN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | `CLOUDFLARE_PAGES_PROJECT` |
 | GitHub Environment `production` | `RAILWAY_PRODUCTION_TOKEN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | `RAILWAY_PROJECT_ID`, `CLOUDFLARE_PAGES_PROJECT`, `PRODUCTION_API_BASE_URL`, `PRODUCTION_WEB_URL`, `PRODUCTION_API_URL` |
-| GitHub repository variables | ninguna credencial | duplicar solo `PRODUCTION_WEB_URL` y `PRODUCTION_API_URL` para el monitor programado |
+| GitHub repository variables | ninguna credencial | `STAGING_API_BASE_URL`, `STAGING_WEB_URL`, `STAGING_API_URL`; duplicar solo `PRODUCTION_WEB_URL` y `PRODUCTION_API_URL` para el monitor programado |
+
+Las tres variables `STAGING_*` deben estar en Repository Settings → Secrets and
+variables → Actions → Variables: los `if` a nivel de job se evalúan antes de
+publicar las variables del Environment. No duplicarlas únicamente en Environment.
+
+| Repository variable | Valor público configurado |
+| --- | --- |
+| `STAGING_API_BASE_URL` | `https://tracelink-api-staging.up.railway.app/api/v1` |
+| `STAGING_WEB_URL` | `https://staging.tracelink.pages.dev` |
+| `STAGING_API_URL` | `https://tracelink-api-staging.up.railway.app` |
+
+Orden de bootstrap comprobado: apply fijado → dominio API → cinco secretos y
+`API_PUBLIC_URL` → repository `STAGING_API_BASE_URL` → primer deploy Pages (smoke
+omitido) → alias real de staging → Railway `WEB_ORIGIN` → otras dos repository
+variables → segundo deploy y smoke. Nunca se usó un origin ficticio ni se relajó
+CORS/CSRF. `API_PUBLIC_URL` y `WEB_ORIGIN` son origins sin `/api/v1`; únicamente
+`STAGING_API_BASE_URL` incluye ese path.
+
+Wrangler se instala/ejecuta desde `apps/web` y despliega `dist`, evitando la
+instalación en la raíz del workspace. El guard de preview consulta el proyecto
+Cloudflare y bloquea si su rama productiva es `staging` o no puede verificarse.
+Ese guard es un step `run` independiente: `preCommands` de Wrangler separa las
+líneas y no conserva un heredoc multilínea.
 
 El monitor no usa el Environment protegido: hacerlo exigiría aprobación manual cada 15 minutos. Las dos URLs del monitor no son secretos.
 
@@ -91,17 +134,26 @@ El monitor no usa el Environment protegido: hacerlo exigiría aprobación manual
 
 Todos los cron terminan al finalizar. Las migrations usan archivos versionados; production nunca usa `db push` ni ejecuta seed demo. La primera aplicación de IaC conserva `PAYMENT_PROVIDER=fake` y `EMAIL_PROVIDER=fake` en ambos environments. Después de que staging base, DB y HTTPS estén verdes, habilitar Mercado Pago TEST/Resend mediante un cambio revisado; no editar el dashboard creando drift silencioso.
 
-Primera configuración, desde un equipo autenticado:
+El workflow `.github/workflows/railway-config.yml` conserva el plan revisado del
+head del PR y, después del merge, ejecuta `railway config apply --plan
+railway-plan.json`. Si falla, inspeccionar primero la causa: no reemplazarlo
+silenciosamente por otro plan ni ejecutar un apply manual inmediato. `main`
+exige los cuatro jobs universales de CI. Los planes Railway son un gate operativo
+para PR con cambios de infraestructura, no checks globales para cualquier PR.
 
-```powershell
-corepack pnpm exec railway login
-corepack pnpm exec railway config plan --environment staging
-corepack pnpm exec railway config apply --environment staging
-```
+La CLI autenticada es `5.52.0`, proyecto `b51b9995-341a-4f32-8670-495d7a0af0cd`,
+environment staging `0fb9a446-4fba-4a86-becc-53413c50d292`. Confirmar las opciones
+con `--help`; no registrar valores de `railway variable list --json` en reportes.
+`RAILWAY_PRODUCTION_ENABLED` continúa ausente; no crear esa variable ni modificar
+credenciales o recursos de production en esta fase.
 
-Los nombres exactos de opciones deben confirmarse con `corepack pnpm exec railway config --help` de la versión fijada. El workflow `.github/workflows/railway-config.yml` es la ruta preferida porque conserva plan revisable y approval productivo. `main` exige los cuatro jobs universales de CI. Los planes Railway son un gate operativo para PR con cambios de infraestructura; no son checks globales porque el workflow usa filtros de ruta y bloquearía PR no relacionadas cuando el check no exista.
-
-En Fase 5B una política de Control de aplicaciones bloqueó una invocación del ejecutable local. En Fase 5C `corepack pnpm exec railway --version` y `railway config --help` funcionaron, pero `whoami`/`status` confirmaron `Unauthorized`; no existe token ni proyecto enlazado. La ruta sigue siendo el workflow revisado o una estación autenticada, siempre con tokens introducidos directamente en el proveedor.
+Los tres cron tienen `*/5 * * * *`, restart `NEVER` y pool de DB 2. La primera
+validación de runtime detectó que referencias a variables opcionales ausentes
+se resolvían como `""` y hacían fallar Zod antes de ejecutar el job. La corrección
+normaliza solo campos opcionales de proveedores vacíos como ausentes: Mercado
+Pago y Resend siguen exigiendo sus credenciales cuando están seleccionados;
+secretos de aplicación y origins obligatorios no cambian. Hasta desplegar esa
+corrección y observar eventos de finalización, los jobs **no están validados**.
 
 Secrets Railway, solo nombres:
 
@@ -159,6 +211,30 @@ Antes de cada deploy:
 6. ejecutar smoke tests.
 
 La migration Fase 5 agrega `OutboxEvent` de forma aditiva. No contiene drops.
+
+Para verificar el contrato contra staging, desde el equipo del owner con una
+clave SSH autorizada en Railway:
+
+```powershell
+corepack pnpm exec railway ssh -p b51b9995-341a-4f32-8670-495d7a0af0cd -e staging -s tracelink-api corepack pnpm db:verify
+```
+
+Este comando usa la conexión privada del contenedor. La ejecución externa quedó
+bloqueada por `No SSH keys found`; no se publicó PostgreSQL por TCP ni se creó
+una clave de acceso a toda la cuenta. El owner debe registrar su clave pública
+con `railway ssh keys add --key <ruta-publica.pub> --name <nombre>` y mantener la
+privada fuera del chat/repositorio. Véase [Railway SSH](https://docs.railway.com/cli/ssh).
+El PASS de `db:verify` en tests locales aislados no reemplaza esta comprobación.
+
+La prueba sintética de registro devolvió HTTP 500: el log correlacionado señala
+que la consulta de la organización activa `ch-market` no devuelve una fila.
+La transacción falló antes de insertar el usuario. No hay sesión con la cual
+acreditar cookie real o CSRF autenticado. Hace falta autorizar un procedimiento
+mínimo de inicialización exclusivo de staging; no reutilizar el bootstrap
+productivo ni el seed demo. CORS/Origin sí se validaron externamente. Una sonda
+con headers ficticios de cookie/Authorization quedó registrada sin sus valores,
+y la muestra de logs de API no contenía ninguno de los cinco secretos ni la URL
+completa de DB; esto no acredita todavía la ejecución sana de los cron.
 
 ## Bootstrap productivo
 
