@@ -221,9 +221,10 @@ corepack pnpm exec railway ssh -p b51b9995-341a-4f32-8670-495d7a0af0cd -e stagin
 
 Este comando usa la conexión privada del contenedor. La ejecución externa quedó
 bloqueada por `No SSH keys found`; no se publicó PostgreSQL por TCP ni se creó
-una clave de acceso a toda la cuenta. El owner debe registrar su clave pública
-con `railway ssh keys add --key <ruta-publica.pub> --name <nombre>` y mantener la
-privada fuera del chat/repositorio. Véase [Railway SSH](https://docs.railway.com/cli/ssh).
+una clave de acceso a toda la cuenta. Bajo autorización staging-only, no registrar
+claves de cuenta/workspace con alcance mayor: detenerse hasta disponer de acceso
+compatible y autorizado. Mantener cualquier clave privada fuera del chat y del
+repositorio. Véase [Railway SSH](https://docs.railway.com/cli/ssh).
 El PASS de `db:verify` en tests locales aislados no reemplaza esta comprobación.
 
 La prueba sintética de registro devolvió HTTP 500: el log correlacionado señala
@@ -235,6 +236,110 @@ productivo ni el seed demo. CORS/Origin sí se validaron externamente. Una sonda
 con headers ficticios de cookie/Authorization quedó registrada sin sus valores,
 y la muestra de logs de API no contenía ninguno de los cinco secretos ni la URL
 completa de DB; esto no acredita todavía la ejecución sana de los cron.
+
+## Staging initialization
+
+`staging:init != production:bootstrap` y `staging:init != db:seed`.
+`production:bootstrap` continúa reservado exclusivamente para production.
+El inicializador de staging es un one-off explícito: no está conectado al arranque
+de la API, migrations, cron, pre-deploy ni workflows. **No ejecutar todavía en
+Railway**: primero revisar/mergear el PR y autorizar separadamente su ejecución.
+
+Desde la raíz del workspace:
+
+```powershell
+corepack pnpm staging:init
+```
+
+En la imagen compilada, desde la raíz de la aplicación:
+
+```text
+node apps/api/dist/jobs/initialize-staging.js
+```
+
+Ambas entradas usan exclusivamente variables del proceso; el nuevo comando no
+carga `.env` ni admite passwords como argumentos. No escribir secretos en archivos,
+historial de shell, logs, PR, chat o repositorio. No se agregan dependencias ni
+migraciones y no cambia `db:verify`.
+
+Gates obligatorios, evaluados antes de abrir conexiones:
+
+| Variable | Valor obligatorio |
+| --- | --- |
+| `NODE_ENV` | `production` |
+| `APP_ENV` | `staging` |
+| `PAYMENT_PROVIDER` | `fake` |
+| `EMAIL_PROVIDER` | `fake` |
+| `STAGING_INIT_CONFIRM` | `INIT_CH_MARKET` |
+| `DATABASE_URL` | conexión privada de PostgreSQL **staging**, ya inyectada por Railway |
+
+Si están presentes, `RAILWAY_ENVIRONMENT_NAME` debe ser `staging` y
+`ORGANIZATION_SLUG` debe ser `ch-market`. No se acepta `BOOTSTRAP_CONFIRM` como
+sustituto. Variables de entorno correctas no prueban por sí solas la identidad
+de una DB: el operador debe comprobar proyecto, environment y referencia privada
+antes de autorizar cualquier ejecución. No copiar una URL de production.
+
+Settings requeridos, sin datos comerciales de ejemplo ni defaults de contacto:
+
+- `STAGING_CONTACT_EMAIL`: correo autorizado de contacto de staging;
+- `STAGING_CONTACT_PHONE`: contacto autorizado, entre 6 y 32 caracteres;
+- `STAGING_PICKUP_ADDRESS`: texto autorizado de ubicación de staging;
+- `STAGING_PICKUP_INSTRUCTIONS`: instrucciones de staging, sin datos de clientes.
+
+Se crean `CH Market / ch-market / es-CL / CLP / America/Santiago`, settings con
+umbrales mínimos 5 (stock), 5 (días de paquetes), 30 (vencimientos), los seis roles
+del catálogo central y sus permisos. No se crean catálogo, inventario, clientes,
+pedidos, paquetes, pagos, sesiones, eventos comerciales ni outbox.
+
+Sin `STAGING_ADMIN_EMAIL` y `STAGING_ADMIN_PASSWORD` no se crea usuario ni
+Membership. Proporcionar solo una variable, valores vacíos o inválidos aborta
+toda la operación. Solo cuando sea necesario validar login staff, proporcionar
+ambas mediante inyección segura en memoria al proceso autorizado. La contraseña
+debe generarse criptográficamente (por ejemplo, 32 bytes aleatorios), tener
+24–128 caracteres, no imprimirse ni persistirse en archivos. Se almacena únicamente
+su hash Argon2id en PostgreSQL. El usuario usa el rol `ADMIN`, sin perfil Customer
+y sin marcar su correo como verificado. No crea credenciales productivas.
+
+Idempotencia y conflictos:
+
+- Transacción única, advisory lock de staging y locks de filas; dos ejecuciones
+  simultáneas no duplican datos. Timeout de locks: 10 segundos.
+- Se crean entidades ausentes. Repetir la misma configuración no cambia IDs,
+  hashes, timestamps ni descripciones existentes.
+- Organización inactiva o con identidad/locale/moneda/zona distintos: abortar.
+- Settings existentes distintos de los valores solicitados/umbrales iniciales:
+  abortar, no sobrescribir. No es una herramienta de edición de settings.
+- Roles existentes deben ser del catálogo, de sistema y con sus permisos exactos.
+  Permisos agregados o revocados son conflicto, no se corrigen automáticamente.
+  Un rol entero ausente sí se crea. Descripciones existentes se conservan.
+- Email existente: solo se acepta un usuario activo con una única Membership
+  activa `ADMIN` en CH Market, sin perfil Customer y con contraseña coincidente.
+  Nunca adopta usuarios ajenos, eleva roles, reactiva accesos ni rota passwords.
+- Cualquier conflicto produce rollback completo, salida no cero y un código
+  seguro (`STAGING_INIT_ENV_INVALID`, `STAGING_INIT_CONFLICT` o
+  `STAGING_INIT_FAILED`); no muestra valores de configuración ni errores del driver.
+
+Validación posterior esperada, **no realizada por este PR**: usar el mecanismo
+oficial autenticado de Railway, con acceso autorizado a staging, y ejecutar desde
+el contenedor `tracelink-api`:
+
+```powershell
+corepack pnpm exec railway ssh -p b51b9995-341a-4f32-8670-495d7a0af0cd -e staging -s tracelink-api corepack pnpm db:verify
+```
+
+No usar `railway run` local como sustituto, no exportar/mostrar `DATABASE_URL` y
+no abrir TCP público de PostgreSQL. Las claves SSH de Railway se registran por
+cuenta/workspace, no por environment: si no existe acceso compatible con la
+restricción staging-only, **detenerse**, no registrar una clave de alcance mayor.
+Un fallo de `db:verify` bloquea la inicialización; una vez inicializado con nueva
+autorización, repetir la verificación y validar login/cookie/CSRF. Retirar las
+variables temporales de administrador y confirmación tras su uso autorizado.
+
+Las pruebas de este comando usan una tercera base PostgreSQL embebida,
+`tracelink_staging_init_test`, vacía y sin seed. Comprueban gates, ausencia de
+datos demo, idempotencia/concurrencia, rollback, no elevación de identidades,
+login real local y ausencia de secretos en stdout/stderr. Las suites históricas
+siguen usando sus propios fixtures aislados: nunca la DB staging de Railway.
 
 ## Bootstrap productivo
 
