@@ -32,6 +32,7 @@
     "payments:reconcile": "pnpm --filter @tracelink/api payments:reconcile",
     "outbox:process": "pnpm --filter @tracelink/api outbox:process",
     "production:bootstrap": "pnpm --filter @tracelink/api production:bootstrap",
+    "staging:init": "pnpm --filter @tracelink/api staging:init",
     "preview": "pnpm --filter @tracelink/web preview",
     "review:visual": "node tools/visual-review.mjs"
   },

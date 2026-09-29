@@ -96,6 +96,7 @@ async function main(): Promise<void> {
   const password = `test-${crypto.randomUUID()}`;
   const databaseName = "tracelink_test";
   const bootstrapDatabaseName = "tracelink_bootstrap_test";
+  const stagingInitDatabaseName = "tracelink_staging_init_test";
   const postgres = new EmbeddedPostgres({
     databaseDir,
     user,
@@ -114,17 +115,22 @@ async function main(): Promise<void> {
       await postgres.start();
       await postgres.createDatabase(databaseName);
       await postgres.createDatabase(bootstrapDatabaseName);
+      await postgres.createDatabase(stagingInitDatabaseName);
       const databaseUrl =
         `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}` +
         `@127.0.0.1:${port}/${databaseName}?schema=public`;
       const bootstrapDatabaseUrl =
         `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}` +
         `@127.0.0.1:${port}/${bootstrapDatabaseName}?schema=public`;
+      const stagingInitDatabaseUrl =
+        `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}` +
+        `@127.0.0.1:${port}/${stagingInitDatabaseName}?schema=public`;
       const environment = {
         ...process.env,
         NODE_ENV: "test",
         DATABASE_URL: databaseUrl,
         TEST_DATABASE_URL: databaseUrl,
+        TEST_STAGING_INIT_DATABASE_URL: stagingInitDatabaseUrl,
         PICKUP_CODE_SECRET: "integration-pickup-code-secret-32-characters",
         SEED_ADMIN_EMAIL: "admin@chmarket.test",
         SEED_ADMIN_PASSWORD: "Admin-Test-Password-123!",
@@ -134,6 +140,12 @@ async function main(): Promise<void> {
         SEED_CUSTOMER_PASSWORD: "Customer-Test-Password-123!",
         SEED_PACKAGE_PICKUP_CODE: "Integration-Pickup-Code-42",
       } satisfies NodeJS.ProcessEnv;
+      // Separate, unseeded, disposable database for staging:init tests. Never Railway.
+      await runNode(
+        packageEntrypoint("prisma", "dist/prisma.js"),
+        ["db", "migrate", "--advance-ref", "db"],
+        { ...environment, DATABASE_URL: stagingInitDatabaseUrl },
+      );
       const bootstrapEnvironment = {
         ...process.env,
         NODE_ENV: "production",
