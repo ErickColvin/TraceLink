@@ -20,13 +20,20 @@ async function resolveHealthState(
   }
 }
 
-export function createHealthRouter(readinessCheck: ReadinessCheck): Router {
+export function createHealthRouter(
+  readinessCheck: ReadinessCheck,
+  releaseCommit?: string,
+): Router {
   const router = Router();
+  const release = releaseCommit === undefined
+    ? {}
+    : { release: { commit: releaseCommit } };
 
   router.get("/live", (_request, response) => {
     response.status(200).json({
       status: "ok",
       checks: { application: "up" },
+      ...release,
       requestId: getResponseRequestId(response),
     });
   });
@@ -36,6 +43,7 @@ export function createHealthRouter(readinessCheck: ReadinessCheck): Router {
     response.status(state.ready ? 200 : 503).json({
       status: state.ready ? "ready" : "not_ready",
       checks: { application: "up", database: state.database },
+      ...release,
       requestId: getResponseRequestId(response),
     });
   });
@@ -44,6 +52,7 @@ export function createHealthRouter(readinessCheck: ReadinessCheck): Router {
     response.status(200).json({
       status: "ok",
       checks: { application: "up" },
+      ...release,
       requestId: getResponseRequestId(response),
     });
   });

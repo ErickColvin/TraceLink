@@ -1,5 +1,13 @@
 # Deployment de TraceLink V2
 
+> **22/10/2026 — staging migra a Neon + Render + GitHub Actions.** Railway
+> eliminó todos los deployments de staging el 15/10/2026 ~01:06 UTC (fin del
+> trial) y su incidente de seguridad del 21/10 pausó los builds Hobby. Staging
+> pasa al plan gratuito descrito en
+> [Staging en Neon + Render + GitHub Actions](#staging-en-neon--render--github-actions).
+> Railway staging queda inactivo, no eliminado; production sigue en Railway. El
+> estado de septiembre que sigue es histórico.
+
 ## Estado verificable
 
 Validación del 27 de septiembre de 2026: staging ya tiene infraestructura real,
@@ -38,12 +46,16 @@ y Resend no se activaron.
 ```text
 GitHub PR / main
   -> GitHub Actions CI
-  -> Railway Config plan/apply
+  -> production: Railway Config plan/apply
      -> Railway PostgreSQL
      -> tracelink-api
      -> reservation-expiry cron
      -> payment-reconciliation cron
      -> notification-outbox cron
+  -> staging: Deploy staging
+     -> migrations sobre Neon
+     -> Render deploy hook (commit exacto de CI)
+     -> Staging scheduled jobs cada 30 min
   -> Cloudflare Pages
      -> React SPA
 ```
@@ -55,7 +67,7 @@ Staging y production son environments independientes. No deben compartir base, s
 | Entorno | Web | API/DB | Pago | Email |
 | --- | --- | --- | --- | --- |
 | local | Vite | PostgreSQL local | fake | fake |
-| staging inicial | Cloudflare Pages preview | Railway staging | fake | fake |
+| staging inicial | Cloudflare Pages preview | Render Free + Neon Free (antes Railway staging) | fake | fake |
 | staging después del gate base y nueva autorización | misma URL | misma API/DB | Mercado Pago TEST | Resend de prueba |
 | production | Cloudflare Pages main | Railway production | fake hasta gate LIVE | fake hasta verificar dominio |
 
@@ -93,9 +105,9 @@ Ubicación requerida:
 
 | Scope | Secrets | Variables |
 | --- | --- | --- |
-| GitHub Environment `staging` | `RAILWAY_STAGING_TOKEN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | `CLOUDFLARE_PAGES_PROJECT` |
+| GitHub Environment `staging` (solo rama `main`) | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `DATABASE_URL`, `SESSION_SECRET`, `CSRF_SECRET`, `IDEMPOTENCY_SECRET`, `RATE_LIMIT_SECRET`, `PICKUP_CODE_SECRET`, `RENDER_DEPLOY_HOOK_URL` | `CLOUDFLARE_PAGES_PROJECT` |
 | GitHub Environment `production` | `RAILWAY_PRODUCTION_TOKEN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | `RAILWAY_PROJECT_ID`, `CLOUDFLARE_PAGES_PROJECT`, `PRODUCTION_API_BASE_URL`, `PRODUCTION_WEB_URL`, `PRODUCTION_API_URL` |
-| GitHub repository variables | ninguna credencial | `STAGING_API_BASE_URL`, `STAGING_WEB_URL`, `STAGING_API_URL`; duplicar solo `PRODUCTION_WEB_URL` y `PRODUCTION_API_URL` para el monitor programado |
+| GitHub repository variables | ninguna credencial | `STAGING_API_BASE_URL`, `STAGING_WEB_URL`, `STAGING_API_URL`, `STAGING_RENDER_ENABLED`; `RAILWAY_STAGING_ENABLED` solo para volver a Railway staging; duplicar solo `PRODUCTION_WEB_URL` y `PRODUCTION_API_URL` para el monitor programado |
 
 Las tres variables `STAGING_*` deben estar en Repository Settings → Secrets and
 variables → Actions → Variables: los `if` a nivel de job se evalúan antes de
@@ -122,7 +134,80 @@ líneas y no conserva un heredoc multilínea.
 
 El monitor no usa el Environment protegido: hacerlo exigiría aprobación manual cada 15 minutos. Las dos URLs del monitor no son secretos.
 
+## Staging en Neon + Render + GitHub Actions
+
+Plan gratuito para staging. Production no cambia. Nada se activa hasta que la
+repository variable `STAGING_RENDER_ENABLED` vale `true`; mientras tanto los
+jobs nuevos se omiten y Pages/smoke siguen como antes.
+
+| Pieza | Servicio | Configuración |
+| --- | --- | --- |
+| Base | Neon Free, proyecto `tracelink-staging` | PostgreSQL 18 (igual que CI), AWS `us-east-1`, autoscaling máximo 0.25 CU, DB `tracelink` |
+| API | Render Free Web Service | región Virginia, rama `main`, **Auto-Deploy Off**, Node 24 |
+| Migrations | `Deploy staging` → `Staging migrations (Neon)` | `pnpm db:migrate` antes de cada deploy |
+| Deploy | `Deploy staging` → `Render API staging` | deploy hook con `ref=<sha de CI>`; espera a que `/api/v1/health/live` informe ese commit |
+| Cron | `Staging scheduled jobs` (`7,37 * * * *`) | los tres jobs en secuencia, independientes entre sí, más el smoke de staging |
+| `db:verify` | `Staging database verify` (manual) | Render Free no tiene shell ni SSH |
+
+Usar la cadena **directa** de Neon (sin `-pooler`) con `sslmode=require`: las
+migrations y `staging:init` usan advisory locks, que no funcionan detrás de
+PgBouncer en modo transacción. Copiarla solo a Render y al Environment
+`staging`; no a archivos, chat ni logs.
+
+Render:
+
+- build: `corepack pnpm install --frozen-lockfile && corepack pnpm --filter @tracelink/contracts build && corepack pnpm --filter @tracelink/api build`;
+- start: `corepack pnpm --filter @tracelink/api start`;
+- health check: `/api/v1/health/live`. No usar `/ready`: cada chequeo despertaría
+  Neon y agotaría su cuota gratuita;
+- variables: `NODE_ENV=production`, `APP_ENV=staging`, `HOST=0.0.0.0`,
+  `TRUST_PROXY=1` (validar la IP cliente real en logs), `LOG_LEVEL=info`,
+  `ORGANIZATION_SLUG=ch-market`, `SESSION_COOKIE_SAME_SITE=none`,
+  `PAYMENT_PROVIDER=fake`, `EMAIL_PROVIDER=fake`, `DATABASE_POOL_MAX=10`,
+  `DATABASE_CONNECTION_TIMEOUT_MS=10000`, `DATABASE_IDLE_TIMEOUT_MS=30000`,
+  `WEB_ORIGIN=https://staging.tracelink.pages.dev`, `API_PUBLIC_URL` (origin
+  `onrender.com` del servicio), `DATABASE_URL` y los cinco secretos de aplicación;
+- `PORT` y `RENDER_GIT_COMMIT` los inyecta Render. La API expone ese commit en
+  `release.commit` de `/api/v1/health` (también `RAILWAY_GIT_COMMIT_SHA` en Railway).
+
+Los cinco secretos de aplicación se generan nuevos para Render (no reutilizar
+los de Railway, expuestos al incidente del 21/10). Los jobs usan el mismo
+`loadEnvironment` que la API, por eso el Environment `staging` de GitHub guarda
+una copia. Restringir ese Environment a la rama `main` antes de cargarlos.
+
+Activación, con autorización del owner:
+
+1. crear Neon y Render (Auto-Deploy Off) con las variables anteriores;
+2. en GitHub: rama `main` para el Environment `staging`, sus secrets, y retirar
+   `RAILWAY_STAGING_TOKEN` (invalidado por Railway);
+3. actualizar `STAGING_API_BASE_URL` y `STAGING_API_URL` al origin de Render y
+   fijar `STAGING_RENDER_ENABLED=true`;
+4. ejecutar `Deploy staging` (manual o tras CI en `main`): migrations, deploy
+   del commit, Pages y smoke;
+5. ejecutar `Staging database verify` y `Staging scheduled jobs` manualmente;
+6. detenerse antes de `staging:init`.
+
+La DB parte vacía: staging nunca tuvo la organización `ch-market`, así que no
+hay datos que migrar desde Railway.
+
+Presupuesto Free: Neon cobra ~0.25 CU por hora despierta y se suspende tras 5
+minutos sin actividad; 24/7 serían ~183 CU-h frente a 100 incluidas. Con jobs y
+smoke cada 30 minutos queda despierta ~20% (~40 CU-h) más el uso manual. Render
+Free duerme tras 15 minutos sin tráfico (arranque ~1 minuto, cubierto por el
+smoke) y tiene 750 h/mes por workspace. Actions es gratuito en este repositorio
+público, pero GitHub puede retrasar schedules y los desactiva tras 60 días sin
+actividad. En staging, las reservas vencidas liberan stock hasta ~30 minutos
+después de expirar.
+
+Rollback: quitar `STAGING_RENDER_ENABLED`, restaurar las URLs Railway y fijar
+`RAILWAY_STAGING_ENABLED=true` con un token Railway nuevo.
+
 ## Railway
+
+Desde el 22/10/2026 esta sección rige production. Railway staging sigue
+declarado en `.railway/railway.ts` pero inactivo: sus jobs de plan/apply solo
+corren con `RAILWAY_STAGING_ENABLED=true`. No quitar staging de ese archivo
+mientras existan sus recursos, porque el plan los eliminaría.
 
 `.railway/railway.ts` declara dos environments y cinco recursos:
 
@@ -244,6 +329,11 @@ completa de DB; esto no acredita todavía la ejecución sana de los cron.
 El inicializador de staging es un one-off explícito: no está conectado al arranque
 de la API, migrations, cron, pre-deploy ni workflows. **No ejecutar todavía en
 Railway**: primero revisar/mergear el PR y autorizar separadamente su ejecución.
+
+Con staging en Render Free no hay shell ni SSH, y ningún workflow ejecuta este
+comando. Correrlo contra Neon exige un mecanismo autorizado aparte, con
+aprobación explícita del owner; las referencias a Railway SSH de esta sección
+aplican solo si staging vuelve a Railway.
 
 Desde la raíz del workspace:
 

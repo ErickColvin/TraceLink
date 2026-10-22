@@ -20,12 +20,16 @@ permissions:
 # invalid, so tokens are passed exclusively through the action inputs below.
 # RAILWAY_PRODUCTION_ENABLED must be a REPOSITORY variable: environment
 # variables are not resolved when a job-level condition is evaluated.
+# Staging moved to Neon + Render; RAILWAY_STAGING_ENABLED (repository variable,
+# 'true') re-enables the Railway staging plan/apply. Do not drop staging from
+# .railway/railway.ts while those resources exist: the plan would delete them.
 jobs:
   plan-staging:
     name: Plan staging infrastructure
     if: >-
       github.event.action != 'closed'
       && github.event.pull_request.head.repo.full_name == github.repository
+      && vars.RAILWAY_STAGING_ENABLED == 'true'
     environment: staging
     runs-on: ubuntu-latest
     steps:
@@ -65,6 +69,7 @@ jobs:
       github.event.action == 'closed'
       && github.event.pull_request.merged == true
       && github.event.pull_request.head.repo.full_name == github.repository
+      && vars.RAILWAY_STAGING_ENABLED == 'true'
     environment: staging
     runs-on: ubuntu-latest
     steps:

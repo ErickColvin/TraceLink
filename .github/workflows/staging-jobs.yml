@@ -1,0 +1,84 @@
+name: Staging scheduled jobs
+
+# Replaces the Railway cron services for the Neon + Render staging. Both jobs
+# share one schedule so Neon wakes once per window and stays inside the Free
+# plan compute budget. GitHub may delay scheduled runs, and disables them after
+# 60 days without repository activity in public repositories.
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-scheduled-jobs
+  cancel-in-progress: false
+
+jobs:
+  jobs:
+    name: Reservations, payments and notification outbox
+    if: vars.STAGING_RENDER_ENABLED == 'true'
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODE_ENV: production
+      APP_ENV: staging
+      ORGANIZATION_SLUG: ch-market
+      LOG_LEVEL: info
+      PAYMENT_PROVIDER: fake
+      EMAIL_PROVIDER: fake
+      DATABASE_POOL_MAX: "2"
+      WEB_ORIGIN: ${{ vars.STAGING_WEB_URL }}
+      API_PUBLIC_URL: ${{ vars.STAGING_API_URL }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      CSRF_SECRET: ${{ secrets.CSRF_SECRET }}
+      IDEMPOTENCY_SECRET: ${{ secrets.IDEMPOTENCY_SECRET }}
+      RATE_LIMIT_SECRET: ${{ secrets.RATE_LIMIT_SECRET }}
+      PICKUP_CODE_SECRET: ${{ secrets.PICKUP_CODE_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build API jobs
+        run: |
+          pnpm --filter @tracelink/contracts build
+          pnpm --filter @tracelink/api build
+      # Each job is independent: a failure in one must not skip the others.
+      - name: Expire due reservations
+        run: node apps/api/dist/jobs/expire-reservations.js
+      - name: Reconcile payments
+        if: ${{ !cancelled() }}
+        run: node apps/api/dist/jobs/reconcile-payments.js
+      - name: Process notification outbox
+        if: ${{ !cancelled() }}
+        run: node apps/api/dist/jobs/process-notification-outbox.js
+
+  monitor:
+    name: Staging frontend, health and readiness
+    if: >-
+      vars.STAGING_RENDER_ENABLED == 'true'
+      && vars.STAGING_WEB_URL != ''
+      && vars.STAGING_API_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: node tools/smoke-deployment.mjs
+        env:
+          SMOKE_WEB_URL: ${{ vars.STAGING_WEB_URL }}
+          SMOKE_API_URL: ${{ vars.STAGING_API_URL }}

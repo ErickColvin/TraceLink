@@ -295,6 +295,42 @@ describe("parseEnvironment", () => {
     },
   );
 
+  it("reads the deployed commit from Render, then Railway, metadata", () => {
+    const renderCommit = "A".repeat(40);
+    const railwayCommit = "b".repeat(40);
+
+    expect(parseEnvironment(validEnvironment).releaseCommit).toBeUndefined();
+    expect(
+      parseEnvironment({ ...validEnvironment, RENDER_GIT_COMMIT: " " })
+        .releaseCommit,
+    ).toBeUndefined();
+    expect(
+      parseEnvironment({
+        ...validEnvironment,
+        RAILWAY_GIT_COMMIT_SHA: railwayCommit,
+      }).releaseCommit,
+    ).toBe(railwayCommit);
+    expect(
+      parseEnvironment({
+        ...validEnvironment,
+        RENDER_GIT_COMMIT: renderCommit,
+        RAILWAY_GIT_COMMIT_SHA: railwayCommit,
+      }).releaseCommit,
+    ).toBe("a".repeat(40));
+  });
+
+  it.each(["5856250", "z".repeat(40), `${"a".repeat(40)}0`])(
+    "rejects RENDER_GIT_COMMIT=%s when it is not a full Git SHA",
+    (renderGitCommit) => {
+      expect(() =>
+        parseEnvironment({
+          ...validEnvironment,
+          RENDER_GIT_COMMIT: renderGitCommit,
+        }),
+      ).toThrow(EnvironmentValidationError);
+    },
+  );
+
   it.each(["0", "61", "1.5"])(
     "rejects CHECKOUT_RESERVATION_MINUTES=%s outside its integer bounds",
     (checkoutReservationMinutes) => {

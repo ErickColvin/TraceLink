@@ -1,0 +1,39 @@
+name: Staging database verify
+
+# Render Free has no shell access, so `db:verify` runs here against the Neon
+# staging database. The `staging` Environment must only allow the main branch.
+# This workflow never runs staging:init, seeds or bootstraps.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-database
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Database marker and schema contract
+    if: vars.STAGING_RENDER_ENABLED == 'true'
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify contract against staging
+        run: pnpm db:verify
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
