@@ -95,6 +95,23 @@ describe("API foundation", () => {
     expect(response.text).not.toContain("secret");
   });
 
+  it("reports the deployed commit only when the platform provides it", async () => {
+    const releaseCommit = "5856250".padEnd(40, "0");
+    const unversioned = await request(createTestApp()).get("/api/v1/health");
+    const versioned = createApp({
+      config: createTestConfig({ releaseCommit }),
+      logger,
+      readinessCheck: async () => {},
+    });
+
+    expect(unversioned.body.release).toBeUndefined();
+    for (const path of ["/api/v1/health", "/api/v1/health/live", "/api/v1/health/ready"]) {
+      const response = await request(versioned).get(path);
+      expect(response.status).toBe(200);
+      expect(response.body.release).toEqual({ commit: releaseCommit });
+    }
+  });
+
   it("honors a valid upstream request id", async () => {
     const response = await request(createTestApp())
       .get("/api/v1/health/live")

@@ -255,14 +255,15 @@ Estas capacidades requieren contratos de producto y seguridad propios; no se sim
 ## 15. Deployment Fase 5
 
 ```text
-Cloudflare Pages (React SPA)
-  -> Railway API (Express)
-     -> Railway PostgreSQL
-     -> reservation-expiry cron
-     -> payment-reconciliation cron
-     -> notification-outbox cron
+production                              staging (plan gratuito)
+Cloudflare Pages (React SPA)            Cloudflare Pages (preview staging)
+  -> Railway API (Express)                -> Render API (Express, Free)
+     -> Railway PostgreSQL                   -> Neon PostgreSQL (Free)
+     -> reservation-expiry cron              -> GitHub Actions programado:
+     -> payment-reconciliation cron             reservations, payments,
+     -> notification-outbox cron                notification outbox
 ```
 
-GitHub Actions ejecuta quality gates con PostgreSQL descartable. Staging se despliega primero; production requiere workflow manual y GitHub Environment approval. Las migrations son pre-deploy y versionadas. El seed demo rechaza production; un bootstrap guardado crea solo la organización, RBAC, settings y primer SUPER_ADMIN.
+GitHub Actions ejecuta quality gates con PostgreSQL descartable. Staging se despliega primero; production requiere workflow manual y GitHub Environment approval. Las migrations son pre-deploy y versionadas: en Railway las ejecuta el pre-deploy; en staging, un job de GitHub Actions antes de desplegar en Render el commit exacto que pasó CI. Staging y production usan plataformas distintas, por lo que staging ya no valida la configuración específica de Railway. El seed demo rechaza production; un bootstrap guardado crea solo la organización, RBAC, settings y primer SUPER_ADMIN.
 
 Liveness no depende de DB; readiness comprueba PostgreSQL. Pino conserva request ID y redacción. Un monitor programado consulta frontend, health y readiness. La política y procedimientos operativos viven en `docs/deployment.md`, `docs/disaster-recovery.md` y `docs/operations-runbook.md`.

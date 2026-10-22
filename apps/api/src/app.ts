@@ -104,7 +104,10 @@ export function createApp(options: CreateAppOptions): Express {
   app.use(enforceMutationOrigin(config.webOrigin));
   app.use(jsonParser);
 
-  app.use("/api/v1/health", createHealthRouter(readinessCheck));
+  app.use(
+    "/api/v1/health",
+    createHealthRouter(readinessCheck, config.releaseCommit),
+  );
   if (options.database !== undefined) {
     app.use(
       "/api/v1/auth",

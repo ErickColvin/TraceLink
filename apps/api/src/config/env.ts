@@ -54,6 +54,13 @@ const databaseUrlSchema = z.string().trim().refine((value) => {
   }
 }, "DATABASE_URL debe ser una URL PostgreSQL válida.");
 
+// Full Git SHA injected by the hosting platform; deploy workflows compare it
+// with the commit they released before running smoke tests.
+const releaseCommitSchema = z
+  .string()
+  .trim()
+  .regex(/^[0-9a-f]{40}$/iu, "El commit desplegado debe ser un SHA Git completo.");
+
 const paymentUrlSchema = z
   .string()
   .trim()
@@ -205,6 +212,8 @@ const rawEnvironmentSchema = z.object({
     .default(10_000),
   SEED_ADMIN_EMAIL: z.string().trim().email().optional(),
   SEED_ADMIN_PASSWORD: z.string().min(12).optional(),
+  RENDER_GIT_COMMIT: optionalProviderValue(releaseCommitSchema),
+  RAILWAY_GIT_COMMIT_SHA: optionalProviderValue(releaseCommitSchema),
 }).superRefine((value, context) => {
   const appEnv = value.APP_ENV ??
     (value.NODE_ENV === "production" ? "production" : "local");
@@ -330,6 +339,7 @@ export type AppConfig = Readonly<{
   shutdownTimeoutMs: number;
   seedAdminEmail?: string;
   seedAdminPassword?: string;
+  releaseCommit?: string;
 }>;
 
 export class EnvironmentValidationError extends Error {
@@ -367,6 +377,7 @@ export function parseEnvironment(
     new URL(path, value.WEB_ORIGIN).toString();
   const fallbackApiUrl = (path: string): string =>
     new URL(path, `${apiPublicUrl}/`).toString();
+  const releaseCommit = value.RENDER_GIT_COMMIT ?? value.RAILWAY_GIT_COMMIT_SHA;
   return Object.freeze({
     nodeEnv: value.NODE_ENV,
     appEnv,
@@ -426,6 +437,9 @@ export function parseEnvironment(
     ...(value.SEED_ADMIN_PASSWORD === undefined
       ? {}
       : { seedAdminPassword: value.SEED_ADMIN_PASSWORD }),
+    ...(releaseCommit === undefined
+      ? {}
+      : { releaseCommit: releaseCommit.toLowerCase() }),
   });
 }
 

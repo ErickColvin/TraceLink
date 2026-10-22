@@ -20,11 +20,75 @@ concurrency:
 # STAGING_WEB_URL and STAGING_API_URL must therefore be REPOSITORY variables, or
 # these gates never open. While they are unset the jobs skip instead of failing,
 # so staging can be provisioned before its public URLs exist.
+#
+# STAGING_RENDER_ENABLED (repository variable, 'true') switches the API path to
+# Neon + Render: versioned migrations run first, then Render deploys exactly the
+# commit that passed CI. Render auto-deploy must stay Off. While the variable is
+# unset both jobs skip and Pages/smoke behave as before.
 jobs:
-  web:
-    name: Cloudflare Pages staging
+  migrate:
+    name: Staging migrations (Neon)
     if: >-
       (github.event_name == 'workflow_dispatch'
+      || github.event.workflow_run.conclusion == 'success')
+      && vars.STAGING_RENDER_ENABLED == 'true'
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Apply versioned migrations
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  api:
+    name: Render API staging
+    needs: migrate
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      RELEASE_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_COMMIT }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Deploy the CI-verified commit
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          curl --fail --silent --show-error --output /dev/null \
+            -X POST "${RENDER_DEPLOY_HOOK_URL}&ref=${RELEASE_COMMIT}"
+      - name: Wait until the API serves that commit
+        run: node tools/wait-for-release.mjs
+        env:
+          RELEASE_API_URL: ${{ vars.STAGING_API_URL }}
+
+  web:
+    name: Cloudflare Pages staging
+    needs: [migrate, api]
+    if: >-
+      !cancelled()
+      && ((needs.migrate.result == 'success' && needs.api.result == 'success')
+      || (needs.migrate.result == 'skipped' && needs.api.result == 'skipped'))
+      && (github.event_name == 'workflow_dispatch'
       || github.event.workflow_run.conclusion == 'success')
       && vars.STAGING_API_BASE_URL != ''
     environment: staging
